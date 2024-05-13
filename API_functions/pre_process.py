@@ -18,7 +18,7 @@ def equalized_hist(img):
     return cv2.equalizeHist(img)
 
 
-def median(img, kernel_size=3):
+def median(img, kernel_size: int=3):
     return cv2.medianBlur(img, kernel_size)
 
 
