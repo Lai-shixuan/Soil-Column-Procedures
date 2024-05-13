@@ -1,6 +1,8 @@
 import os
 import glob
 import cv2
+import numpy as np
+import nibabel as nib
 from tqdm import tqdm
 
 
@@ -114,3 +116,12 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     print(f"first {min(read_num, len(image_name_lists))} images"
           f" have been saved to {output_folder} with the format {output_format}")
     print("\033[1;3mOutput completely!\033[0m")
+
+
+def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
+    images = read_images(image_lists, gray="gray", read_all=True)
+    combined_array = np.stack(images, axis=-1)
+    nifti_img = nib.Nifti1Image(combined_array, affine=np.eye(4))
+    output_path = os.path.join(output_folder, nifti_name + '.nii') 
+    nib.save(nifti_img, output_path)
+    print("\033[1;3mSave Done!\033[0m")
