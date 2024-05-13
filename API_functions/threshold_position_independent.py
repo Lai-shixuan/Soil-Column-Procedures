@@ -81,3 +81,8 @@ def gmm_3d(numbers: np.ndarray):
     pixels_gmm = gmm_filter.predict(numbers)
     pixels_gmm = pixels_gmm.reshape(shape) * 255
     return pixels_gmm
+
+
+def user_threshold(image: np.ndarray, optimal_threshold: int):
+    _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
+    return threshold_image

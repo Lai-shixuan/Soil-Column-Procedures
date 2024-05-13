@@ -8,7 +8,7 @@ def read_image_opencv(image_path: str):
     img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if img is None:
         raise Exception('Error: Image not found')
-    print("\033[1;3mReading Completed!\033[0m")
+    # print("\033[1;3mReading Completed!\033[0m")
     return img
 
 
@@ -34,4 +34,4 @@ def show_image(img):
 # A function to save the image in specific format, using plt:
 def save_image(image, image_path: str, name: str, image_format: str):
     cv2.imwrite(os.path.join(image_path, name + '.' + image_format), image)
-    print("\033[1;3mSaving Completed!\033[0m")
+    # print("\033[1;3mSaving Completed!\033[0m")

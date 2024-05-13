@@ -37,31 +37,35 @@ def get_image_names(folder_path: str, my_image_names: ImageName, image_format: s
     return image_files_names
 
 
-def read_images(image_files_names: list, gray: bool = True, read_all: bool = False, read_num: int = 1000):
+def read_images(image_files_names: list, gray: str = "gray", read_all: bool = False, read_num: int = 1000):
     """
     By default, not read all images. If you want to read all images, please set read_all=True,
     and delete read_num parameter.
     """
+    def read():
+        if gray == "gray":
+            image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+        elif gray == "turn to gray":
+            image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        elif gray == "color":
+            image = cv2.imread(image_file)
+        else:
+            raise Exception('Error: Please set gray to "gray", "turn to gray" or "color"')
+        images.append(image)
+
     if not image_files_names:
         raise Exception('Error: No images found')
     images = []
     if read_all:
         for image_file in tqdm(image_files_names):
-            if gray:
-                image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-            else:
-                image = cv2.imread(image_file)
-            images.append(image)
+            read()
         print(f"{len(images)} images have been read")
         print(f"\033[1;3mReading completely!\033[0m")
         return images
     else:
         for image_file in tqdm(image_files_names[:min(read_num, len(image_files_names))]):
-            if gray:
-                image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-            else:
-                image = cv2.imread(image_file)
-            images.append(image)
+            read()
         print(f"first {len(images)} images have been read")
         print(f"if you want to read all, please set read_all=True")
         print(f"\033[1;3mReading completely!\033[0m")
