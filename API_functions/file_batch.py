@@ -77,7 +77,7 @@ def output_images(image_files: list, output_folder: str, my_image_name: ImageNam
     if not image_files:
         raise Exception('Error: No images found')
     for idx, image_file in enumerate(tqdm(image_files)):
-        new_file_name = f"{my_image_name.prefix}_{idx:04d}{my_image_name.suffix}.{output_format}"
+        new_file_name = f"{my_image_name.prefix}_{idx:05d}{my_image_name.suffix}.{output_format}"
         new_file_path = os.path.join(output_folder, new_file_name)
         cv2.imwrite(new_file_path, image_file)
     print(f"{len(image_files)} images have been saved to {output_folder} with the format {output_format}")
@@ -96,9 +96,9 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     def read_and_write():
         image = cv2.imread(image_name, cv2.IMREAD_GRAYSCALE)
         if my_image_name.prefix != '':
-            new_file_name = f"{my_image_name.prefix}_{idx:04d}{my_image_name.suffix}.{output_format}"
+            new_file_name = f"{my_image_name.prefix}_{idx:05d}{my_image_name.suffix}.{output_format}"
         else:
-            new_file_name = f"{idx:04d}{my_image_name.suffix}.{output_format}"
+            new_file_name = f"{idx:05d}{my_image_name.suffix}.{output_format}"
         new_file_path = os.path.join(output_folder, new_file_name)
         cv2.imwrite(new_file_path, image)
 
