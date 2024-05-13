@@ -19,18 +19,31 @@ def convert_cv2_to_pil(cv2_image):
 
 
 # A function to show a image using matplotlib, whether it is a grayscale or a color image
-def show_image(img):
-    if img.shape.__len__() == 3:
-        img = convert_cv2_to_pil(img)
-        plt.imshow(img)
-        plt.axis('off')
-        plt.show()
-    elif img.shape.__len__() == 2:
-        plt.imshow(img, cmap='gray')
-        plt.axis('off')
-        plt.show()
+def show_image(img, total=None, index : tuple=None):
+    """
+    Display an image using matplotlib.
+    Args:
+    - img (numpy array): The image to display.
+    - total (int, optional): Total number of images to be displayed in subplots.
+    - index (int, optional): Index of the subplot where the image will be displayed.
+    """
+    
+    def show_img(img):
+        if img.shape.__len__() == 3:
+            img = convert_cv2_to_pil(img)
+            plt.imshow(img)
+            plt.axis('off')
+        elif img.shape.__len__() == 2:
+            plt.imshow(img, cmap='gray')
+            plt.axis('off')
 
+    if total is not None and index is not None:
+        plt.subplot(index[0], index[1], index[2])
+        show_img(img)
 
+    if total is None or (total is not None and index == total):
+        show_img(img)
+    
 # A function to save the image in specific format, using plt:
 def save_image(image, image_path: str, name: str, image_format: str):
     cv2.imwrite(os.path.join(image_path, name + '.' + image_format), image)

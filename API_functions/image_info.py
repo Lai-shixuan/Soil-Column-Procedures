@@ -32,17 +32,33 @@ def calculate_hist(image):
         return hist
 
 
-def plot_hist(hist):
-    if len(hist.shape) == 2:
-        plt.plot(hist, color='black')
-        plt.xlim([0, 256])
-    elif hist.__len__() == 3:
-        color = ('b', 'g', 'r')
-        for i, col in enumerate(color):
-            plt.plot(hist[i], color=col)
+def plot_hist(hist, total=None, index : tuple=None):
+    """
+    Display a histogram using matplotlib.
+    Args:
+    - hist (numpy array): The histogram to display.
+    - total (int, optional): Total number of histograms to be displayed in subplots.
+    - index (tuple, optional): Index of the subplot where the histogram will be displayed.
+    """
+
+    def plot(hist):
+        if len(hist.shape) == 2:
+            plt.plot(hist, color='black')
             plt.xlim([0, 256])
+        elif hist.__len__() == 3:
+            color = ('b', 'g', 'r')
+            for i, col in enumerate(color):
+                plt.plot(hist[i], color=col)
+                plt.xlim([0, 256])
 
+    if total is not None and index is not None:
+        plt.subplot(index[0], index[1], index[2])
+        plot(hist)
 
+    if total is None or (total is not None and index == total):
+        plot(hist)
+    
+    
 def is_binary_image(img):
     unique_values = np.unique(img)
     return (np.array_equal(unique_values, [0, 255])
