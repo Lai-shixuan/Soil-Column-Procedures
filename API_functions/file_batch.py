@@ -35,7 +35,7 @@ def show_image_names(names):
 
 # A function to get all image in specific format, with prefix, and suffix:
 def get_image_names(folder_path: str, my_image_names: ImageName, image_format: str):
-    my_image_names.prefix = my_image_names.prefix[:-2]
+    my_image_names.prefix = my_image_names.prefix[:-1]
     my_image_names.suffix = my_image_names.suffix[1:]
     search_path = os.path.join(folder_path, my_image_names.prefix + '*' + my_image_names.suffix + '.' + image_format)
     image_files_names = glob.glob(search_path)
@@ -140,7 +140,7 @@ def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
     print("\033[1;3mSave Done!\033[0m")
 
 
-def rename(image_files: list[str], new_name: ImageName, path: str, start_index: int = 1):
+def rename(image_files: list[str], new_name: ImageName, start_index: int = 1):
     """
     You can not change image format.
     The list of names will change to the new name.
@@ -149,18 +149,43 @@ def rename(image_files: list[str], new_name: ImageName, path: str, start_index: 
     namelist_new = []
     _, extension = os.path.splitext(image_files[0])
     extension = extension[1:]
+    folder = os.path.dirname(image_files[0])
     
     for filename in tqdm(image_files):
         
         new_file_name = f'{new_name.prefix}{start_index:05d}{new_name.suffix}.{extension}'
-        new_file = os.path.join(path, new_file_name)
+        new_file = os.path.join(folder, new_file_name)
 
         os.rename(filename, new_file)
         namelist_new.append(new_file)
         start_index += 1
 
     # Clear the old list and add the new list:
-    image_files.clear()
-    image_files.extend(namelist_new)
-    show_image_names(image_files)
+    show_image_names(namelist_new)
     print(f'\033[1;3mRename completely!\033[0m')
+    return namelist_new
+
+
+# crop the image without name change, but the folder will change, change the format to png
+def roi_select(image_files: list[str], path: str, y1: int, x1: int, width: int, height: int):
+    """
+    The list of names will not change, but the folder will change.
+    The format will change to png.
+    Only for gray images!
+    """
+
+    if not image_files:
+        raise Exception('Error: No images found')
+    
+    temp_list = []
+    for image_file in tqdm(image_files):
+        image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+        roi = image[y1:y1 + height, x1:x1 + width]
+        old_file_name = os.path.basename(image_file)
+        old_file_name, _ = os.path.splitext(old_file_name)
+        new_file_path = os.path.join(path, old_file_name + '.png')
+        cv2.imwrite(new_file_path, roi)
+        temp_list.append(new_file_path)
+    show_image_names(temp_list)
+    print("\033[1;3mROI Selected Completely!\033[0m")
+    return temp_list
