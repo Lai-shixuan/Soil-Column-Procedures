@@ -119,9 +119,32 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
 
 
 def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
+    """
+    Only for gray images!
+    It will read all images and stack them together, which will take up a lot of memory.
+    """
     images = read_images(image_lists, gray="gray", read_all=True)
     combined_array = np.stack(images, axis=-1)
     nifti_img = nib.Nifti1Image(combined_array, affine=np.eye(4))
     output_path = os.path.join(output_folder, nifti_name + '.nii') 
     nib.save(nifti_img, output_path)
     print("\033[1;3mSave Done!\033[0m")
+
+
+def rename(image_files: list[str], new_name: ImageName, path: str, start_index: int = 1):
+    """
+    You can not change image format
+    """
+
+    _, extension = os.path.splitext(image_files[0])
+    extension = extension[1:]
+    
+    for filename in tqdm(image_files):
+        
+        new_file_name = f'{new_name.prefix}_{start_index:05d}_{new_name.suffix}_.{extension}'
+        new_file = os.path.join(path, new_file_name)
+
+        os.rename(filename, new_file)
+        start_index += 1
+
+    print(f'Renamed completely!')
