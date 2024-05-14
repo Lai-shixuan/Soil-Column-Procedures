@@ -9,13 +9,34 @@ from tqdm import tqdm
 # A date structure to include prefix, suffix and middle name:
 class ImageName:
     def __init__(self, prefix, suffix):
-        self.prefix = prefix
-        self.suffix = suffix
-        print(f"Your image name format is: {self.prefix}_XXXX{self.suffix}")
+        if prefix == '':
+            self.prefix = ''
+        else:
+            self.prefix = prefix + '_'
+        if suffix == '':
+            self.suffix = ''
+        else:
+            self.suffix = '_' + suffix
+        print(f"Your image name format is: {self.prefix}XXXX{self.suffix}")
+
+
+def show_image_names(names):
+    if len(names) > 3:
+        print("The first 3 images are:")
+        for i in range(3):
+            print(names[i])
+    else:
+        print("All images are:")
+        for image_file in names:
+            print(image_file)
+    if len(names) > 1000:
+        print("\033[1;3mWarning\033[0m, your files are too large to read all.")
 
 
 # A function to get all image in specific format, with prefix, and suffix:
 def get_image_names(folder_path: str, my_image_names: ImageName, image_format: str):
+    my_image_names.prefix = my_image_names.prefix[:-2]
+    my_image_names.suffix = my_image_names.suffix[1:]
     search_path = os.path.join(folder_path, my_image_names.prefix + '*' + my_image_names.suffix + '.' + image_format)
     image_files_names = glob.glob(search_path)
 
@@ -25,16 +46,7 @@ def get_image_names(folder_path: str, my_image_names: ImageName, image_format: s
 
     # Some information about the images:
     print(f"{len(image_files_names)} images have been found in {folder_path}")
-    if len(image_files_names) > 3:
-        print("The first 3 images are:")
-        for i in range(3):
-            print(image_files_names[i])
-    else:
-        print("All images are:")
-        for image_file in image_files_names:
-            print(image_file)
-    if len(image_files_names) > 1000:
-        print("\033[1;3mWarning\033[0m, your files are too large to read all.")
+    show_image_names(image_files_names)
     print(f"\033[1;3mGet names completely!\033[0m")
     return image_files_names
 
@@ -79,7 +91,7 @@ def output_images(image_files: list, output_folder: str, my_image_name: ImageNam
     if not image_files:
         raise Exception('Error: No images found')
     for idx, image_file in enumerate(tqdm(image_files)):
-        new_file_name = f"{my_image_name.prefix}_{idx:05d}{my_image_name.suffix}.{output_format}"
+        new_file_name = f"{my_image_name.prefix}{idx:05d}{my_image_name.suffix}.{output_format}"
         new_file_path = os.path.join(output_folder, new_file_name)
         cv2.imwrite(new_file_path, image_file)
     print(f"{len(image_files)} images have been saved to {output_folder} with the format {output_format}")
@@ -97,10 +109,7 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     """
     def read_and_write():
         image = cv2.imread(image_name, cv2.IMREAD_GRAYSCALE)
-        if my_image_name.prefix != '':
-            new_file_name = f"{my_image_name.prefix}_{idx:05d}{my_image_name.suffix}.{output_format}"
-        else:
-            new_file_name = f"{idx:05d}{my_image_name.suffix}.{output_format}"
+        new_file_name = f"{my_image_name.prefix}{idx:05d}{my_image_name.suffix}.{output_format}"
         new_file_path = os.path.join(output_folder, new_file_name)
         cv2.imwrite(new_file_path, image)
 
@@ -133,18 +142,25 @@ def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
 
 def rename(image_files: list[str], new_name: ImageName, path: str, start_index: int = 1):
     """
-    You can not change image format
+    You can not change image format.
+    The list of names will change to the new name.
     """
 
+    namelist_new = []
     _, extension = os.path.splitext(image_files[0])
     extension = extension[1:]
     
     for filename in tqdm(image_files):
         
-        new_file_name = f'{new_name.prefix}_{start_index:05d}_{new_name.suffix}_.{extension}'
+        new_file_name = f'{new_name.prefix}{start_index:05d}{new_name.suffix}.{extension}'
         new_file = os.path.join(path, new_file_name)
 
         os.rename(filename, new_file)
+        namelist_new.append(new_file)
         start_index += 1
 
-    print(f'Renamed completely!')
+    # Clear the old list and add the new list:
+    image_files.clear()
+    image_files.extend(namelist_new)
+    show_image_names(image_files)
+    print(f'\033[1;3mRename completely!\033[0m')
