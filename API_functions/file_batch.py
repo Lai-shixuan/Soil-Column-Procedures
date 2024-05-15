@@ -5,6 +5,7 @@ import numpy as np
 import nibabel as nib
 from tqdm import tqdm
 import shutil
+from typing import Union, Optional
 
 
 # A date structure to include prefix, suffix and middle name:
@@ -47,10 +48,13 @@ def show_image_names(names):
 
 
 # A function to get all image in specific format, with prefix, and suffix:
-def get_image_names(folder_path: str, my_image_names: ImageName, image_format: str):
-    my_image_names.prefix = my_image_names.prefix[:-1]
-    my_image_names.suffix = my_image_names.suffix[1:]
-    search_path = os.path.join(folder_path, my_image_names.prefix + '*' + my_image_names.suffix + '.' + image_format)
+def get_image_names(folder_path: str, my_image_names: Union[ImageName, None], image_format: str):
+    if my_image_names is not None:
+        my_image_names.prefix = my_image_names.prefix[:-1]
+        my_image_names.suffix = my_image_names.suffix[1:]
+        search_path = os.path.join(folder_path, my_image_names.prefix + '*' + my_image_names.suffix + '.' + image_format)
+    else:
+        search_path = os.path.join(folder_path, '*.' + image_format)
     image_files_names = glob.glob(search_path)
 
     # Test if there is any image in the folder:
