@@ -20,6 +20,18 @@ class ImageName:
         print(f"Your image name format is: {self.prefix}XXXX{self.suffix}")
 
 
+class roi_region:
+    def __init__(self, x1, y1, width, height, z1, z2):
+        self.x1 = x1
+        self.y1 = y1
+        self.z1 = z1
+        self.z2 = z2
+        self.width = width
+        self.height = height
+        self.depth = abs(z2 - z1) + 1
+        print(f"Your ROI is: x1={x1}, y1={y1}, width={width}, height={height}, depth={z1}-{z2}")
+
+
 def show_image_names(names):
     if len(names) > 3:
         print("The first 3 images are:")
@@ -167,24 +179,45 @@ def rename(image_files: list[str], new_name: ImageName, start_index: int = 1):
 
 
 # crop the image without name change, but the folder will change, change the format to png
-def roi_select(image_files: list[str], path: str, y1: int, x1: int, width: int, height: int):
+def roi_select(image_files: list[str], path: str, roi: roi_region):
     """
     The list of names will not change, but the folder will change.
     The format will change to png.
     Only for gray images!
     """
+    
+    def extract_index(filename):
+        # Split the filename to isolate the numeric part
+        parts = filename.split('_rec')
+        if len(parts) > 1:
+            numeric_part = parts[1].split('.')[0]
+            return int(numeric_part)  # Convert to int to strip leading zeros
+        return None
 
     if not image_files:
         raise Exception('Error: No images found')
     
+    # Extract_index from file lists, like [15, 16, ..., 3311]
+    indexes = [extract_index(image) for image in image_files]
+
+    # Find the index of user givern z1 and z2 in the indexes list. Elements can not be repeated.
+    z1_index = indexes.index(roi.z1)
+    z2_index = indexes.index(roi.z2)
+    if z1_index > z2_index:
+        z1_index, z2_index = z2_index, z1_index
+
+    # Filter the image_files with z1 and z2 index
+    image_files = image_files[z1_index: z2_index+1]
+    
     temp_list = []
     for image_file in tqdm(image_files):
+
         image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
-        roi = image[y1:y1 + height, x1:x1 + width]
+        roi_image = image[roi.y1:roi.y1 + roi.height, roi.x1:roi.x1 + roi.width]
         old_file_name = os.path.basename(image_file)
         old_file_name, _ = os.path.splitext(old_file_name)
         new_file_path = os.path.join(path, old_file_name + '.png')
-        cv2.imwrite(new_file_path, roi)
+        cv2.imwrite(new_file_path, roi_image)
         temp_list.append(new_file_path)
     show_image_names(temp_list)
     print("\033[1;3mROI Selected Completely!\033[0m")
