@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import nibabel as nib
 from tqdm import tqdm
+import shutil
 
 
 # A date structure to include prefix, suffix and middle name:
@@ -157,7 +158,7 @@ def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
     print("\033[1;3mSave Done!\033[0m")
 
 
-def rename(image_files: list[str], new_name: ImageName, start_index: int = 1, overwrite: bool=False):
+def rename(image_files: list[str], new_path: str, new_name: ImageName, start_index: int = 1, overwrite: bool=False):
     """
     You can not change image format.
     The list of names will change to the new name.
@@ -166,12 +167,11 @@ def rename(image_files: list[str], new_name: ImageName, start_index: int = 1, ov
     namelist_new = []
     _, extension = os.path.splitext(image_files[0])
     extension = extension[1:]
-    folder = os.path.dirname(image_files[0])
     
     for filename in tqdm(image_files):
         
         new_file_name = f'{new_name.prefix}{start_index:05d}{new_name.suffix}.{extension}'
-        new_file = os.path.join(folder, new_file_name)
+        new_file = os.path.join(new_path, new_file_name)
 
         # detect whether has a file in that path
         if os.path.exists(new_file):
@@ -180,7 +180,7 @@ def rename(image_files: list[str], new_name: ImageName, start_index: int = 1, ov
             else:
                 os.remove(new_file)
 
-        os.rename(filename, new_file)
+        shutil.copy2(filename, new_file)
         namelist_new.append(new_file)
         start_index += 1
 
