@@ -148,11 +148,16 @@ def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
     combined_array = np.stack(images, axis=-1)
     nifti_img = nib.Nifti1Image(combined_array, affine=np.eye(4))
     output_path = os.path.join(output_folder, nifti_name + '.nii') 
+
+    # Detect whether has a nib file in that path
+    if os.path.exists(output_path):
+        raise Exception('Error: The file has existed, please change the name.')
+
     nib.save(nifti_img, output_path)
     print("\033[1;3mSave Done!\033[0m")
 
 
-def rename(image_files: list[str], new_name: ImageName, start_index: int = 1):
+def rename(image_files: list[str], new_name: ImageName, start_index: int = 1, overwrite: bool=False):
     """
     You can not change image format.
     The list of names will change to the new name.
@@ -167,6 +172,13 @@ def rename(image_files: list[str], new_name: ImageName, start_index: int = 1):
         
         new_file_name = f'{new_name.prefix}{start_index:05d}{new_name.suffix}.{extension}'
         new_file = os.path.join(folder, new_file_name)
+
+        # detect whether has a file in that path
+        if os.path.exists(new_file):
+            if not overwrite:
+                raise Exception('Error: The file has existed, please change the name or set overwirte mode.')
+            else:
+                os.remove(new_file)
 
         os.rename(filename, new_file)
         namelist_new.append(new_file)
