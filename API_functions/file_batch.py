@@ -144,13 +144,17 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     print("\033[1;3mOutput completely!\033[0m")
 
 
-def create_nifti(image_lists: list[str], output_folder: str, nifti_name: str):
+def create_nifti(image_lists: Union[list[str], np.ndarray], output_folder: str, nifti_name: str):
     """
     Only for gray images!
     It will read all images and stack them together, which will take up a lot of memory.
     """
-    images = read_images(image_lists, gray="gray", read_all=True)
-    combined_array = np.stack(images, axis=-1)
+    if image_lists is list:
+        images = read_images(image_lists, gray="gray", read_all=True)
+        combined_array = np.stack(images, axis=-1)
+    elif isinstance(image_lists, np.ndarray):
+        combined_array = image_lists
+
     nifti_img = nib.Nifti1Image(combined_array, affine=np.eye(4))
     output_path = os.path.join(output_folder, nifti_name + '.nii') 
 
