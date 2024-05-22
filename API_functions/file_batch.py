@@ -149,7 +149,7 @@ def create_nifti(image_lists: Union[list[str], np.ndarray], output_folder: str, 
     Only for gray images!
     It will read all images and stack them together, which will take up a lot of memory.
     """
-    if image_lists is list:
+    if isinstance(image_lists, list):
         images = read_images(image_lists, gray="gray", read_all=True)
         combined_array = np.stack(images, axis=-1)
     elif isinstance(image_lists, np.ndarray):
