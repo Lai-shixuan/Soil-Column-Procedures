@@ -44,7 +44,7 @@ def show_image(img, total=None, index : tuple=None):
     if total is None or (total is not None and index == total):
         show_img(img)
     
-# A function to save the image in specific format, using plt:
+# A function to save the image in specific format, using opencv:
 def save_image(image, image_path: str, name: str, image_format: str):
     cv2.imwrite(os.path.join(image_path, name + '.' + image_format), image)
     # print("\033[1;3mSaving Completed!\033[0m")

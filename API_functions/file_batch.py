@@ -242,3 +242,38 @@ def roi_select(image_files: list[str], path: str, roi: roi_region):
     show_image_names(temp_list)
     print("\033[1;3mROI Selected Completely!\033[0m")
     return temp_list
+
+
+# get the left and right surface of the image array
+def get_left_right_surface(image_files: list[str], name: str, path: str):
+    """
+    Only for gray images!
+    """
+
+    if not image_files:
+        raise Exception('Error: No images found')
+    
+    if not os.path.exists(path):
+        raise Exception('Error: The path does not exist.')
+    
+    if os.path.exists(os.path.join(path, name + '_left_surface.png')):
+        raise Exception('Error: The file has existed, please change the name.')
+    
+    images = read_images(image_files, gray="gray", read_all=True)
+    images = np.stack(images, axis=-1)
+
+    # Besed on that the images are stacked in the z axis, and x means the length, y means the width
+    left_surface = images[:, 0, :]
+    left_surface = np.swapaxes(left_surface, 0, 1)
+    right_surface = images[:, -1, :]
+    right_surface = np.swapaxes(right_surface, 0, 1)
+
+    # Save the left surface
+    new_file_path = os.path.join(path, name + '_left_surface.png')
+    cv2.imwrite(new_file_path, left_surface)
+
+    # Save the right surface
+    new_file_path = os.path.join(path, name + '_right_surface.png')
+    cv2.imwrite(new_file_path, right_surface)
+
+    print("\033[1;3mLeft and Right Surface Saved Completely!\033[0m")
