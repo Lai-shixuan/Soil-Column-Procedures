@@ -42,7 +42,7 @@ def plot_hist(hist, total=None, index : tuple=None):
     """
 
     def plot(hist):
-        if len(hist.shape) == 2:
+        if hist.__len__() == 2:
             plt.plot(hist, color='black')
             plt.xlim([0, 256])
         elif hist.__len__() == 3:
