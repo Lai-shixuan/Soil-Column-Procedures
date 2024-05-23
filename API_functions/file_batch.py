@@ -6,6 +6,7 @@ import nibabel as nib
 from tqdm import tqdm
 import shutil
 from typing import Union, Optional
+import matplotlib.pyplot as plt
 
 
 # A date structure to include prefix, suffix and middle name:
@@ -277,3 +278,43 @@ def get_left_right_surface(image_files: list[str], name: str, path: str):
     cv2.imwrite(new_file_path, right_surface)
 
     print("\033[1;3mLeft and Right Surface Saved Completely!\033[0m")
+
+
+def get_porosity_curve(image_files: list[str], scan_resolution_um: int, minimal_body_value_cm: int):
+    """
+    Only for gray images!
+    """
+    if not image_files:
+        raise Exception('Error: No images found')
+    
+    images = read_images(image_files, gray="gray", read_all=True)
+    images = np.stack(images, axis=-1)
+
+    # Besed on that the images are stacked in the z axis, and x means the length, y means the width
+    porosity_curve = []
+
+    minimal_image_number = int(minimal_body_value_cm * 10000 / scan_resolution_um)
+
+    # every minmal_body_value_cm cm, calculate the porosity
+    for num, i in tqdm(enumerate(range(0, images.shape[2], minimal_image_number))):
+        if i + minimal_image_number < images.shape[2]:
+            image = images[:, :, i:i+minimal_image_number]
+            porosity = np.sum(image != 0) / (image.shape[0] * image.shape[1] * image.shape[2])
+            porosity_curve.append([minimal_body_value_cm * (num + 1), porosity])
+        else:
+            image = images[:, :, i:]
+            porosity = np.sum(image != 0) / (image.shape[0] * image.shape[1] * image.shape[2])
+            porosity_curve.append([minimal_body_value_cm * num + 
+                                   round((images.shape[2] - i + 1) * scan_resolution_um / 10000, 2)
+                                   , porosity])
+
+    return porosity_curve
+
+
+def draw_porosity_curve(curve):
+    curve = np.array(curve)
+    plt.plot(curve[:, 0], curve[:, 1])
+    plt.xlabel('Distance (cm)')
+    plt.ylabel('Porosity')
+    plt.title('Porosity Curve')
+    plt.show()
