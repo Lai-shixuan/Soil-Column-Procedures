@@ -1,4 +1,4 @@
-import API_functions.file_batch as fb
+import API_functions.column_batch_process as fb
 
 # fb.create_column_structure(column_id=3, part_ids=10, base_path="e:/3.Experimental_Data/")
 

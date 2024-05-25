@@ -1,6 +1,6 @@
-import threshold_position_independent as mpi
-import threshold_position_dependent as mpd
-import pre_process as mpp
+from . import threshold_position_independent as mpi
+from . import threshold_position_dependent as mpd
+from . import pre_process as mpp
 
 
 def seg_method_choose(text):

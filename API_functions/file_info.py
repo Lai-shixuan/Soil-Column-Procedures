@@ -42,10 +42,10 @@ def plot_hist(hist, total=None, index : tuple=None):
     """
 
     def plot(hist):
-        if hist.__len__() == 2:
+        if hist.ndim == 2:
             plt.plot(hist, color='black')
             plt.xlim([0, 256])
-        elif hist.__len__() == 3:
+        elif hist.ndim == 3:
             color = ('b', 'g', 'r')
             for i, col in enumerate(color):
                 plt.plot(hist[i], color=col)
