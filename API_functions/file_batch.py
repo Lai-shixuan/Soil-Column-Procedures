@@ -188,13 +188,13 @@ def binary_to_grayscale(folder_path):
 # --------------------------------- column_batch_related --------------------------------- #
 
 # Crop the image without name change, but the folder will change, change the format to png
-def roi_select(image_files: list[str], output_path: str, roi: roi_region):
+def roi_select(path_in: str, path_out: str, name_read: ImageName, roi: roi_region):
     """
     Only for gray images!
     The list of names will not change, but the folder will change.
     The format will change to png.
     """
-    
+
     def extract_index(filename):
         # Split the filename to isolate the numeric part
         parts = filename.split('_rec')
@@ -203,6 +203,7 @@ def roi_select(image_files: list[str], output_path: str, roi: roi_region):
             return int(numeric_part)  # Convert to int to strip leading zeros
         return None
 
+    image_files = get_image_names(folder_path=path_in, image_names=name_read, image_format='bmp')
     if not image_files:
         raise Exception('Error: No images found')
     
@@ -225,21 +226,26 @@ def roi_select(image_files: list[str], output_path: str, roi: roi_region):
         roi_image = image[roi.y1:roi.y1 + roi.height, roi.x1:roi.x1 + roi.width]
         old_file_name = os.path.basename(image_file)
         old_file_name, _ = os.path.splitext(old_file_name)
-        new_file_path = os.path.join(output_path, old_file_name + '.png')
+        new_file_path = os.path.join(path_out, old_file_name + '.png')
         cv2.imwrite(new_file_path, roi_image)
         temp_list.append(new_file_path)
     show_image_names(temp_list)
     print("\033[1;3mROI Selected Completely!\033[0m")
-    return temp_list
 
 
 # Rename the image with new name, but the folder will change, change the format to png
-def rename(image_files: list[str], new_path: str, new_name: ImageName, start_index: int = 1, overwrite: bool=False):
+def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, start_index: int = 1, overwrite: bool=False):
     """
     Only for gray images!
     You can not change image format.
     The list of names will change to the new name.
     """
+
+    image_files = get_image_names(folder_path=path_in, image_names=None, image_format='png')
+    if not image_files:
+        raise Exception('Error: No images found')
+    if reverse:
+        image_files.reverse()
 
     namelist_new = []
     _, extension = os.path.splitext(image_files[0])
@@ -248,7 +254,7 @@ def rename(image_files: list[str], new_path: str, new_name: ImageName, start_ind
     for filename in tqdm(image_files):
         
         new_file_name = f'{new_name.prefix}{start_index:05d}{new_name.suffix}.{extension}'
-        new_file = os.path.join(new_path, new_file_name)
+        new_file = os.path.join(path_out, new_file_name)
 
         # detect whether has a file in that path
         if os.path.exists(new_file):
@@ -264,28 +270,32 @@ def rename(image_files: list[str], new_path: str, new_name: ImageName, start_ind
     # Clear the old list and add the new list:
     show_image_names(namelist_new)
     print(f'\033[1;3mRename completely!\033[0m')
-    return namelist_new
 
 
 # Threshold the image with new name, but the folder will change
-def image_process(namelists: list, save_path: str):
+def image_process(path_in: str, path_out: str):
     """
     Only for gray scale image.
+    No name change.
     """
+    
+    image_files = get_image_names(folder_path=path_in, image_names=None, image_format='png')
+    if not image_files:
+        raise Exception('Error: No images found')
     
     temp_list = []
 
-    for name in tqdm(namelists):
-        image = cv2.imread(name, cv2.IMREAD_GRAYSCALE)
+    for image_name in tqdm(image_files):
+        image = cv2.imread(image_name, cv2.IMREAD_GRAYSCALE)
         image_prepropossed = pre_process.median(image, 5)
         image_threshold = threshold_position_independent.user_threshold(image_prepropossed, 120)
         image_invert = cv2.bitwise_not(image_threshold)     # invert image, make the pore space to be white
 
         # save with the same name but change folder:
-        save = os.path.join(save_path, os.path.basename(name))
+        save = os.path.join(path_out, os.path.basename(image_name))
         
         cv2.imwrite(save, image_invert)
         temp_list.append(save)
 
     show_image_names(temp_list)
-    return temp_list
+    print(f'\033[1;3mImage procession completely!\033[0m')
