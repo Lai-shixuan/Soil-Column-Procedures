@@ -2,9 +2,6 @@
 import os
 
 
-
-
-
 # A class to define the soil column structure, including parts and subfolders:
 class SoilColumn:
 
@@ -68,7 +65,7 @@ def create_column_structure(column_id, part_ids, base_path):
     column_path = os.path.join(base_path, column_id)
     os.makedirs(column_path, exist_ok=True)
     
-    for part_id in part_ids:
+    for part_id in range(part_ids):
         # Ensure part_id is 2 digits
         part_id = f"{int(part_id):02d}"
         part_path = os.path.join(column_path, f"{column_id.split('.')[-1]}-{part_id}")
@@ -87,5 +84,3 @@ def create_column_structure(column_id, part_ids, base_path):
             os.makedirs(os.path.join(part_path, folder), exist_ok=True)
 
     return column_path
-
-
