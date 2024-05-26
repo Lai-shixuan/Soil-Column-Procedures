@@ -1,76 +1,78 @@
 # Conmon library import
 import os
+import csv
 
+# User-defined library import
+from . import file_batch
 
 # A class to define the soil column structure, including parts and subfolders:
 class SoilColumn:
-
     # A class to define the part structure, including part_id and subfolders:
     class Part:
-        def __init__(self, part_id, part_path):
+        def __init__(self, column_id, part_id, part_path, subfolders):
+            self.column_id = column_id
             self.part_id = part_id
-            self.path = part_path
-            self.sub_folders = [
-                os.path.join(part_path, "0.Origin"),
-                os.path.join(part_path, "1.Reconstruct"),
-                os.path.join(part_path, "2.ROI"),
-                os.path.join(part_path, "3.Rename"),
-                os.path.join(part_path, "4.Threshold"),
-                os.path.join(part_path, "5.Analysis")
-            ]
+            self.part_path = part_path
+            self.sub_folders = subfolders
+            self.roi = self._load_roi()
+
+        def _load_roi(self):
+            roi_file = os.path.join(self.part_path, f"roi-{self.column_id:04d}-{self.part_id:02d}.csv")
+            if os.path.exists(roi_file):
+                with open(roi_file, "r") as f:
+                    reader = csv.reader(f)
+                    lines = [row for row in reader if row and len(row) >= 2]
+                    return self._parse_roi(lines) if len(lines) == 6 else None
+
+        def _parse_roi(self, lines):
+            roi_values = {row[0].strip(): int(row[1].strip()) for row in lines}
+            
+            # Create a roi object using the values from the second column
+            my_roi = file_batch.roi_region(
+                x1=roi_values['x1'],
+                y1=roi_values['y1'],
+                width=roi_values['width'],
+                height=roi_values['height'],
+                z1=roi_values['z1'],
+                z2=roi_values['z2']
+            )
+            return my_roi
+            
+        def get_roi(self):
+            return self.roi
 
         def get_subfolder_path(self, index):
             if 0 <= index < len(self.sub_folders):
                 return self.sub_folders[index]
             return None
 
-    def __init__(self, root_path):
-        self.root_path = root_path
-        self.id = self._extract_id(root_path)
-        self.parts = self._load_parts()
-
-    def _extract_id(self, path):
-        # Extract the last part of the path and split it by '.'
-        base_name = os.path.normpath(path).split(os.sep)[-1]
-        if base_name.startswith("Soil.column."):
-            return base_name.split(".")[-1]
-        return None
-
-    def _load_parts(self):
-        parts = []
-        for part_name in os.listdir(self.root_path):
-            part_path = os.path.join(self.root_path, part_name)
-            if os.path.isdir(part_path) and part_name.startswith(self.id):
-                part_id = part_name.split("-")[-1]
-                parts.append(SoilColumn.Part(part_id, part_path))
-        return parts
-
-    def get_part(self, part_index):
-        for part in self.parts:
-            if int(part.part_id) == part_index:
-                return part
-        return None
-
-    def get_subfolder_path(self, part_index, folder_index):
-        part = self.get_part(part_index)
-        if part:
-            return part.get_subfolder_path(folder_index)
-        return None
+    def __init__(self, column_path, column_id, part_num):
+        self.column_path = column_path
+        self.column_id = column_id
+        self.part_num = part_num
+        self.data_structure = {}
+        self.parts = []
+        self.initialize_structure()
 
 
-# Create the column structure with parts and subfolders
-def create_column_structure(column_id, part_ids, base_path):
-    # Ensure column_id is 4 digits
-    column_id = f"Soil.column.{int(column_id):04d}"
-    column_path = os.path.join(base_path, column_id)
-    os.makedirs(column_path, exist_ok=True)
-    
-    for part_id in range(part_ids):
-        # Ensure part_id is 2 digits
-        part_id = f"{int(part_id):02d}"
-        part_path = os.path.join(column_path, f"{column_id.split('.')[-1]}-{part_id}")
-        os.makedirs(part_path, exist_ok=True)
-        
+    def initialize_structure(self):
+        for part_id in range(self.part_num):
+            formatted_ids = self.format_ids(part_id)
+            part_path = os.path.join(self.column_path, f"{formatted_ids['column']}-{formatted_ids['part']}")
+            os.makedirs(part_path, exist_ok=True)
+            sub_folders = self._create_sub_folders(part_path)
+            self._create_roi_file(part_path, formatted_ids['column'], formatted_ids['part'])
+            self.data_structure[formatted_ids['full']] = self._check_part(part_path, formatted_ids)
+            self.parts.append(self.Part(self.column_id, part_id, part_path, sub_folders))
+
+    def format_ids(self, part_id):
+        return {
+            'column': f"{self.column_id:04d}",
+            'part': f"{part_id:02d}",
+            'full': f"{self.column_id:04d}-{part_id:02d}"
+        }
+
+    def _create_sub_folders(self, part_path):
         sub_folders = [
             "0.Origin",
             "1.Reconstruct",
@@ -79,8 +81,44 @@ def create_column_structure(column_id, part_ids, base_path):
             "4.Threshold",
             "5.Analysis"
         ]
-        
-        for folder in sub_folders:
-            os.makedirs(os.path.join(part_path, folder), exist_ok=True)
+        sub_folders = [os.path.join(part_path, folder) for folder in sub_folders]
 
-    return column_path
+        for folder in sub_folders:
+            os.makedirs(folder, exist_ok=True)
+        return sub_folders
+
+    def _create_roi_file(self, part_path, column_id_formatted, part_id_formatted):
+        roi_file = os.path.join(part_path, f"roi-{column_id_formatted}-{part_id_formatted}.csv")
+        if not os.path.exists(roi_file):
+            with open(roi_file, "w") as f:
+                f.write("x1\ny1\nwidth\nheight\nz1\nz2")
+    
+    def _check_part(self, part_path, formatted_ids):
+        checks = [
+            not os.listdir(os.path.join(part_path, "0.Origin")),
+            not self._is_roi_filled(part_path, formatted_ids['column'], formatted_ids['part']),
+            not os.listdir(os.path.join(part_path, "4.Threshold"))
+        ]
+        checks = [not check for check in checks]
+        return checks
+
+    def _is_roi_filled(self, part_path, column_id_formatted, part_id_formatted):
+        expected_keys = {"x1", "y1", "width", "height", "z1", "z2"}  # Expected keys in the first column
+        roi_file = os.path.join(part_path, f"roi-{column_id_formatted}-{part_id_formatted}.csv")
+        if os.path.exists(roi_file):
+            with open(roi_file, "r") as file:
+                reader = csv.reader(file, delimiter=',')  # Assuming tab-delimited based on your data format
+                found_keys = {row[0].strip(): row[1].strip() for row in reader if row and len(row) >= 2 and row[1].strip()}
+                if expected_keys == set(found_keys.keys()):  # Check if all keys are present and have values
+                    return True
+        return False
+
+    def get_part(self, part_index):
+        for part in self.parts:
+            if int(part.part_id) == part_index:
+                return part
+        return None
+    
+    def get_data_structure(self):
+        print("The three status of each part are whether origin is empty, whether the secomd column or ROI file is empty, whether the threshold is empty:")
+        return self.data_structure

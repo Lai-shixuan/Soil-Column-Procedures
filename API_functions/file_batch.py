@@ -35,6 +35,9 @@ class roi_region:
         self.width = width
         self.height = height
         self.depth = abs(z2 - z1) + 1
+        # check roi information is complete
+        if x1 is None or y1 is None or width is None or height is None or z1 is None or z2 is None:
+            print("Warning: Please check your ROI information is complete or not.")
         print(f"Your ROI is: x1={x1}, y1={y1}, width={width}, height={height}, depth={z1}-{z2}")
 
 
