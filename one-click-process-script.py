@@ -1,5 +1,5 @@
 import API_functions.file_batch as fb
-import API_functions.column_batch_process as column_bp
+import API_functions.Soils.column_batch_process as column_bp
 
 
 def start(mode: str, column_path: str, column_id: int, part_nums: int, parts_range: list, fill_in_folder: list, start_index: int, middile_name: str):

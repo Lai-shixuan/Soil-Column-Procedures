@@ -1,4 +1,4 @@
-import API_functions.column_batch_process as fb
+import API_functions.Soils.column_batch_process as fb
 
 path = "e:/3.Experimental_Data/Soil.column.0008/"
 column1 = fb.SoilColumn(column_path=path, column_id=8, part_num=10)
