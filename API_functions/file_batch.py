@@ -191,7 +191,7 @@ def binary_to_grayscale(folder_path):
 # --------------------------------- column_batch_related --------------------------------- #
 
 # Crop the image without name change, but the folder will change, change the format to png
-def roi_select(path_in: str, path_out: str, name_read: ImageName, roi: roi_region):
+def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], roi: roi_region):
     """
     Only for gray images!
     The list of names will not change, but the folder will change.

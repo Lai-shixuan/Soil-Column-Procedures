@@ -21,7 +21,8 @@ class SoilColumn:
             if os.path.exists(roi_file):
                 with open(roi_file, "r") as f:
                     reader = csv.reader(f)
-                    lines = [row for row in reader if row and len(row) >= 2]
+                    lines = [row for row in reader
+                             if row and len(row) >= 2 and row[1].strip() != '']
                     return self._parse_roi(lines) if len(lines) == 6 else None
 
         def _parse_roi(self, lines):
@@ -109,7 +110,7 @@ class SoilColumn:
         # Check the ROI file
         roi_file = os.path.join(part_path, f"roi-{self.column_id}-{part_id}.csv")
         roi_filled = self._is_roi_filled(part_path, part_id)
-        checks['ROI File'] = {'exists': os.path.exists(roi_file), 'is_filled': roi_filled}
+        checks['ROI File'] = {'exists': os.path.exists(roi_file), 'filled': roi_filled}
 
         return checks
 
@@ -126,6 +127,7 @@ class SoilColumn:
     
     def _print_structure(self):
         # Table headers
+        print('')
         headers = ["Part ID", "0.Origin", "1.Reconstruct", "2.ROI", "3.Rename", "4.Threshold", "5.Analysis", "ROI File Exists", "ROI File Filled"]
         print("{:<10} {:<10} {:<15} {:<10} {:<10} {:<15} {:<15} {:<15} {:<15}".format(*headers))
         
@@ -140,7 +142,7 @@ class SoilColumn:
                 value['4.Threshold'],
                 value['5.Analysis'],
                 'Yes' if value['ROI File']['exists'] else 'No',
-                'Yes' if value['ROI File']['is_filled'] else 'No'
+                'Yes' if value['ROI File']['filled'] else 'No'
             ]
             print("{:<10} {:<10} {:<15} {:<10} {:<10} {:<15} {:<15} {:<15} {:<15}".format(*data))
 
