@@ -236,7 +236,7 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
     print("\033[1;3mROI Selected Completely!\033[0m")
 
 
-# Rename the image with new name, but the folder will change, change the format to png
+# Rename the image with new name, but the folder will change, only os operation
 def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, start_index: int = 1, overwrite: bool=False):
     """
     Only for gray images!

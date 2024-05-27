@@ -7,7 +7,7 @@
 + get_list
     + show_image_names
     + get_image_names
-+ read_all_in_rom
++ read_all_into_rom
     + read_images
     + output_images
 + read_one_by_one
@@ -19,3 +19,11 @@
         + format_transformer
         + convert_to_binary
         + binary_to_grayscale
+
+# Column_Analysis
+
++ get_left_right_surface
++ get_porosity_curve
++ draw_porosity_curve
++ dying_color_optimized
++ create_nifti

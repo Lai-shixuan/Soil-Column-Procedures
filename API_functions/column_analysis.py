@@ -94,6 +94,38 @@ def dying_color_optimized(volume_list, threshold: int, color_map_num: int):
     :param color_map_num: Number of colors to be used for the connected components
     :return: 3D volume with the connected components colored based on their size
     """
+
+    def calculate_sizes_and_color_in_chunks(labeled_volume_gpu, num_features, color_values, threshold, color_map_num, chunks=3):
+        # Split the volume into chunks along the third dimension
+        z_slices = labeled_volume_gpu.shape[2]
+        chunk_size = z_slices // chunks
+        feature_sizes = cp.zeros(num_features + 1, dtype=cp.int16)
+        output_volume_gpu = cp.zeros_like(labeled_volume_gpu, dtype=cp.int16)
+        feature_details = []
+
+        for i in range(chunks):
+            start_idx = i * chunk_size
+            end_idx = start_idx + chunk_size if i != chunks - 1 else z_slices
+            chunk = labeled_volume_gpu[:, :, start_idx:end_idx]
+
+            # Apply bincount on the chunk
+            chunk_counts = cp.bincount(chunk.ravel(), minlength=num_features + 1)
+            feature_sizes += chunk_counts
+
+            # Update large_components based on updated feature_sizes
+            large_components = feature_sizes >= threshold
+            color_assignments = cp.arange(num_features + 1) % (color_map_num - 1)
+
+            # Find large component indices
+            large_indices = cp.nonzero(large_components)[0]  # This returns a tuple, take the first element which is the array of indices
+
+            # Apply colors directly without using nonzero to find indices
+            for li in tqdm(large_indices):
+                color = color_values[color_assignments[li]]
+                output_volume_gpu[:, :, start_idx:end_idx][chunk == li] = color
+                feature_details.append((li, int(feature_sizes[li]), int(color)))
+
+        return output_volume_gpu, feature_details
     
     images = file_batch.read_images(volume_list, gray="gray", read_all=True)
     combined_array = np.stack(images, axis=-1)
@@ -121,39 +153,6 @@ def dying_color_optimized(volume_list, threshold: int, color_map_num: int):
     del labeled_volume_gpu, output_volume_gpu  # Free up GPU memory
 
     return output_volume, feature_details
-
-
-def calculate_sizes_and_color_in_chunks(labeled_volume_gpu, num_features, color_values, threshold, color_map_num, chunks=3):
-    # Split the volume into chunks along the third dimension
-    z_slices = labeled_volume_gpu.shape[2]
-    chunk_size = z_slices // chunks
-    feature_sizes = cp.zeros(num_features + 1, dtype=cp.int16)
-    output_volume_gpu = cp.zeros_like(labeled_volume_gpu, dtype=cp.int16)
-    feature_details = []
-
-    for i in range(chunks):
-        start_idx = i * chunk_size
-        end_idx = start_idx + chunk_size if i != chunks - 1 else z_slices
-        chunk = labeled_volume_gpu[:, :, start_idx:end_idx]
-
-        # Apply bincount on the chunk
-        chunk_counts = cp.bincount(chunk.ravel(), minlength=num_features + 1)
-        feature_sizes += chunk_counts
-
-        # Update large_components based on updated feature_sizes
-        large_components = feature_sizes >= threshold
-        color_assignments = cp.arange(num_features + 1) % (color_map_num - 1)
-
-        # Find large component indices
-        large_indices = cp.nonzero(large_components)[0]  # This returns a tuple, take the first element which is the array of indices
-
-        # Apply colors directly without using nonzero to find indices
-        for li in tqdm(large_indices):
-            color = color_values[color_assignments[li]]
-            output_volume_gpu[:, :, start_idx:end_idx][chunk == li] = color
-            feature_details.append((li, int(feature_sizes[li]), int(color)))
-
-    return output_volume_gpu, feature_details
 
 
 def create_nifti(image_lists: Union[list[str], np.ndarray], output_folder: str, nifti_name: str):
