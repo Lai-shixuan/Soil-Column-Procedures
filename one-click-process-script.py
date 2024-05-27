@@ -2,9 +2,7 @@ import API_functions.file_batch as fb
 import API_functions.column_batch_process as column_bp
 
 column_path = "e:/3.Experimental_Data/Soil.column.0001/"
-column1 = column_bp.SoilColumn(column_path)
-
-print(column1.column_id)
+column1 = column_bp.SoilColumn(column_path, column_id=1, part_num=5)
 
 
 # for i in range(column1.column_id):
