@@ -19,7 +19,7 @@ def convert_cv2_to_pil(cv2_image):
 
 
 # A function to show a image using matplotlib, whether it is a grayscale or a color image
-def show_image(img, total=None, index : tuple=None):
+def show_image(img, total: int=None, index: tuple=None):
     """
     Display an image using matplotlib.
     Args:
@@ -38,11 +38,15 @@ def show_image(img, total=None, index : tuple=None):
             plt.axis('off')
 
     if total is not None and index is not None:
-        plt.subplot(index[0], index[1], index[2])
+        ax = plt.subplot(index[0], index[1], index[2])
         show_img(img)
+        return ax
 
     if total is None or (total is not None and index == total):
-        show_img(img)
+        ax = plt.plot(img)
+        plt.show()
+        return ax
+
     
 # A function to save the image in specific format, using opencv:
 def save_image(image, image_path: str, name: str, image_format: str):
