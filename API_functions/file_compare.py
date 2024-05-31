@@ -2,6 +2,8 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 
+from Soils import threshold_position_independent as tpi
+
 class ZoomRegion:
     """
     A class to represent a zoom region in an image. It has two kinds of points: (y, x) for numpy and (x, y) for cv2.
@@ -27,48 +29,30 @@ class ImageProcessor:
     def __init__(self, image_path, label_image=None):
         self.image_path = image_path
         self.label_image_path = label_image
-        self._image = None
-        self._label_image = None
         self.results = {}
 
+    @property
     def image(self):
         # Lazy loading of the main image
-        if self._image is None:
-            self._image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
-        return self._image
+        if 'original' not in self.results:
+            self.results['original'] = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
+        return self.results['original']
 
+    @property
     def label_image(self):
         # Lazy loading of the label image
-        if self._label_image is None and self.label_image_path is not None:
-            self._label_image = cv2.imread(self.label_image_path, cv2.IMREAD_UNCHANGED)
-        return self._label_image
+        if 'label' not in self.results and self.label_image_path:
+            self.results['label'] = cv2.imread(self.label_image_path, cv2.IMREAD_UNCHANGED)
+        return  self.results.get('label')
 
     def add_result(self, key, image):
         self.results[key] = image
-
-    def load_image(self):
-        """ Load the main image if not already loaded. """
-        if self._image is None:
-            self._image = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
-        return self._image
-
-    def load_label_image(self):
-        """ Load the label image if not already loaded and if it exists. """
-        if self._label_image is None and self.label_image_path:
-            self._label_image = cv2.imread(self.label_image_path, cv2.IMREAD_UNCHANGED)
-        return self._label_image
 
     def show_images(self, *keys, zoom_region=None):
         """
         Display multiple images stored in the results dictionary with optional zoomed regions.
         Show 2 images for each key if zoom_region is specified
         """
-
-        # Load images if they have not been loaded yet
-        if 'original' not in self.results:
-            self.results['original'] = self.load_image()
-        if 'label' not in self.results and self.label_image_path:
-            self.results['label'] = self.load_label_image()
 
         total_images = len(keys) * (2 if zoom_region else 1)
         fig, axes = plt.subplots(1, total_images, figsize=(5 * total_images, 5))
@@ -77,7 +61,18 @@ class ImageProcessor:
 
         ax_index = 0
         for key in keys:
-            img = self.results.get(key)
+
+            # These 2 images are definetely available
+            if key == 'label':
+                img = self.label_image
+            elif key == 'original':
+                img = self.image
+
+            # The rest of the images are manually added by `add_result` function
+            # and they should use `.get` method
+            else:
+                img = self.results.get(key)
+
             if img is None:
                 continue  # Skip if the result does not exist
 
@@ -126,5 +121,6 @@ if __name__ == '__main__':
     path = 'e:/3.Experimental_Data/DL_Data_raw/'
     db = ImageDatabase(path)
     image_processor = db.get_image_processor('002_ou_DongYing_12635.png')
+    image_processor.add_result('pre_processed', tpi.user_threshold(image_processor.image, 160))
     zoom = ZoomRegion(350, 450, 100, 200)
-    image_processor.show_images('original', 'label', zoom_region=zoom)
+    image_processor.show_images('original', 'label', 'pre_processed', zoom_region=zoom)
