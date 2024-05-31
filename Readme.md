@@ -1,6 +1,9 @@
 最正确的逻辑，应该是column_batch中的函数，其输入输出特性都可以在正常的情况下被使用，比如临时我有一百张图片想截个ROI这样。
 新的api改成两条线，一条正常的函数，可以被通用。另一条所有函数归在SoilColumn类下，仅能在这里被调用，并且在这里调用逻辑则更简单，输入输出更简单。
 
+# To_do list
+
+- [ ] add id to column class
 
 # file_batch
 

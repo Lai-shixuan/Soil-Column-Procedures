@@ -7,8 +7,8 @@ import numpy as np
 import shutil
 
 # User-defined library import
-from . import pre_process
-from . import threshold_position_independent
+from .Soils import pre_process
+from .Soils import threshold_position_independent
 
 
 # A date structure to include prefix, suffix and middle name:
@@ -38,7 +38,7 @@ class roi_region:
         # check roi information is complete
         if x1 is None or y1 is None or width is None or height is None or z1 is None or z2 is None:
             print("Warning: Please check your ROI information is complete or not.")
-        print(f"Your ROI is: x1={x1}, y1={y1}, width={width}, height={height}, depth={z1}-{z2}")
+        print(f"Your ROI is: x1={x1}, y1={y1}, width={width}, height={height}, depth={z1}-{z2}={self.depth}")
 
 
 # --------------------------------- get_image_names --------------------------------- #

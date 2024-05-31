@@ -99,13 +99,13 @@ def check_values(my_column, part_ids, step_indices, check_roi):
 if __name__ == "__main__":
     params = {
         # Basic parameters
-        'mode': 'make_dirs',  # "check", "make_dirs", or "process"
-        'column_path': "e:/3.Experimental_Data/Soil.column.0002/",
+        'mode': 'check',  # "check", "make_dirs", or "process"
+        'column_path': "e:/3.Experimental_Data/Soils/Soil.column.0002/",
         'column_id': 2,
         'part_nums': 5,
 
         # The parameters below are used in the "check" or "process" mode
-        'parts_range': [1],
+        'parts_range': [0, 1, 2, 3, 4],
         'fill_in_folder': [2, 3, 4],
         'start_index': 0,
         'middile_name': "Ou_DongYing"
