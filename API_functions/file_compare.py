@@ -78,8 +78,9 @@ class ImageProcessor:
 
             # Show the full image with the zoom area marked
             marked_image = img.copy()
-            cvpoints1, cvpoints2 = zoom_region.get_cv_points()
-            cv2.rectangle(marked_image, cvpoints1, cvpoints2, (0, 255, 0), 3)
+            if zoom_region:
+                cvpoints1, cvpoints2 = zoom_region.get_cv_points()
+                cv2.rectangle(marked_image, cvpoints1, cvpoints2, (0, 255, 0), 3)
             axes[ax_index].imshow(marked_image, cmap='gray')
             axes[ax_index].set_title(f'{key} full')
             axes[ax_index].axis('on')
@@ -97,6 +98,10 @@ class ImageProcessor:
         plt.show(block=True)
 
 class ImageDatabase:
+    """
+    The differece between this class and Column is that this class's files are all have the same name.
+    """
+
     def __init__(self, root_folder):
         self.root_folder = root_folder
         self.images_folder = os.path.join(root_folder, 'images')
@@ -113,6 +118,21 @@ class ImageDatabase:
                 continue
             label_path = label_path if os.path.exists(label_path) else None
             self.images[image_name] = ImageProcessor(image_path=image_path, label_image=label_path)
+    
+    def add_additional_folder(self, additional_folder, name):
+        setattr(self, name, additional_folder)
+        
+        for image_name in os.listdir(additional_folder):
+            additional_image_path = os.path.join(additional_folder, image_name)
+            additional_image = cv2.imread(additional_image_path, cv2.IMREAD_UNCHANGED)
+            if additional_image is None:
+                continue
+
+            if image_name in self.images:
+                self.images[image_name].add_result(name, additional_image)
+            else:
+                self.images[image_name] = ImageProcessor(image_path=None)
+                self.images[image_name].add_result(name, additional_image)
 
     def get_image_processor(self, image_name):
         return self.images.get(image_name)
@@ -120,7 +140,8 @@ class ImageDatabase:
 if __name__ == '__main__':
     path = 'e:/3.Experimental_Data/DL_Data_raw/'
     db = ImageDatabase(path)
-    image_processor = db.get_image_processor('002_ou_DongYing_12635.png')
+    image_processor = db.get_image_processor('002_ou_DongYing_12633.png')
     image_processor.add_result('pre_processed', tpi.user_threshold(image_processor.image, 160))
     zoom = ZoomRegion(350, 450, 100, 200)
-    image_processor.show_images('original', 'label', 'pre_processed', zoom_region=zoom)
+    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_results/Dataset001_240531/nnUNetTrainer__nnUNetResEncUNetMPlans__2d/fold_0/validation/', 'validation')
+    image_processor.show_images('original', 'label', 'pre_processed', 'validation', zoom_region=zoom)
