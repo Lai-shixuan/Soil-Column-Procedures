@@ -157,20 +157,25 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     print("\033[1;3mOutput completely!\033[0m")
 
 
-# Function to convert images to binary format
-def grayscale_to_binary(folder_path):
-    search_path = os.path.join(folder_path, '*.png')
-    png_files = glob.glob(search_path)
+def grayscale_to_binary(read_path:str, format:str, read_name:Union[ImageName, None], output_path):
+    """
+    Function to convert images to binary format.
+    No name or format change, just path.
+    """
+
+    png_files = get_image_names(folder_path=read_path, image_names=read_name, image_format=format)
 
     for idx, png_file in enumerate(png_files):
         image = cv2.imread(png_file, cv2.IMREAD_GRAYSCALE)
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
         if image is not None:
             binary_image = image // 255
-            new_file_name = f"2_binary_{idx:03d}.png"
-            new_file_path = os.path.join(folder_path, new_file_name)
+            new_file_path = os.path.join(output_path, os.path.basename(png_file))
             cv2.imwrite(new_file_path, binary_image)
-        else:
-            print(f"Image not found: {png_file}")
+    print("\033[1;3mConversion to binary completed!\033[0m")
 
 
 # Function to convert binary images to grayscale
