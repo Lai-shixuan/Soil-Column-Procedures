@@ -193,6 +193,23 @@ def binary_to_grayscale(folder_path):
         else:
             print(f"Image not found: {binary_file}")
 
+
+# Function to convert grayscale images to RGB
+def grayscale_to_rgb(read_path, output_path):
+    png_files = get_image_names(folder_path=read_path, image_names=None, image_format='png')
+
+    for idx, png_file in enumerate(png_files):
+        image = cv2.imread(png_file, cv2.IMREAD_GRAYSCALE)
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        if image is not None:
+            new_image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+            new_file_path = os.path.join(output_path, os.path.basename(png_file))
+            cv2.imwrite(new_file_path, new_image)
+    print("\033[1;3mConversion to RGB completed!\033[0m")  
+
 # --------------------------------- column_batch_related --------------------------------- #
 
 # Crop the image without name change, but the folder will change, change the format to png
