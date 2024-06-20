@@ -25,28 +25,14 @@ class ZoomRegion:
 def zoom_in(image, zoom):
     return image[zoom.y:zoom.y + zoom.height, zoom.x:zoom.x + zoom.width]
 
-class ImageProcessor:
-    def __init__(self, image_path, label_image=None):
-        self.image_path = image_path
-        self.label_image_path = label_image
+class ImageResults:
+    def __init__(self, image_type:str, image_path:str):
         self.results = {}
+        self.add_type(key=image_type, path=image_path)
 
-    @property
-    def image(self):
-        # Lazy loading of the main image
-        if 'original' not in self.results:
-            self.results['original'] = cv2.imread(self.image_path, cv2.IMREAD_UNCHANGED)
-        return self.results['original']
-
-    @property
-    def label_image(self):
-        # Lazy loading of the label image
-        if 'label' not in self.results and self.label_image_path:
-            self.results['label'] = cv2.imread(self.label_image_path, cv2.IMREAD_UNCHANGED)
-        return  self.results.get('label')
-
-    def add_result(self, key, image):
-        self.results[key] = image
+    def add_type(self, key, path):
+        self.results[key] = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        self.results[key+'path'] = path
 
     def show_images(self, *keys, zoom_region=None):
         """
@@ -102,46 +88,37 @@ class ImageDatabase:
     The differece between this class and Column is that this class's files are all have the same name.
     """
 
-    def __init__(self, root_folder):
-        self.root_folder = root_folder
-        self.images_folder = os.path.join(root_folder, 'images')
-        self.labels_folder = os.path.join(root_folder, 'labels')
+    def __init__(self):
         self.images = {}
-        self.load_image_paths()
 
-    def load_image_paths(self):
-        for image_name in os.listdir(self.images_folder):
-            image_path = os.path.join(self.images_folder, image_name)
-            label_path = os.path.join(self.labels_folder, image_name)
-            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-            if image is None:
-                continue
-            label_path = label_path if os.path.exists(label_path) else None
-            self.images[image_name] = ImageProcessor(image_path=image_path, label_image=label_path)
-    
     def add_additional_folder(self, additional_folder, name):
         setattr(self, name, additional_folder)
         
         for image_name in os.listdir(additional_folder):
+
             additional_image_path = os.path.join(additional_folder, image_name)
-            additional_image = cv2.imread(additional_image_path, cv2.IMREAD_UNCHANGED)
-            if additional_image is None:
+            # check whether the file is an image
+            if cv2.imread(additional_image_path, cv2.IMREAD_UNCHANGED) is None:
                 continue
+            
+            if image_name.endswith('_0000.png'):
+                image_name = image_name[:-9] + '.png'
 
             if image_name in self.images:
-                self.images[image_name].add_result(name, additional_image)
+                self.images[image_name].add_type(name, additional_image_path)
             else:
-                self.images[image_name] = ImageProcessor(image_path=None)
-                self.images[image_name].add_result(name, additional_image)
+                self.images[image_name] = ImageResults(image_type=name, image_path=additional_image_path)
 
     def get_image_processor(self, image_name):
+        if image_name not in self.images:
+            raise ValueError(f'Image {image_name} not found in the database')
         return self.images.get(image_name)
 
 if __name__ == '__main__':
-    path = 'e:/3.Experimental_Data/DL_Data_raw/'
-    db = ImageDatabase(path)
-    image_processor = db.get_image_processor('002_ou_DongYing_12633.png')
-    image_processor.add_result('pre_processed', tpi.user_threshold(image_processor.image, 160))
+    db = ImageDatabase()
+    # image_processor.add_result('pre_processed', tpi.user_threshold(image_processor.image, 160))
     zoom = ZoomRegion(350, 450, 100, 200)
-    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_results/Dataset001_240531/nnUNetTrainer__nnUNetResEncUNetMPlans__2d/fold_0/validation/', 'validation')
-    image_processor.show_images('original', 'label', 'pre_processed', 'validation', zoom_region=zoom)
+    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_results/Dataset001_240531/inference/', 'test_inference')
+    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_raw/Dataset001_240531/imagesTs/', 'test_set')
+    image_processor = db.get_image_processor('002_ou_DongYing_13636.png')
+    image_processor.show_images('test_set', 'test_inference', zoom_region=zoom)
