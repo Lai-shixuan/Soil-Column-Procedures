@@ -179,16 +179,14 @@ def grayscale_to_binary(read_path:str, format:str, read_name:Union[ImageName, No
 
 
 # Function to convert binary images to grayscale
-def binary_to_grayscale(folder_path):
-    search_path = os.path.join(folder_path, '*.png')
-    binary_files = glob.glob(search_path)
+def binary_to_grayscale(read_path:str, image_names:Union[ImageName, None], format:str, output_path:str):
 
-    for idx, binary_file in enumerate(binary_files):
+    png_files = get_image_names(folder_path=read_path, image_names=image_names, image_format=format)
+    for idx, binary_file in enumerate(png_files):
         image = cv2.imread(binary_file, cv2.IMREAD_GRAYSCALE)
         if image is not None:
             grayscale_image = image * 255
-            new_file_name = f"3_grayscale_{idx:03d}.png"
-            new_file_path = os.path.join(folder_path, new_file_name)
+            new_file_path = os.path.join(output_path, os.path.basename(binary_file))
             cv2.imwrite(new_file_path, grayscale_image)
         else:
             print(f"Image not found: {binary_file}")
