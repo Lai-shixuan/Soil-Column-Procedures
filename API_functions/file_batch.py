@@ -310,8 +310,8 @@ def image_process(path_in: str, path_out: str):
 
     for image_name in tqdm(image_files):
         image = cv2.imread(image_name, cv2.IMREAD_GRAYSCALE)
-        image_prepropossed = pre_process.median(image, 5)
-        image_threshold = threshold_position_independent.user_threshold(image_prepropossed, 120)
+        image_prepropossed = pre_process.origin(image)
+        image_threshold = threshold_position_independent.user_threshold(image_prepropossed, 145)
         image_invert = cv2.bitwise_not(image_threshold)     # invert image, make the pore space to be white
 
         # save with the same name but change folder:
