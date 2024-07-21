@@ -67,7 +67,7 @@ class ImageResults:
             if zoom_region:
                 cvpoints1, cvpoints2 = zoom_region.get_cv_points()
                 cv2.rectangle(marked_image, cvpoints1, cvpoints2, (0, 255, 0), 3)
-            axes[ax_index].imshow(marked_image, cmap='gray')
+            axes[ax_index].imshow(marked_image, cmap='gray', interpolation='none')
             axes[ax_index].set_title(f'{key} full')
             axes[ax_index].axis('on')
             ax_index += 1
@@ -75,7 +75,7 @@ class ImageResults:
             # Show the zoomed image if zoom_region is specified
             if zoom_region:
                 zoomed_img = zoom_in(img, zoom_region)
-                axes[ax_index].imshow(cv2.cvtColor(zoomed_img, cv2.COLOR_BGR2RGB) if zoomed_img.ndim == 3 else zoomed_img, cmap='gray')
+                axes[ax_index].imshow(cv2.cvtColor(zoomed_img, cv2.COLOR_BGR2RGB) if zoomed_img.ndim == 3 else zoomed_img, cmap='gray', interpolation='none')
                 axes[ax_index].set_title(f'{key} zoomed')
                 axes[ax_index].axis('on')
                 ax_index += 1
