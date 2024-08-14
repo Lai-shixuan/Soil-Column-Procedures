@@ -4,4 +4,4 @@ wandb/
 
 .pyc
 .cpython
-.db
+*.db
