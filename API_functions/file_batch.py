@@ -87,7 +87,7 @@ def read_images(image_files_names: list, gray: str = "gray", read_all: bool = Fa
     """
     def read():
         if gray == "gray":
-            image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+            image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
         elif gray == "turn to gray":
             image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -211,29 +211,40 @@ def grayscale_to_rgb(read_path, output_path):
 # --------------------------------- column_batch_related --------------------------------- #
 
 # Crop the image without name change, but the folder will change, change the format to png
-def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], roi: roi_region):
+def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], roi: roi_region, img_format: str = 'bmp'):
     """
     Only for gray images!
     The list of names will not change, but the folder will change.
     The format will change to png.
+    For extract_index function within the function, it only works for filenames with '1-1_rec00000105.bmp' or '0029.001.png'
     """
 
     def extract_index(filename):
         # Split the filename to isolate the numeric part
-        parts = filename.split('_rec')
-        if len(parts) > 1:
-            numeric_part = parts[1].split('.')[0]
-            return int(numeric_part)  # Convert to int to strip leading zeros
-        return None
+        # Only works for filenames with '1-1_rec00000105.bmp'
+        if 'rec' in filename:
+            parts = filename.split('_rec')
+            if len(parts) > 1:
+                numeric_part = parts[1].split('.')[0]
+                return int(numeric_part)  # Convert to int to strip leading zeros
+            return None
+        # Only works for filenames with '0029.001.png'
+        # If using '.' to split, be careful with the address which also contains '.'
+        elif '.' in filename:
+            parts = filename.split('.')
+            if len(parts) > 1:
+                numeric_part = parts[-2]
+                return int(numeric_part)
 
-    image_files = get_image_names(folder_path=path_in, image_names=name_read, image_format='bmp')
+    image_files = get_image_names(folder_path=path_in, image_names=name_read, image_format=img_format)
     if not image_files:
         raise Exception('Error: No images found')
     
-    # Extract_index from file lists, like [15, 16, ..., 3311]
+    # Extract_index from file names and paths, like [15, 16, ..., 3311]
     indexes = [extract_index(image) for image in image_files]
 
     # Find the index of user givern z1 and z2 in the indexes list. Elements can not be repeated.
+    # This is necessary because the file may not start from 0 or 1.
     z1_index = indexes.index(roi.z1)
     z2_index = indexes.index(roi.z2)
     if z1_index > z2_index:
@@ -242,10 +253,11 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
     # Filter the image_files with z1 and z2 index
     image_files = image_files[z1_index: z2_index+1]
     
+    # cut the roi region
     temp_list = []
     for image_file in tqdm(image_files):
 
-        image = cv2.imread(image_file, cv2.IMREAD_GRAYSCALE)
+        image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
         roi_image = image[roi.y1:roi.y1 + roi.height, roi.x1:roi.x1 + roi.width]
         old_file_name = os.path.basename(image_file)
         old_file_name, _ = os.path.splitext(old_file_name)
