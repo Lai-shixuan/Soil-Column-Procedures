@@ -2,7 +2,7 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 
-from .Soils import threshold_position_independent as tpi
+from ..Soils import threshold_position_independent as tpi
 
 class ZoomRegion:
     """
