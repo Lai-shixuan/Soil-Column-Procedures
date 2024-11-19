@@ -11,6 +11,7 @@ from API_functions import file_batch as fb
 import pandas as pd
 import cv2 as cv
 import os
+from tqdm import tqdm
 
 #%%
 # Using pandas to read a csv, each line stands for a roi region, and the columns are the starting point of roi and the size of roi
@@ -53,11 +54,14 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
     image_lists = fb.get_image_names(path_in, None, 'png')
     image_names = [os.path.basename(item) for item in image_lists]
     images = fb.read_images(image_lists, gray='gray', read_all=True)
-    for j, image in enumerate(images):
-        # image = pre_process.map_range_to_255(image, 3000, 45000)
-        # image = pre_process.high_boost_filter(image, sigma=1, k=1.2)
-        path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/16bits/3.Preprocess/'
-        cv.imwrite(os.path.join(path_out, image_names[j]), image)
-
-        break
+    for j, image in enumerate(tqdm(images)):
+        image = pre_process.map_range_to_65536(image, 30000, 35000)
+        for k in range(1, 6, 1):
+            for m in range(1, 10, 2):
+                image = pre_process.noise_reduction(image, k, 500, 9)
+                image = pre_process.high_boost_filter(image, 1, 1 + m/10)
+                path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/16bits/3.Preprocess/noise' + str(k) + 'high_boost' + str(m) + '/'
+                if not os.path.exists(path_out):
+                    os.makedirs(path_out)
+                cv.imwrite(os.path.join(path_out, image_names[j]), image)
     break
