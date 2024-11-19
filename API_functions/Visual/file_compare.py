@@ -2,7 +2,6 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 
-from ..Soils import threshold_position_independent as tpi
 
 class ZoomRegion:
     """
@@ -40,20 +39,25 @@ class ImageResults:
         Show 2 images for each key if zoom_region is specified
         """
 
+        # If the keys are passed as a list of lists, flatten it
+        if len(keys) == 1 and isinstance(keys[0], list):
+            keys = keys[0]
+
+        # Calculate the number of rows and columns for the plot
         total_images = len(keys) * (2 if zoom_region else 1)
-        fig, axes = plt.subplots(1, total_images, figsize=(5 * total_images, 5))
-        if total_images == 1:
-            axes = [axes]  # Make it iterable
+        cols = min(total_images, 6)
+        rows = (total_images + cols - 1) // cols
+
+        fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 5 * rows))
+        axes = axes.flatten() if rows > 1 else [axes]
 
         ax_index = 0
         for key in keys:
-
-            # These 2 images are definetely available
+            # These 2 images are definitely available
             if key == 'label':
                 img = self.label_image
             elif key == 'original':
                 img = self.image
-
             # The rest of the images are manually added by `add_result` function
             # and they should use `.get` method
             else:
@@ -79,7 +83,10 @@ class ImageResults:
                 axes[ax_index].set_title(f'{key} zoomed')
                 axes[ax_index].axis('on')
                 ax_index += 1
-        
+
+        for ax in axes[ax_index:]:
+            ax.axis('off')
+
         plt.tight_layout()
         plt.show(block=True)
 
@@ -117,8 +124,11 @@ class ImageDatabase:
 if __name__ == '__main__':
     db = ImageDatabase()
     # image_processor.add_result('pre_processed', tpi.user_threshold(image_processor.image, 160))
-    zoom = ZoomRegion(350, 450, 100, 200)
-    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_results/Dataset001_240531/inference/', 'test_inference')
-    db.add_additional_folder('//wsl.localhost/Ubuntu/home/shixuan/DL_Algorithms/nnunet/nnUNet_raw/Dataset001_240531/imagesTs/', 'test_set')
-    image_processor = db.get_image_processor('002_ou_DongYing_13636.png')
-    image_processor.show_images('test_set', 'test_inference', zoom_region=zoom)
+    zoom = ZoomRegion(100, 100, 100, 200)
+    dir_list = os.listdir('f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/16bits/3.Preprocess')
+    for dir in dir_list:
+        db.add_additional_folder(f'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/16bits/3.Preprocess/{dir}', dir)
+    # db.add_additional_folder('', 'test_inference')
+    # db.add_additional_folder('', 'test_set')
+    image_processor = db.get_image_processor('0028.045.png')
+    image_processor.show_images(dir_list, zoom_region=None)
