@@ -97,23 +97,89 @@ def high_boost_filter(image, sigma=1.0, k=1.5):
     Enhance small, delicate edges (like blood vessels) in a grayscale image using high-boost filtering.
 
     Parameters:
-        image (numpy.ndarray): Input grayscale image object.
-        sigma (float): Standard deviation for Gaussian blur, which controls the smoothness level.
-        k (float): Boost factor for enhancing high-frequency components. Higher values increase the edge enhancement effect.
+        image (numpy.ndarray): Input grayscale image with intensity values ranging from 0 to 65535.
+        sigma (float): Standard deviation for Gaussian blur, controlling the smoothness level.
+        k (float): Boost factor for enhancing high-frequency components. Higher values increase edge enhancement.
 
     Returns:
         enhanced_image (numpy.ndarray): Image with enhanced edges and details.
     """
+    # Convert image to float32 to prevent overflow and maintain precision
+    image_float = image.astype(np.float32)
+
     # Apply Gaussian blur to the grayscale image
-    blurred = cv2.GaussianBlur(image, (0, 0), sigma)
-    
-    # Calculate the high-pass component (original - blurred)
-    high_pass = cv2.subtract(image, blurred)
-    
-    # Enhance the image by adding the high-pass component, scaled by factor k
-    enhanced_image = cv2.addWeighted(image, 1 + k, high_pass, k, 0)
-    
+    blurred = cv2.GaussianBlur(image_float, (0, 0), sigma)
+
+    # Correct implementation of high-boost filtering
+    # enhanced_image = image + k * (image - blurred)
+    enhanced_image = cv2.addWeighted(image_float, 1 + k, blurred, -k, 0)
+
+    # Clip values to the original data range and convert back to the original data type
+    enhanced_image = np.clip(enhanced_image, 0, 65535).astype(image.dtype)
+
     return enhanced_image
+
+
+def map_range_to_65536(image, range_min, range_max):
+    """
+    Map a specific range of the original image to 0-65535 and reduce the other parts of the image.
+    
+    Parameters:
+        image (numpy.ndarray): Input image object (OpenCV format, grayscale).
+        range_min (int): Minimum value of the range to be mapped.
+        range_max (int): Maximum value of the range to be mapped.
+        
+    Returns:
+        mapped_image (numpy.ndarray): Image object after mapping the specified range.
+    """
+    # Create a copy of the image to modify
+    mapped_image = image.copy()
+    
+    # Create a mask for the specified range
+    mask = cv2.inRange(image, range_min, range_max)
+    
+    # Apply the mask to the image
+    mapped_image = cv2.bitwise_and(image, image, mask=mask)
+    
+    # Normalize the masked image to the range 0-255
+    mapped_image = cv2.normalize(mapped_image, None, 0, 65535, cv2.NORM_MINMAX)
+    
+    # Set pixels below range_min to 0
+    mapped_image[image < range_min] = 0
+    
+    # Set pixels above range_max to 65535
+    mapped_image[image > range_max] = 65535
+    
+    return mapped_image
+
+
+def noise_reduction(image, d=9, sigma_color=75, sigma_space=75):
+    """
+    Reduce noise in a grayscale image while preserving edges using a bilateral filter.
+
+    Parameters:
+        image (numpy.ndarray): Input grayscale image with intensity values ranging from 0 to 65,535.
+        d (int): Diameter of each pixel neighborhood used during filtering. If non-positive, it's computed from sigma_space.
+        sigma_color (float): Filter sigma in the color space. Larger values mean that farther colors within the pixel neighborhood will be mixed together.
+        sigma_space (float): Filter sigma in the coordinate space. Larger values mean that farther pixels will influence each other.
+
+    Returns:
+        denoised_image (numpy.ndarray): Image with reduced noise.
+    """
+    # Check if the image is grayscale
+    if len(image.shape) != 2:
+        raise ValueError("Input image must be a grayscale image")
+
+    # Convert image to float32 for precision and to prevent overflow
+    image_float = image.astype(np.float32)
+
+    # Apply Bilateral Filter for noise reduction
+    denoised = cv2.bilateralFilter(image_float, d, sigma_color, sigma_space)
+
+    # Clip values to the original data range and convert back to the original data type
+    denoised_image = np.clip(denoised, 0, 65535).astype(image.dtype)
+
+    return denoised_image
 
 
 if __name__ == '__main__':
