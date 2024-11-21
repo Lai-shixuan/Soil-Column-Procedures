@@ -9,8 +9,11 @@ def origin(numbers: np.ndarray):
 
 
 # non-parameter methods
-def otsu_3d(numbers: np.ndarray):
-    _, dst = cv2.threshold(numbers, 0, 255, cv2.THRESH_OTSU)
+def otsu(numbers: np.ndarray):
+    if numbers.max() > 255:
+        _, dst = cv2.threshold(numbers, 0, 65535, cv2.THRESH_OTSU)
+    else:
+        _, dst = cv2.threshold(numbers, 0, 255, cv2.THRESH_OTSU)
     return dst
 
 
@@ -64,12 +67,26 @@ def kapur_entropy_3d(image: np.ndarray):
 
 
 def kmeans_3d(numbers: np.ndarray):
+    """
+    K-means clustering for 3D image, and 16bit image is supported.
+    """
+    if numbers.max()  > 65535:
+        bit16 = True
+        numbers = numbers / 65535
+    else:
+        bit16 = False
+        numbers = numbers / 255
+
     shape = numbers.shape
     numbers = numbers.reshape(-1, 1)
-    numbers = numbers / 255
     kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(numbers)
     classes = kmeans_filter.labels_
-    classes = classes.reshape(shape) * 255
+    classes = classes.reshape(shape)
+
+    if bit16:
+        classes = classes * 65535
+    else:
+        classes = classes * 255
     return classes
 
 
@@ -84,5 +101,8 @@ def gmm_3d(numbers: np.ndarray):
 
 
 def user_threshold(image: np.ndarray, optimal_threshold: int):
-    _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
+    if image.max() > 255:
+        _, threshold_image = cv2.threshold(image, optimal_threshold, 65535, cv2.THRESH_BINARY)
+    else:
+        _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
     return threshold_image

@@ -141,9 +141,9 @@ def map_range_to_65536(image, range_min, range_max):
     # Apply the mask to the image
     mapped_image = cv2.bitwise_and(image, image, mask=mask)
     
-    # Normalize the masked image to the range 0-255
-    mapped_image = cv2.normalize(mapped_image, None, 0, 65535, cv2.NORM_MINMAX)
-    
+    # Using a linear remap
+    mapped_image = np.interp(mapped_image, (range_min, range_max), (0, 65535)).astype(np.uint16)
+
     # Set pixels below range_min to 0
     mapped_image[image < range_min] = 0
     
@@ -180,6 +180,18 @@ def noise_reduction(image, d=9, sigma_color=75, sigma_space=75):
     denoised_image = np.clip(denoised, 0, 65535).astype(image.dtype)
 
     return denoised_image
+
+
+# To get the right windows for the images, or the levels tools in Photoshop
+def get_average_windows(image_files: np.array) -> tuple:
+    min_values = []
+    max_values = []
+    for image_file in image_files:
+        min_values.append(image_file.min())
+        max_values.append(image_file.max())
+    my_min = np.percentile(min_values, 50)
+    my_max = np.percentile(max_values, 50)
+    return my_min, my_max
 
 
 if __name__ == '__main__':
