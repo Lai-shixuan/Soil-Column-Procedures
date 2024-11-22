@@ -2,6 +2,7 @@ data/
 __pycache__/
 wandb/
 
+*.pth
 *.pyc
 *.cpython
 *.db
