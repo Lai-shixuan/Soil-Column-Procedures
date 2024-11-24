@@ -1,6 +1,7 @@
 import os
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class ZoomRegion:
@@ -49,7 +50,10 @@ class ImageResults:
         rows = (total_images + cols - 1) // cols
 
         fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 5 * rows))
-        axes = axes.flatten() if rows > 1 else [axes]
+        if isinstance(axes, np.ndarray):
+            axes = axes.flatten()
+        else:
+            axes = [axes]  # 包装单个子图为列表
 
         ax_index = 0
         for key in keys:
