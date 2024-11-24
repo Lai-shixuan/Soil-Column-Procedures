@@ -1,11 +1,11 @@
 from torch.utils.data import Dataset
+import torch
 
 class my_Dataset(Dataset):
-    def __init__(self, imagelist, labels, transform, label_transform):
+    def __init__(self, imagelist, labels, transform=None):
         super(my_Dataset).__init__()
 
         self.transform = transform
-        self.label_transform = label_transform
         self.imagelist = imagelist
         self.labels = labels
   
@@ -14,10 +14,16 @@ class my_Dataset(Dataset):
   
     def __getitem__(self,idx):
         img = self.imagelist[idx]
-        img = self.transform(img)
-
         label = self.labels[idx]
-        label = self.label_transform(label)
+
+        if self.transform:
+            augmented = self.transform(image=img, mask=label)
+            img = augmented['image']
+            label = augmented['mask']
+
+        # change to pytorch float 32
+        img = torch.tensor(img, dtype=torch.float32)
+        label = torch.tensor(label/255, dtype=torch.float32) 
         
         return img,label
     
