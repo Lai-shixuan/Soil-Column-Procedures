@@ -1,6 +1,37 @@
 import numpy as np
 import torch
 from typing import Union
+import torch.nn as nn
+
+class DiceBCELoss(nn.Module):
+    def __init__(self):
+        super(DiceBCELoss, self).__init__()
+        self.bce = nn.BCELoss()
+
+    def forward(self, inputs, targets, smooth=1e-6):
+        # First, calculate the BCE loss
+        inputs = torch.sigmoid(inputs)
+        bce_loss = self.bce(inputs, targets)
+        
+        # Second, calculate the Dice loss
+        soft_dice = soft_dice_coefficient(y_true=targets, y_pred=inputs, smooth=smooth)
+        dice_loss = 1 - soft_dice
+        
+        # Combine BCE + Dice
+        return 0.5 * bce_loss + 0.5 * dice_loss
+
+
+def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, smooth=1e-6) -> torch.Tensor:
+    """
+    Calculate the soft Dice coefficient. The inputs are PyTorch tensors.
+    """
+    y_true = y_true.view(-1)
+    y_pred = y_pred.view(-1)
+    
+    intersection = (y_true * y_pred).sum()
+    dice = (2. * intersection + smooth) / ((y_true**2).sum() + (y_pred**2).sum() + smooth)
+    
+    return dice
 
 
 def dice_coefficient(seg: Union[np.ndarray, torch.Tensor], ground_true: Union[np.ndarray, torch.Tensor], pixel_value: int = 1) -> float:
@@ -10,11 +41,14 @@ def dice_coefficient(seg: Union[np.ndarray, torch.Tensor], ground_true: Union[np
     The inputs have 2 areas, the segmented area and the background area, which must be 0.
     Only works for 2 classes (background and segmented area).
     """
+
     if isinstance(seg, np.ndarray) and isinstance(ground_true, np.ndarray):
         # NumPy calculation
+        seg = (seg >= 0.5).astype(np.int16)
         dice = np.sum(seg[ground_true == pixel_value]) * 2.0 / (np.sum(seg) + np.sum(ground_true))
     elif isinstance(seg, torch.Tensor) and isinstance(ground_true, torch.Tensor):
         # PyTorch calculation
+        seg = (seg >= 0.5).int()
         dice = 2.0 * torch.sum(seg[ground_true == pixel_value]) / (seg.sum() + ground_true.sum())
         dice = dice.item()
     else:
@@ -70,7 +104,7 @@ def mIoU(pred, target, n_classes = 2):
 
 
 if __name__ == '__main__':
-    seg = np.array([[0, 1, 1], [0, 1, 0], [0, 0, 0]])
+    seg = np.array([[0, 0.51, 0.7], [0, 1, 0], [0, 0, 0]])
     ground_true = np.array([[0, 1, 0], [0, 1, 0], [0, 0, 0]])
     dice_value = dice_coefficient(seg=seg, ground_true=ground_true, pixel_value=1)
     print(f'dice_value={dice_value}')
