@@ -6,6 +6,7 @@ import random
 def stablize_seed(myseed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True)    # to ensure reproducibility
     np.random.seed(myseed)
     random.seed(myseed)
     torch.manual_seed(myseed)
