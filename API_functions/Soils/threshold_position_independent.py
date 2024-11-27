@@ -1,7 +1,13 @@
 import cv2
 import numpy as np
+import os
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture
+
+import sys
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+from API_functions import file_batch as fb
 
 
 def origin(numbers: np.ndarray):
@@ -112,9 +118,13 @@ def user_threshold(image: np.ndarray, optimal_threshold: int):
 
 
 def test_user_threshold():
-    img = cv2.imread('/root/Soil-Column-Procedures/data/version1/test_images/0028.387.png', cv2.IMREAD_GRAYSCALE)
-    thresholded_img = kmeans_3d(img)
-    cv2.imwrite('/root/Soil-Column-Procedures/data/version1/test_labels/0028.387.png', thresholded_img)
+    imgs_path = fb.get_image_names('g:/DL_Data_raw/Unit_test/threshold/temp16bit/', None, 'png')
+    imgs_names = [os.path.basename(p) for p in imgs_path]
+    imgs = fb.read_images(imgs_path, gray='gray', read_all=True)
+    for i, img in enumerate(imgs):
+        thresholded_img = user_threshold(img, 45621)
+        thresholded_img = 65535 - thresholded_img
+        cv2.imwrite(f'g:/DL_Data_raw/Unit_test/threshold/threshold/{imgs_names[i]}', thresholded_img)
 
 
 # ----------------- Main -----------------
