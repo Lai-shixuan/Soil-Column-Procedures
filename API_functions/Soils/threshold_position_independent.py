@@ -106,3 +106,19 @@ def user_threshold(image: np.ndarray, optimal_threshold: int):
     else:
         _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
     return threshold_image
+
+
+# ----------------- Test -----------------
+
+
+def test_user_threshold():
+    img = cv2.imread('/root/Soil-Column-Procedures/data/version1/test_images/0028.387.png', cv2.IMREAD_GRAYSCALE)
+    thresholded_img = kmeans_3d(img)
+    cv2.imwrite('/root/Soil-Column-Procedures/data/version1/test_labels/0028.387.png', thresholded_img)
+
+
+# ----------------- Main -----------------
+
+
+if __name__ == '__main__':
+    test_user_threshold()

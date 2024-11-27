@@ -14,7 +14,7 @@ def padding_img(input: np.ndarray, target_size: int=512) -> np.ndarray:
 
     output = np.pad(input, ((padding_top, target_size - input.shape[0] - padding_top),
                             (padding_left, target_size - input.shape[1] - padding_left)),
-                    mode='constant', constant_values=0)
+                    mode='constant', constant_values=255)
     
     return output
 

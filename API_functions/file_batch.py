@@ -6,9 +6,10 @@ from tqdm import tqdm
 import numpy as np
 import shutil
 
-# User-defined library import
-from Soils import pre_process
-from Soils import threshold_position_independent
+import sys
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+from API_functions.Soils import pre_process
+from API_functions.Soils import threshold_position_independent
 
 
 # A date structure to include prefix, suffix and middle name:
