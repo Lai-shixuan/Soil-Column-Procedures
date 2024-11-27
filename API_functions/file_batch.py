@@ -158,26 +158,6 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     print("\033[1;3mOutput completely!\033[0m")
 
 
-def grayscale_to_binary(read_path:str, format:str, read_name:Union[ImageName, None], output_path):
-    """
-    Function to convert images to binary format.
-    No name or format change, just path.
-    """
-
-    png_files = get_image_names(folder_path=read_path, image_names=read_name, image_format=format)
-
-    for idx, png_file in enumerate(png_files):
-        image = cv2.imread(png_file, cv2.IMREAD_GRAYSCALE)
-
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
-
-        if image is not None:
-            binary_image = image // 255
-            new_file_path = os.path.join(output_path, os.path.basename(png_file))
-            cv2.imwrite(new_file_path, binary_image)
-    print("\033[1;3mConversion to binary completed!\033[0m")
-
 
 # Function to convert binary images to grayscale
 def binary_to_grayscale(read_path:str, image_names:Union[ImageName, None], format:str, output_path:str):
@@ -207,7 +187,24 @@ def grayscale_to_rgb(read_path, output_path):
             new_image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
             new_file_path = os.path.join(output_path, os.path.basename(png_file))
             cv2.imwrite(new_file_path, new_image)
-    print("\033[1;3mConversion to RGB completed!\033[0m")  
+    print("\033[1;3mConversion to RGB completed!\033[0m") 
+
+
+# Convert RGB images to grayscale
+def rgb_to_grayscale(read_path, output_path):
+    png_files = get_image_names(folder_path=read_path, image_names=None, image_format='png')
+
+    for idx, png_file in enumerate(png_files):
+        image = cv2.imread(png_file)
+
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        if image is not None:
+            new_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+            new_file_path = os.path.join(output_path, os.path.basename(png_file))
+            cv2.imwrite(new_file_path, new_image)
+    print("\033[1;3mConversion to grayscale completed!\033[0m")
 
 
 class bitconverter:
@@ -290,6 +287,43 @@ class bitconverter:
             cv2.imwrite(output_path, image_16bit)
 
         print(f"\033[1;3m {i+1} images have been converted to 16-bit!\033[0m")
+    
+    # ---------------------------- Grayscale to binary ----------------------------
+    # Have 2 functions, one for converting a single image and one for batch conversion
+
+    def grayscale_to_binary_one_image(image):
+        """
+        Convert a single grayscale image to binary.
+        """
+        if image.dtype == np.uint8:
+            binary_image = (image // 255).astype(np.uint8)
+        elif image.dtype == np.uint16:
+            binary_image = (image // 65535).astype(np.uint16)
+        else:
+            raise Exception('Error: Image is not in 8-bit or 16-bit grayscale format!')
+        return binary_image
+
+
+    def grayscale_to_binary(read_path: str, format: str, read_name: Union[ImageName, None], output_path: str):
+        """
+        Function to convert images to binary format.
+        No name or format change, just path.
+        """
+        png_files = get_image_names(folder_path=read_path, image_names=read_name, image_format=format)
+
+        for png_file in png_files:
+            image = cv2.imread(png_file, cv2.IMREAD_UNCHANGED)
+
+            if not os.path.exists(output_path):
+                os.makedirs(output_path)
+
+            if image is not None:
+                binary_image = bitconverter.grayscale_to_binary_one_image(image)
+                new_file_path = os.path.join(output_path, os.path.basename(png_file))
+                cv2.imwrite(new_file_path, binary_image)
+
+        print(f"\033[1;3m{len(png_files)} images' conversion to binary completed!\033[0m")
+
 
 # ---------------------------- Test functions ----------------------------
 
@@ -304,6 +338,11 @@ def test_convert_to_16bit():
     path_out = 'g:/temp16bit/'
     bitconverter.convert_to_16bit(path_in, path_out, 'jpg')
 
+
+def test_grayscale_to_binary():
+    path_in = 'g:/DL_Data_raw/Unit_test/grayscale_to_binary/16bit/'
+    path_out = 'g:/DL_Data_raw/Unit_test/grayscale_to_binary/0-1/'
+    bitconverter.grayscale_to_binary(path_in, 'png', None, path_out)
 
 # --------------------------------- column_batch_related --------------------------------- #
 
