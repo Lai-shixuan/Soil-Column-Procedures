@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-def padding_img(input: np.ndarray, target_size: int=512) -> np.ndarray:
+def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
     """
     Only for grayscale image
     """
@@ -14,7 +14,7 @@ def padding_img(input: np.ndarray, target_size: int=512) -> np.ndarray:
 
     output = np.pad(input, ((padding_top, target_size - input.shape[0] - padding_top),
                             (padding_left, target_size - input.shape[1] - padding_left)),
-                    mode='constant', constant_values=255)
+                    mode='constant', constant_values=color)
     
     return output
 

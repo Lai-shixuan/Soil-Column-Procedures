@@ -14,14 +14,14 @@ def precheck(dataset: list[np.ndarray], labels: list[np.ndarray]):
     else:
         print('Check 1 pass, Dataset and labels have the same shape')
     
-    # 2. Check if images are at least 800x800, if not, pad them
+    # 2. Check if images are at least 800x800, if not, pad them. Labels and imgs have different padding color.
     check_two_pass = True
     if dataset[0].shape[0] < 800 or dataset[0].shape[1] < 800:
-        dataset = [resize.padding_img(input=img, target_size=800) for img in dataset]
+        dataset = [resize.padding_img(input=img, target_size=800, color=255) for img in dataset]
         print('2.Dataset images have been padded')
         check_two_pass = False
     if labels[0].shape[0] < 800 or labels[0].shape[1] < 800:
-        labels = [resize.padding_img(input=img, target_size=800) for img in labels]
+        labels = [resize.padding_img(input=img, target_size=800, color=0) for img in labels]
         print('2.Label images have been padded')
         check_two_pass = False
     if check_two_pass:
