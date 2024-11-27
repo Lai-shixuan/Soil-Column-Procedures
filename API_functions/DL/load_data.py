@@ -23,7 +23,7 @@ class my_Dataset(Dataset):
 
         # change to pytorch float 32
         img = torch.tensor(img, dtype=torch.float32)
-        label = torch.tensor(label/255, dtype=torch.float32) 
+        label = torch.tensor(label, dtype=torch.float32) 
         
         return img,label
     
