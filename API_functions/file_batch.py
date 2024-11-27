@@ -7,8 +7,8 @@ import numpy as np
 import shutil
 
 # User-defined library import
-from .Soils import pre_process
-from .Soils import threshold_position_independent
+from Soils import pre_process
+from Soils import threshold_position_independent
 
 
 # A date structure to include prefix, suffix and middle name:
@@ -208,7 +208,104 @@ def grayscale_to_rgb(read_path, output_path):
             cv2.imwrite(new_file_path, new_image)
     print("\033[1;3mConversion to RGB completed!\033[0m")  
 
+
+class bitconverter:
+    """
+    A class to convert images between 8-bit and 16-bit formats.
+    """
+    def __init__(self):
+        pass
+
+
+    def average(values: list):
+        return sum(values) / len(values)
+
+    # ---------------------------- 16-bit to 8-bit ----------------------------
+
+    def convert_to_8bit_one_image(image_file):
+        if image_file.dtype == np.uint16:
+            image_8bit = (image_file / 256).astype(np.uint8)
+        elif image_file.dtype == np.uint8:
+            print("\033[1;3mThe image is already in 8-bit format!\033[0m")
+        else:
+            print("\033[1;3mThe image is not in 8-bit or 16-bit format!\033[0m")
+        return image_8bit
+
+
+    def convert_to_8bit(path_in, path_out, in_format: str):
+        """
+        Only for grayscale images.
+        If it need windows adjustment, please use the other function first in file batch.
+        """
+        # Create the output directory if it does not exist
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
+
+        # Get all image files in the input directory
+        image_names = get_image_names(path_in, None, in_format)
+        names = [os.path.basename(item) for item in image_names]
+        image_files = read_images(image_names, gray='gray', read_all=True)
+
+        for i, image_file in enumerate(tqdm(image_files)):
+
+            image_8bit = bitconverter.convert_to_8bit_one_image(image_file)
+            output_path = os.path.join(path_out, names[i])
+            cv2.imwrite(output_path, image_8bit)
+        print(f"\033[1;3m{i+1} images have been converted to 8-bit!\033[0m")
+
+    # ---------------------------- 8-bit to 16-bit ----------------------------
+    # Have 2 functions, one for converting a single image and one for batch conversion
+
+    def convert_to_16bit_one_image(image_file):
+        """
+        Automatically convert an image to 16-bit format, checking if the image is in 8-bit or 16-bit format.
+        """
+        if image_file.dtype == np.uint8:
+            image_file = (image_file * 256).astype(np.uint16)
+        elif image_file.dtype == np.uint16:
+            print("\033[1;3mThe image is already in 16-bit format!\033[0m")
+        else:
+            print("\033[1;3mThe image is not in 8-bit or 16-bit format!\033[0m")
+        return image_file
+
+
+    def convert_to_16bit(path_in: str, path_out: str, in_format: str, out_format: str):
+        # Create the output directory if it does not exist
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
+
+        image_names = get_image_names(path_in, None, in_format)
+        names = [os.path.basename(item) for item in image_names]
+        image_files = read_images(image_names, gray='gray', read_all=True)
+
+        for i, image_file in enumerate(tqdm(image_files)):
+            image_16bit = bitconverter.convert_to_16bit_one_image(image_file)
+
+            if in_format != 'png' or in_format != 'tiff':
+                names[i] = names[i].replace(in_format, out_format)
+
+            # Save the 16-bit image to the output directory
+            output_path = os.path.join(path_out, names[i])
+            cv2.imwrite(output_path, image_16bit)
+
+        print(f"\033[1;3m {i+1} images have been converted to 16-bit!\033[0m")
+
+# ---------------------------- Test functions ----------------------------
+
+def test_convert_to_8bit():
+    path_in = 'g:/temp16bit/'
+    path_out = 'g:/temp8bit/'
+    bitconverter.convert_to_8bit(path_in, path_out, 'png')
+
+
+def test_convert_to_16bit():
+    path_in = 'g:/temp8bit/'
+    path_out = 'g:/temp16bit/'
+    bitconverter.convert_to_16bit(path_in, path_out, 'jpg')
+
+
 # --------------------------------- column_batch_related --------------------------------- #
+
 
 # Crop the image without name change, but the folder will change, change the format to png
 def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], roi: roi_region, img_format: str = 'bmp'):
@@ -307,6 +404,25 @@ def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, star
     print(f'\033[1;3mRename completely!\033[0m')
 
 
+def windows_adjustment(path_in: str, path_out: str):
+    """
+    Only for gray images! png format.
+    """
+    image_lists = get_image_names(path_in, None, 'png')
+    image_names = [os.path.basename(item) for item in image_lists]
+    images = read_images(image_lists, gray='gray', read_all=True)
+    min, max = pre_process.get_average_windows(images)
+    print(f"min: {min}, max: {max}")
+
+    for j, image in enumerate(tqdm(images)):
+        image = pre_process.map_range_to_65536(image, min, max)
+
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
+        cv2.imwrite(os.path.join(path_out, image_names[j]), image)
+    print(f'\033[1;3mWindows adjustment completely!\033[0m')
+
+
 # Threshold the image with new name, but the folder will change
 def image_process(path_in: str, path_out: str):
     """
@@ -334,3 +450,9 @@ def image_process(path_in: str, path_out: str):
 
     show_image_names(temp_list)
     print(f'\033[1;3mImage procession completely!\033[0m')
+
+
+# ---------------------------- Main function ----------------------------
+
+if __name__ == '__main__':
+    test_convert_to_8bit()

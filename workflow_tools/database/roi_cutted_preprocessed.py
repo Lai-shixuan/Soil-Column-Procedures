@@ -50,24 +50,9 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
 # preprocess function
 
 for i in [28, 29, 30, 31, 32, 33, 34]:
-
     path_in = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/2.ROI/'
-    image_lists = fb.get_image_names(path_in, None, 'png')
-    image_names = [os.path.basename(item) for item in image_lists]
-    images = fb.read_images(image_lists, gray='gray', read_all=True)
-    min, max = pre_process.get_average_windows(images)
-    print(f"min: {min}, max: {max}")
-
-    for j, image in enumerate(tqdm(images)):
-        image = pre_process.map_range_to_65536(image, min, max)
-        # for k in range(1, 6, 1):
-        #     for m in range(1, 10, 2):
-        #         image = pre_process.noise_reduction(image, k, 500, 9)
-        #         image = pre_process.high_boost_filter(image, 1, 1 + m/10)
-        path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/3.Preprocess/Remap/'
-        if not os.path.exists(path_out):
-            os.makedirs(path_out)
-        cv.imwrite(os.path.join(path_out, image_names[j]), image)
+    path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/3.Preprocess/Remap/'
+    fb.windows_adjustment(path_in, path_out)
     break
 
 #%%
