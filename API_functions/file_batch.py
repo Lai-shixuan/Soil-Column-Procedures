@@ -7,7 +7,8 @@ import numpy as np
 import shutil
 
 import sys
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 from API_functions.Soils import pre_process
 from API_functions.Soils import threshold_position_independent
 
@@ -296,33 +297,35 @@ class bitconverter:
         Convert a single grayscale image to binary.
         """
         if image.dtype == np.uint8:
-            binary_image = (image // 255).astype(np.uint8)
+            binary_image = (image / 255).astype(np.float32)
         elif image.dtype == np.uint16:
-            binary_image = (image // 65535).astype(np.uint16)
+            binary_image = (image / 65535).astype(np.float32)
         else:
             raise Exception('Error: Image is not in 8-bit or 16-bit grayscale format!')
         return binary_image
 
 
-    def grayscale_to_binary(read_path: str, format: str, read_name: Union[ImageName, None], output_path: str):
+    def grayscale_to_binary(read_path: str, in_format: str, read_name: Union[ImageName, None], output_path: str):
         """
+        Don't use this function, because please note that the output format have to be tiff to save the binary images from 0 to 1.
         Function to convert images to binary format.
-        No name or format change, just path.
         """
-        png_files = get_image_names(folder_path=read_path, image_names=read_name, image_format=format)
+        image_paths = get_image_names(folder_path=read_path, image_names=read_name, image_format=in_format)
 
-        for png_file in png_files:
-            image = cv2.imread(png_file, cv2.IMREAD_UNCHANGED)
+        for image_path in image_paths:
+            image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
 
             if image is not None:
                 binary_image = bitconverter.grayscale_to_binary_one_image(image)
-                new_file_path = os.path.join(output_path, os.path.basename(png_file))
+                # change in_format to tiff:
+                file_name = os.path.basename(image_path).replace(in_format, 'tiff')
+                new_file_path = os.path.join(output_path, file_name)
                 cv2.imwrite(new_file_path, binary_image)
 
-        print(f"\033[1;3m{len(png_files)} images' conversion to binary completed!\033[0m")
+        print(f"\033[1;3m{len(image_paths)} images' conversion to binary completed!\033[0m")
 
 
 # ---------------------------- Test functions ----------------------------
@@ -495,4 +498,4 @@ def image_process(path_in: str, path_out: str):
 # ---------------------------- Main function ----------------------------
 
 if __name__ == '__main__':
-    test_convert_to_8bit()
+    test_grayscale_to_binary()
