@@ -65,7 +65,7 @@ class ImageViewer(QMainWindow):
         self.canvas.draw()
 
     def on_scroll(self, event):
-        print(f"Scroll event detected: {event.button}")  # Debugging line to check if scroll is working
+        # print(f"Scroll event detected: {event.button}")  # Debugging line to check if scroll is working
         if event.button == 'up':
             self.index1 = (self.index1 - 1) % len(self.images1_list)
             self.index2 = (self.index2 - 1) % len(self.images2_list)

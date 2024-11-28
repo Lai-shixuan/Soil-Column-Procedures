@@ -7,12 +7,13 @@ import os
 from tqdm import tqdm
 import cv2
 import pandas as pd
+import numpy as np
 
 
 #%%
 # Get the list of image files in the folder
 
-path = 'f:/3.Experimental_Data/Soils/Online/'
+path = 'f:/3.Experimental_Data/Soils/Online/Origin/Origin-normal_images_842/'
 jpg_images = fb.get_image_names(path, None, 'jpg')
 png_images = fb.get_image_names(path, None, 'png')
 
@@ -20,7 +21,7 @@ file_lists = jpg_images + png_images
 
 
 #%%
-# Divide the images into 2 groups based on their sizes
+# Divide the images into 2 groups based on the the number of white and black pixels
 
 def divide_images_into_groups(image_paths):
     group_1 = []  # Larger images
@@ -30,18 +31,27 @@ def divide_images_into_groups(image_paths):
     for i in range(0, len(image_paths), 2):
         image_1 = image_paths[i]
         image_2 = image_paths[i+1]
-        
-        # Get the sizes of the images
-        size_1 = os.path.getsize(image_1)
-        size_2 = os.path.getsize(image_2)
+
+        image_1_value = cv2.imread(image_1, cv2.IMREAD_GRAYSCALE) 
+        image_2_value = cv2.imread(image_2, cv2.IMREAD_GRAYSCALE)
+
+        count_0_or_1 = np.sum((image_1_value == 0) | (image_1_value == 255))
+        total_pixels = image_1_value.size
+        ratio_1 = count_0_or_1 / total_pixels 
+
+        count_0_or_1 = np.sum((image_2_value == 0) | (image_2_value == 255))
+        total_pixels = image_2_value.size
+        ratio_2 = count_0_or_1 / total_pixels
         
         # Compare the sizes and assign to groups
-        if size_1 > size_2:
+        if ratio_1 > 0.55:
+            group_1.append(image_2)     
+            group_2.append(image_1)     # labels group
+        elif ratio_2 > 0.55:
             group_1.append(image_1)
-            group_2.append(image_2)
+            group_2.append(image_2)     # labels group
         else:
-            group_1.append(image_2)
-            group_2.append(image_1)
+            print(f'Error: {image_1} and {image_2} are not paired images')
     
     return group_1, group_2
 
@@ -59,13 +69,13 @@ new_label_names = []
 # Process image files
 for i, image in enumerate(group_1):
     original_image_names.append(os.path.basename(image))
-    new_name = f'{i:03}.png'
+    new_name = f'0035.{i:03}.png'
     new_image_names.append(new_name)
 
 # Process label files
 for i, label in enumerate(group_2):
     original_label_names.append(os.path.basename(label))
-    new_name = f'{i:03}.png'
+    new_name = f'0035.{i:03}.png'
     new_label_names.append(new_name)
 
 # Make 4 lists into 1 dict
@@ -84,8 +94,8 @@ name_df.to_csv(path + 'name_dict.csv', index=False)
 #%%
 # Save the images to the new folders, with new names
 
-image_paths = path + 'images/'
-label_paths = path + 'labels/'
+image_paths = 'f:/3.Experimental_Data/Soils/Online/images/'
+label_paths = 'f:/3.Experimental_Data/Soils/Online/labels/'
 
 
 for i, img in enumerate(tqdm(group_1)):
