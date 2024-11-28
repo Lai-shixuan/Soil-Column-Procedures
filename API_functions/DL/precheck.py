@@ -13,7 +13,7 @@ def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: i
     """
     Preprocess the dataset and labels by:
     1. Checking if the images are grayscale. 
-    2. Converting images to 8-bit.
+    2. Converting images to 0-1 range.
     3. Padding smaller images to the target size if needed.
     4. Ensuring labels contain only values 0 and 255.
     5. Handling large images by splitting them using a sliding window technique.
@@ -53,21 +53,21 @@ def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: i
         if len(img.shape) != 2 or len(label.shape) != 2:
             raise ValueError('The images should be grayscale')
 
-        # 2. Convert to 8-bit if necessary
-        if img.dtype != 'uint8' or label.dtype != 'uint8':
-            img = fb.bitconverter.convert_to_8bit_one_image(img)
-            label = fb.bitconverter.convert_to_8bit_one_image(label)
+        # 2. Convert to 0-1 images
+        if img.dtype == 'uint8' or label.dtype == 'uint8' or img.dtype == 'uint16' or label.dype == 'uint16':
+            img = fb.bitconverter.grayscale_to_binary_one_image(img)
+            label = fb.bitconverter.grayscale_to_binary_one_image(label)
             converted_count += 1
 
         # 3. Padding images and labels smaller than target_size
         if h < target_size or w < target_size:
-            img = multi_input_adapter.padding_img(input=img, target_size=target_size, color=255)
+            img = multi_input_adapter.padding_img(input=img, target_size=target_size, color=1)
             label = multi_input_adapter.padding_img(input=label, target_size=target_size, color=0)
             padded_count += 1  # Combined count for padding images and labels
 
         # 4. Threshold label to ensure it's binary (0 and 255)
-        if set(label.flatten()) != {0, 255}: 
-            label = tpi.user_threshold(image=label, optimal_threshold=255//2)
+        if set(label.flatten()) != {0, 1}: 
+            label = tpi.user_threshold(image=label, optimal_threshold=0.5)
             thresholded_count += 1
 
         # 5. Sliding window to create patches from large images
@@ -87,7 +87,7 @@ def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: i
 
     # Print counts if verbose is enabled
     if verbose:
-        print(f'Images converted to 8-bit: {converted_count}')
+        print(f'Images converted to 0-1 range: {converted_count}')
         print(f'Images and labels padded: {padded_count}')
         print(f'Labels thresholded to binary: {thresholded_count}')
         print(f'Images split using sliding window: {sliding_window_image_count}')
