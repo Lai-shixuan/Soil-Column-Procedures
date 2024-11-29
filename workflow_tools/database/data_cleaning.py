@@ -13,7 +13,7 @@ import numpy as np
 #%%
 # Get the list of image files in the folder
 
-path = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/0.Origin/Origin-normal_images_838/'
+path = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/0.Origin/Origin-normal_images_842/'
 jpg_images = fb.get_image_names(path, None, 'jpg')
 png_images = fb.get_image_names(path, None, 'png')
 
@@ -69,13 +69,13 @@ new_label_names = []
 # Process image files
 for i, image in enumerate(group_1):
     original_image_names.append(os.path.basename(image))
-    new_name = f'0035.{i:03}.png'
+    new_name = f'0035.{i:03}.circle.png'
     new_image_names.append(new_name)
 
 # Process label files
 for i, label in enumerate(group_2):
     original_label_names.append(os.path.basename(label))
-    new_name = f'0035.{i:03}.png'
+    new_name = f'0035.{i:03}.circle.png'
     new_label_names.append(new_name)
 
 # Make 4 lists into 1 dict
