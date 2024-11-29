@@ -13,7 +13,7 @@ import numpy as np
 #%%
 # Get the list of image files in the folder
 
-path = 'f:/3.Experimental_Data/Soils/Online/Origin/Origin-normal_images_842/'
+path = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/0.Origin/Origin-normal_images_838/'
 jpg_images = fb.get_image_names(path, None, 'jpg')
 png_images = fb.get_image_names(path, None, 'png')
 
@@ -94,13 +94,13 @@ name_df.to_csv(path + 'name_dict.csv', index=False)
 #%%
 # Save the images to the new folders, with new names
 
-image_paths = 'f:/3.Experimental_Data/Soils/Online/images/'
-label_paths = 'f:/3.Experimental_Data/Soils/Online/labels/'
+image_paths = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/images/'
+label_paths = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/labels/'
 
 
 for i, img in enumerate(tqdm(group_1)):
-    cv2.imwrite(image_paths + name_dict['new_image_names'][i], cv2.imread(img))
+    cv2.imwrite(image_paths + name_dict['new_image_names'][i], cv2.imread(img, cv2.IMREAD_GRAYSCALE))
 
 for i, img in enumerate(tqdm(group_2)):
-    cv2.imwrite(label_paths + name_dict['new_label_names'][i], cv2.imread(img))
+    cv2.imwrite(label_paths + name_dict['new_label_names'][i], cv2.imread(img, cv2.IMREAD_GRAYSCALE))
 
