@@ -221,9 +221,13 @@ class bitconverter:
 
     # ---------------------------- 16-bit to 8-bit ----------------------------
 
-    def convert_to_8bit_one_image(image_file):
+    def convert_to_8bit_one_image(image_file, type='float'):
         if image_file.dtype == np.uint16:
-            image_8bit = (image_file / 256).astype(np.uint8)
+            image_8bit = (image_file / 256)
+            if type == 'float':
+                image_8bit = image_8bit.astype(np.float32)
+            elif type == 'uint8':
+                image_8bit = image_8bit.astype(np.uint8)
         elif image_file.dtype == np.uint8:
             print("\033[1;3mThe image is already in 8-bit format!\033[0m")
         else:
@@ -234,6 +238,7 @@ class bitconverter:
     def convert_to_8bit(path_in, path_out, in_format: str):
         """
         Only for grayscale images.
+        Optional between float and uint8.
         If it need windows adjustment, please use the other function first in file batch.
         """
         # Create the output directory if it does not exist
@@ -247,7 +252,7 @@ class bitconverter:
 
         for i, image_file in enumerate(tqdm(image_files)):
 
-            image_8bit = bitconverter.convert_to_8bit_one_image(image_file)
+            image_8bit = bitconverter.convert_to_8bit_one_image(image_file, type='uint8')
             output_path = os.path.join(path_out, names[i])
             cv2.imwrite(output_path, image_8bit)
         print(f"\033[1;3m{i+1} images have been converted to 8-bit!\033[0m")
@@ -300,8 +305,15 @@ class bitconverter:
             binary_image = (image / 255).astype(np.float32)
         elif image.dtype == np.uint16:
             binary_image = (image / 65535).astype(np.float32)
+        elif image.dtype == np.float32:
+            if np.max(image) <= 1:
+                binary_image = image
+            elif np.max(image) <= 255:
+                binary_image = image / 255
+            elif np.max(image) <= 65535:
+                binary_image = image / 65535
         else:
-            raise Exception('Error: Image is not in 8-bit or 16-bit grayscale format!')
+            raise Exception('Error: Image is not in 8-bit or 16-bit or float32 grayscale format!')
         return binary_image
 
 
