@@ -1,24 +1,20 @@
-#%%
-# Import the required libraries
-
-from abc import ABC, abstractmethod
 import cv2
 import numpy as np
-from dataclasses import dataclass
-from typing import Tuple, Optional, Protocol, TypeVar, Generic, List, Dict
 import logging
-from pathlib import Path
-from contextlib import contextmanager
-from tqdm import tqdm
 import sys
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 
-from API_functions import file_batch as fb
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from typing import Tuple, Optional, Protocol, TypeVar, Generic, List, Dict
 
-#%%
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+
+from API_functions.Soils import threshold_position_independent as tpi
+
+
 # Define the new logger configuration and manager class
-
-# Replace the existing logger configuration with this new class
 class LoggerManager:
     """Manages logging configuration and states"""
     def __init__(self):
@@ -216,7 +212,7 @@ class EllipseDetector(ShapeDetector[EllipseParams]):
         return valid_directions
 
     def _try_translate_and_shrink(self, image: np.ndarray, params: EllipseParams,
-                                 target_pixels: int) -> EllipseParams:
+                                    target_pixels: int) -> EllipseParams:
         """使用新策略尝试平移并缩小椭圆"""
         current_params = EllipseParams(**vars(params))
         
@@ -232,7 +228,7 @@ class EllipseDetector(ShapeDetector[EllipseParams]):
             for direction in valid_directions:
                 # 尝试在这个方向上移动
                 test_center = (current_params.center[0] + direction[0], 
-                             current_params.center[1] + direction[1])
+                                current_params.center[1] + direction[1])
                 test_params = EllipseParams(
                     center=test_center,
                     long_axis=current_params.long_axis,
@@ -362,7 +358,7 @@ class RectangleDetector(ShapeDetector[RectangleParams]):
         return current_params
     
     def _try_translate_and_shrink(self, image: np.ndarray, params: RectangleParams,
-                                 target_pixels: int) -> RectangleParams:
+                                target_pixels: int) -> RectangleParams:
         """尝试平移并在新位置继续缩小"""
         current_params = RectangleParams(**vars(params))
         made_improvement = True
@@ -427,12 +423,12 @@ class ShapeDrawer:
     
     @staticmethod
     def draw_shape(image: np.ndarray, params: ShapeParams, color: Tuple[int, int, int] = (0, 255, 0), 
-                   thickness: int = 2) -> np.ndarray:
+                    thickness: int = 2) -> np.ndarray:
         result = image.copy()
         if isinstance(params, EllipseParams):
             cv2.ellipse(result, params.center, 
                        (params.long_axis // 2, params.short_axis // 2),
-                       0, 0, 360, color, thickness)
+                        0, 0, 360, color, thickness)
         elif isinstance(params, RectangleParams):
             half_width, half_height = params.width // 2, params.height // 2
             top_left = (params.center[0] - half_width, params.center[1] - half_height)
@@ -453,7 +449,10 @@ def _check_corners(image: np.ndarray, corner_size: int = 4) -> bool:
     return all(np.any(corner == 255) for corner in corners)
 
 def _create_circular_mask(image: np.ndarray) -> np.ndarray:
-    """Create a circular mask that fits within the image"""
+    """
+    Create a circular mask that fits within the image
+    Only used when corners contain white pixels, may because of ???
+    """
     h, w = image.shape
     center = (w // 2, h // 2)
     radius = min(w, h) // 2
@@ -465,15 +464,14 @@ def _create_circular_mask(image: np.ndarray) -> np.ndarray:
     mask[dist_from_center <= radius] = 255
     return mask
 
-# Add this new utility function for image cutting
 def apply_shape_mask(image: np.ndarray, params: ShapeParams) -> np.ndarray:
     """Create mask from shape parameters and apply it to image"""
     mask = np.zeros(image.shape[:2], dtype=np.uint8)  # Create single channel mask
     
     if isinstance(params, EllipseParams):
         cv2.ellipse(mask, params.center, 
-                   (params.long_axis // 2, params.short_axis // 2),
-                   0, 0, 360, 255, -1)
+                    (params.long_axis // 2, params.short_axis // 2),
+                    0, 0, 360, 255, -1)
     elif isinstance(params, RectangleParams):
         half_width, half_height = params.width // 2, params.height // 2
         top_left = (params.center[0] - half_width, params.center[1] - half_height)
@@ -486,161 +484,114 @@ def apply_shape_mask(image: np.ndarray, params: ShapeParams) -> np.ndarray:
     
     return cv2.bitwise_and(image, mask)
 
-def process_shape_detection(binary_input_path: str, second_input_path: str,
-                          output_dir: Optional[str], detector: ShapeDetector[T],
-                          enable_logging: bool = True) -> Optional[Tuple[Dict[str, np.ndarray], T]]:
-    """Enhanced shape detection processor returning processed images and parameters"""
+def cut_with_shape(image: np.ndarray, params: ShapeParams, fillcolor: int) -> np.ndarray:
+    """
+    Apply detected shape parameters to cut another grayscale image and fill outside pixels with 255
+    All parametes shrink the shape by 2 pixels to avoid edge artifacts
+
+    Args:
+        image (np.ndarray): Input grayscale image to be cut
+        params (ShapeParams): Shape parameters (EllipseParams or RectangleParams)
+
+    Returns:
+        np.ndarray: Cut grayscale image with outside pixels set to 255
+        
+    Raises:
+        ValueError: If input image is not grayscale
+    """
+
+    shrinked_params = 2
+
+    if len(image.shape) != 2:
+        raise ValueError("Input image must be grayscale (single channel)")
+    
+    # Create mask matching the input image dimensions
+    mask = np.zeros(image.shape, dtype=np.uint8)
+    
+    # Draw the shape in color (255) on the mask
+    if isinstance(params, EllipseParams):
+        cv2.ellipse(mask, params.center, 
+                    ((params.long_axis - shrinked_params) // 2, (params.short_axis - shrinked_params) // 2),
+                    0, 0, 360, 255, -1)
+    elif isinstance(params, RectangleParams):
+        half_width, half_height = (params.width - shrinked_params) // 2, (params.height - shrinked_params) // 2
+        top_left = (params.center[0] - half_width, params.center[1] - half_height)
+        bottom_right = (params.center[0] + half_width, params.center[1] + half_height)
+        cv2.rectangle(mask, top_left, bottom_right, 255, -1)
+    
+    # Create output image (all white)
+    result = np.full_like(image, fillcolor)
+
+    # Set mask == 255 regions to original image values
+    result[mask == 255] = image[mask == 255]
+    
+    return result
+
+def process_shape_detection(input_image: np.ndarray,
+                            detector: ShapeDetector[T],
+                            is_label: bool,
+                            enable_logging: bool = False,
+                            draw_mask: bool = False) -> Optional[Tuple[Dict[str, np.ndarray], T]]:
+    """
+    Process an image for shape detection and masking.
+
+    Args:
+        input_image (np.ndarray): Input image
+        detector (ShapeDetector[T]): Shape detector instance (Ellipse or Rectangle)
+        enable_logging (bool): Whether to enable logging during processing
+        draw_mask (bool): Whether to create visualization image with drawn shape
+        is_label (bool): If True, fill outside pixels with black (0), else white (255)
+
+    Returns:
+        Optional[Tuple[Dict[str, np.ndarray], T]]: 
+            - Dictionary containing:
+                - 'cut': The masked image
+                - 'draw': (if draw_mask=True) Image with shape drawn
+            - Shape parameters of type T
+            Returns None if processing fails
+    """
     if not enable_logging:
         logger_manager.disable()
     else:
         logger_manager.enable()
 
     try:
-        # Convert paths to Path objects
-        binary_input_path = Path(binary_input_path)
-        second_input_path = Path(second_input_path)
-        
-        # Validate inputs
-        if not binary_input_path.exists():
-            raise FileNotFoundError(f"Binary input file not found: {binary_input_path}")
-        if not second_input_path.exists():
-            raise FileNotFoundError(f"Second input file not found: {second_input_path}")
-        
-        # Read both images in grayscale
-        binary_image = cv2.imread(str(binary_input_path), cv2.IMREAD_GRAYSCALE)
-        second_image = cv2.imread(str(second_input_path), cv2.IMREAD_GRAYSCALE)
-        if binary_image is None or second_image is None:
-            raise ValueError("Failed to load one or both images")
-
         # Apply circular mask if needed
-        if _check_corners(binary_image):
-            logger_manager.info("Corner white pixels detected, applying circular mask")
-            circular_mask = _create_circular_mask(binary_image)
-            binary_image = cv2.bitwise_and(binary_image, circular_mask)
+        if _check_corners(input_image):
+            # Start a user warning if corners are white
+            Warning.warn("Corner white pixels detected, applying circular mask")
+            circular_mask = _create_circular_mask(input_image)
+            input_image = cv2.bitwise_and(input_image, circular_mask)   
+
+        # Apply thresholding if not label image, make the edge more clear
+        if is_label == False:
+            origional_image = input_image.copy()
+            input_image = tpi.user_threshold(input_image, 255//8)
 
         # Detect shape
-        params = detector.detect(binary_image)
+        params = detector.detect(input_image)
         
-        processed_images = {
-            'label_draw': None,
-            'image_draw': None,
-            'label_cut': None,
-            'image_cut': None
-        }
+        result_dict = {}
 
-        # Convert to color for drawing
-        binary_result = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
-        second_result = cv2.cvtColor(second_image, cv2.COLOR_GRAY2BGR)
-        
-        # Draw shapes
-        processed_images['label_draw'] = ShapeDrawer.draw_shape(binary_result, params)
-        processed_images['image_draw'] = ShapeDrawer.draw_shape(second_result, params)
-        
-        # Create masked images (cuts) without drawing
-        processed_images['label_cut'] = apply_shape_mask(binary_image, params)
-        
-        # Special handling for second image cut: set outside pixels to 255
-        shape_mask = np.zeros(second_image.shape, dtype=np.uint8)
-        if isinstance(params, EllipseParams):
-            cv2.ellipse(shape_mask, params.center, 
-                       (params.long_axis // 2, params.short_axis // 2),
-                       0, 0, 360, 255, -1)
-        # Create cut image with outside pixels as 255
-        cut_image = second_image.copy()
-        cut_image[shape_mask == 0] = 255  # Set outside pixels to white
-        cut_image[shape_mask == 255] = second_image[shape_mask == 255]  # Keep original pixels inside
-        processed_images['image_cut'] = cut_image
+        # Cut image using shape parameters, fill outside pixels with 0, 255 if are not label
+        if is_label == False:
+            cut_image = origional_image.copy()
+        else:
+            cut_image = input_image.copy()
+        fill_value = 0 if is_label else 255
+        cut_image = cut_with_shape(cut_image, params, fill_value)
+        result_dict['cut'] = cut_image
 
-        # Save all images if output_dir is provided
-        if output_dir:
-            out_path = Path(output_dir)
-            out_path.mkdir(parents=True, exist_ok=True)
-            base_name = binary_input_path.stem
-            
-            cv2.imwrite(str(out_path / f"{base_name}_label-draw.png"), processed_images['label_draw'])
-            cv2.imwrite(str(out_path / f"{base_name}_image-draw.png"), processed_images['image_draw'])
-            cv2.imwrite(str(out_path / f"{base_name}_label-cut.png"), processed_images['label_cut'])
-            cv2.imwrite(str(out_path / f"{base_name}_image-cut.png"), processed_images['image_cut'])
-            
-            logger_manager.info(f"All results saved to: {out_path}")
+        if draw_mask:
+            if is_label == False:
+                draw_image = cv2.cvtColor(origional_image, cv2.COLOR_GRAY2BGR)
+            else:
+                draw_image = cv2.cvtColor(input_image, cv2.COLOR_GRAY2BGR)
+            result_dict['draw'] = ShapeDrawer.draw_shape(draw_image, params)
 
         logger_manager.info(f"Detection results: {params}")
-        return processed_images, params
+        return result_dict, params
 
     except Exception as e:
-        logger_manager.error(f"Error processing images: {e}")
+        logger_manager.error(f"Error processing image: {e}")
         return None
-
-def batch_process_images(label_paths: List[str], image_paths: List[str], 
-                        output_base_dir: str, detector: ShapeDetector[T],
-                        enable_logging: bool = True) -> None:
-    """
-    Process multiple pairs of images and organize outputs into separate folders.
-    """
-    if len(label_paths) != len(image_paths):
-        raise ValueError("Number of label and image paths must match")
-
-    # Create output directories
-    output_base_dir = Path(output_base_dir)
-    output_dirs = {
-        'label_draw': output_base_dir / 'label_draw',
-        'image_draw': output_base_dir / 'image_draw',
-        'label_cut': output_base_dir / 'label_cut',
-        'image_cut': output_base_dir / 'image_cut'
-    }
-    
-    for dir_path in output_dirs.values():
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-    # Set logging state once for all processing
-    if not enable_logging:
-        logger_manager.disable()
-    
-    try:
-        for label_path, image_path in tqdm(zip(label_paths, image_paths), total=len(label_paths)):
-            try:
-                # Process the image pair
-                result = process_shape_detection(
-                    label_path, image_path, None, detector, False)
-                
-                if result is None:
-                    continue
-                    
-                processed_images, params = result
-                base_name = Path(label_path).stem
-                
-                # Save images to their respective folders
-                for img_type, img in processed_images.items():
-                    output_path = output_dirs[img_type] / f"{base_name}.png"
-                    cv2.imwrite(str(output_path), img)
-                
-                if enable_logging:
-                    logger_manager.info(f"Processed {base_name} - Shape params: {params}")
-                    
-            except Exception as e:
-                if enable_logging:
-                    logger_manager.error(f"Error processing {label_path}: {e}")
-                continue
-    finally:
-        # Restore logging state
-        if not enable_logging:
-            logger_manager.enable()
-
-# Update the example usage
-if __name__ == "__main__":
-    # Single image processing
-    # binary_input = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/0.Origin/Origin-special_images_154/1.tryhard/CG_P2_O_a_cut_nlm_zcor_seg_z737.jpg'
-    # second_input = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/0.Origin/Origin-special_images_154/1.tryhard/CG_P2_O_a_cut_nlm_zcor_z737.jpg'
-    # output_dir = "./results/"
-    # process_shape_detection(binary_input, second_input, output_dir, EllipseDetector())
-
-    # Batch processing
-    label_folder = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/labels/'
-    image_folder = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/images/'
-    
-    # Get all matching files from both folders
-
-    label_paths = fb.get_image_names(label_folder, None, 'png')
-    image_paths = fb.get_image_names(image_folder, None, 'png')
-    
-    batch_process_images(label_paths, image_paths, "./batch_results/", EllipseDetector(), enable_logging=False)
