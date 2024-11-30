@@ -25,6 +25,42 @@ def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
     return output
 
 
+def restore_image_batch(datasets: dict, target_size: int = 512):
+    """Restore the original images from patches and their positions."""
+
+    images_restrored = []
+
+    # Get number of patches for each image
+    patch_counts = {}
+    for idx in datasets['patch_to_image_map']:
+        patch_counts[idx] = patch_counts.get(idx, 0) + 1
+
+    # Process each original image
+    for img_idx, count in patch_counts.items():
+        if count == 1:
+            # Image wasn't split, just save the single patch directly
+            patch_idx = datasets['patch_to_image_map'].index(img_idx)
+            images_restrored.append(datasets['image_patches'][patch_idx])
+        else:
+            # Image was split into multiple patches, needs restoration
+            image_patches = [
+                patch for patch, map_idx in zip(datasets['image_patches'], datasets['patch_to_image_map'])
+                if map_idx == img_idx
+            ]
+            image_positions = datasets['patch_positions'][img_idx]
+            original_shape = datasets['original_image_info'][img_idx]
+            
+            restored_image = restore_image(
+                patches=image_patches,
+                patch_positions=image_positions,
+                image_shape=original_shape,
+                target_size=target_size
+            )
+            images_restrored.append(restored_image)
+    
+    return images_restrored
+
+
 def restore_image(patches: list[np.ndarray], patch_positions: list[tuple[int, int]], image_shape: tuple[int, int], target_size: int) -> np.ndarray:
     """
     Reconstructs the original image using patches and their positions.
@@ -38,14 +74,15 @@ def restore_image(patches: list[np.ndarray], patch_positions: list[tuple[int, in
     h, w = image_shape
     output = np.zeros((h, w), dtype=np.float32)
     count = np.zeros((h, w), dtype=np.float32)
-    
+
+    # Add each patch to the output image 
     for patch, (y, x) in zip(patches, patch_positions):
         output[y:y + target_size, x:x + target_size] += patch
         count[y:y + target_size, x:x + target_size] += 1
     
     # Average out the overlapping regions
     output /= count
-    return np.round(output).astype(np.uint8)
+    return output
 
 
 def sliding_window(input: np.ndarray, target_size: int, stride: int, return_positions: bool = False) -> tuple[list[np.ndarray], list[tuple[int, int]]]:
@@ -121,7 +158,6 @@ def _append_patches(img: np.ndarray, target_size: int, stride: int) -> tuple[lis
         patches.append(padding_img(img, target_size, color=255))
         patch_positions.append((0, 0))  # Single centered patch
         stats['is_padded'] = True
-        stats['patch_count'] = 1
     elif h > target_size or w > target_size:
         patches, patch_positions = sliding_window(img, target_size, stride, return_positions=True)
         stats['is_split'] = True
@@ -129,66 +165,65 @@ def _append_patches(img: np.ndarray, target_size: int, stride: int) -> tuple[lis
     else:
         patches.append(img)
         patch_positions.append((0, 0))
-        stats['patch_count'] = 1
         
     return patches, (h, w), stats, patch_positions
 
 
-def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: int = 512, stride: int = 512, verbose: bool = True) -> dict:
+def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int = 512, stride: int = 512, verbose: bool = True) -> dict:
     """
-    Preprocess the dataset and labels by:
+    Preprocess the images by:
     1. Converting images to float32 format, and the maximum value to 255.
-    2. Ensuring labels contain only values 0 and 255.
+    2. (Only for labels) Ensuring labels contain only values 0 and 255.
     3.1 Padding smaller images to the target size if needed.
     3.2 Handling large images by splitting them using a sliding window technique.
     4. Converting images to 0-1 range.
     
     Parameters:
-    - dataset (list[np.ndarray]): List of input images (grayscale).
-    - labels (list[np.ndarray]): List of label images (grayscale).
+    - images (list[np.ndarray]): List of input images (grayscale).
+    - is_label (bool): If True, treat inputs as label images and apply label-specific processing.
     - target_size (int): Target patch size for splitting large images.
     - stride (int): Stride for sliding window (equal to target_size).
     - verbose (bool): If True, print detailed processing logs.
     
     Returns:
     - dict: Dictionary containing:
-        - 'image_patches': List of lists, where each inner list contains patches for one original image
-        - 'label_patches': List of lists, where each inner list contains label patches for one original image
-        - 'patch_positions': List of lists, where each inner list contains (y, x) positions for patches
+        - 'patches': List of all image patches
+        - 'patch_positions': List of lists, where each inner list contains (y, x) positions for patches of one image
         - 'original_image_info': List of original image sizes
+        - 'patch_to_image_map': List indicating which original image each patch belongs to
     """
-    if len(dataset) != len(labels):
-        raise ValueError('The number of images in the dataset does not match the number of images in the labels')
-    
-    image_patches = []  # List of lists for patches
-    label_patches = []  # List of lists for label patches
+    patches = []  # List of lists for patches
     patch_positions = []  # List of lists for patch positions
     original_image_info = []
     stats = {'thresholded': 0, 'padded': 0, 'split': 0, 'total_patches': 0}
 
-    for img, label in zip(dataset, labels):
+    patch_to_image_map = []  # Track which original image each patch belongs to
+    current_image_idx = 0
+
+    for img in images:
         # Convert images to float32
         img = _harmonized_bit_number(img)
-        label = _harmonized_bit_number(label)
 
-        if set(label.flatten()) != {0, 255}:
-            label = tpi.user_threshold(image=label, optimal_threshold=255//2)
+        # Apply thresholding only if this is a label image
+        if is_label and set(img.flatten()) != {0, 255}:
+            img = tpi.user_threshold(image=img, optimal_threshold=255//2)
             stats['thresholded'] += 1
 
         # Handle patches
         new_patches, img_info, patch_stats, positions = _append_patches(img, target_size, stride)
-        new_labels, _, _, _ = _append_patches(label, target_size, stride)
         
         # Convert to 0-1 range
         new_patches = [fb.bitconverter.grayscale_to_binary_one_image(p) for p in new_patches]
-        new_labels = [fb.bitconverter.grayscale_to_binary_one_image(l) for l in new_labels]
         
         # Store patches and positions for this image
-        image_patches.extend(new_patches)
-        label_patches.extend(new_labels)
+        patches.extend(new_patches)
         patch_positions.append(positions)
         original_image_info.append(img_info)
         
+        # Track which patches belong to this image
+        patch_to_image_map.extend([current_image_idx] * len(new_patches))
+        current_image_idx += 1
+
         # Update statistics
         if patch_stats['is_split']:
             stats['split'] += 1
@@ -198,14 +233,14 @@ def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: i
             stats['total_patches'] += patch_stats['patch_count']
 
     if verbose:
-        print(f'Labels thresholded to binary: {stats["thresholded"]}')
-        print(f'Images and labels padded: {stats["padded"]}')
-        print(f'Images split using sliding window: {stats["split"]}')
-        print(f'Total patches created: {stats["total_patches"]}')
+        if is_label:
+            print(f'Labels thresholded to binary: {stats["thresholded"]}')
+        print(f'Images {"and labels " if is_label else ""}padded: {stats["padded"]}')
+        print(f'Images split using sliding window: {stats["split"]} -> {stats["total_patches"]}')
 
     return {
-        'image_patches': image_patches,
-        'label_patches': label_patches,
+        'patches': patches,
         'patch_positions': patch_positions,
-        'original_image_info': original_image_info
+        'original_image_info': original_image_info,
+        'patch_to_image_map': patch_to_image_map
     }

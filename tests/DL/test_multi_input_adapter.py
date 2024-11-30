@@ -44,17 +44,24 @@ class TestImageProcessing:
         caplog.set_level(logging.INFO)
         logging.basicConfig(level=logging.INFO)
         
-        datasets = multi_input_adapter.precheck(self.tests, self.test_labels)
+        datasets = multi_input_adapter.precheck(self.tests)
+        labels = multi_input_adapter.precheck(self.test_labels, is_label=True)
 
         # print every img in datasets['patches']
-        for i, img in enumerate(datasets['image_patches']):
+        for i, img in enumerate(datasets['patches']):
             cv2.imwrite(f'g:/DL_Data_raw/Unit_test/precheck/patches/{i}.tif', img)
-        for i, img in enumerate(datasets['label_patches']):
+        for i, img in enumerate(labels['patches']):
             cv2.imwrite(f'g:/DL_Data_raw/Unit_test/precheck/patch_labels/{i}.tif', img)
 
-        logging.info(datasets['original_image_info'])
         for item in datasets['patch_positions']:
             logging.info(item)
+        logging.info(datasets['original_image_info'])
+        logging.info(datasets['patch_to_image_map'])
+        
+        for item in labels['patch_positions']:
+            logging.info(item)
+        logging.info(labels['original_image_info'])
+        logging.info(labels['patch_to_image_map'])
 
     def test_padding_img():
         img = cv2.imread('g:/temp16bit/0028.384.png', cv2.IMREAD_GRAYSCALE)
@@ -64,3 +71,11 @@ class TestImageProcessing:
         padded_img = multi_input_adapter.padding_img(img)
         plt.imshow(padded_img, cmap='gray')
         plt.show()
+    
+    def test_restore_image_batch(self):
+        datasets = multi_input_adapter.precheck(self.tests, self.test_labels)
+        restored_images = multi_input_adapter.restore_image_batch(datasets, target_size=512)
+
+        for img_idx, image in enumerate(restored_images): 
+            output_path = f'g:/DL_Data_raw/Unit_test/precheck/restored/restored_image_{img_idx}.tif'
+            cv2.imwrite(output_path, image)
