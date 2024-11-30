@@ -1,6 +1,12 @@
 import numpy as np
-import cv2
-import matplotlib.pyplot as plt
+import sys
+
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+
+from API_functions.Soils import threshold_position_independent as tpi
+from API_functions import file_batch as fb
+
 
 def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
     """
@@ -19,112 +25,187 @@ def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
     return output
 
 
-def restore_image(patches: list[np.ndarray], image_shape: tuple[int, int], target_size: int, stride: int) -> np.ndarray:
+def restore_image(patches: list[np.ndarray], patch_positions: list[tuple[int, int]], image_shape: tuple[int, int], target_size: int) -> np.ndarray:
     """
-    Reconstructs the original image from overlapping patches by averaging the overlapping areas.
+    Reconstructs the original image using patches and their positions.
     
     Parameters:
-    - patches (list[np.ndarray]): List of patches.
-    - image_shape (tuple[int, int]): The shape of the original image (height, width).
-    - target_size (int): The size of the smaller patches (e.g., 512).
-    - stride (int): The stride used during the patch extraction.
-    
-    Returns:
-    - np.ndarray: The reconstructed image.
+    - patches: List of image patches
+    - patch_positions: List of (y, x) positions for each patch
+    - image_shape: Original image shape (height, width)
+    - target_size: Size of each patch
     """
     h, w = image_shape
     output = np.zeros((h, w), dtype=np.float32)
     count = np.zeros((h, w), dtype=np.float32)
     
-    patch_idx = 0
-    for y in range(0, h - target_size + 1, stride):
-        for x in range(0, w - target_size + 1, stride):
-            patch = patches[patch_idx]
-            output[y:y + target_size, x:x + target_size] += patch
-            count[y:y + target_size, x:x + target_size] += 1
-            patch_idx += 1
-    
-    # Handle the rightmost part of the image (padding)
-    if w % target_size != 0:
-        for y in range(0, h - target_size + 1, stride):
-            patch = patches[patch_idx]
-            output[y:y + target_size, -target_size:] += patch
-            count[y:y + target_size, -target_size:] += 1
-            patch_idx += 1
-    
-    # Handle the bottom part of the image (padding)
-    if h % target_size != 0:
-        for x in range(0, w - target_size + 1, stride):
-            patch = patches[patch_idx]
-            output[-target_size:, x:x + target_size] += patch
-            count[-target_size:, x:x + target_size] += 1
-            patch_idx += 1
-    
-    # Bottom-right corner (if both dimensions aren't divisible by target_size)
-    if h % target_size != 0 and w % target_size != 0:
-        patch = patches[patch_idx]
-        output[-target_size:, -target_size:] += patch
-        count[-target_size:, -target_size:] += 1
+    for patch, (y, x) in zip(patches, patch_positions):
+        output[y:y + target_size, x:x + target_size] += patch
+        count[y:y + target_size, x:x + target_size] += 1
     
     # Average out the overlapping regions
     output /= count
     return np.round(output).astype(np.uint8)
 
 
-def sliding_window(input: np.ndarray, target_size: int, stride: int) -> list[np.ndarray]:
+def sliding_window(input: np.ndarray, target_size: int, stride: int, return_positions: bool = False) -> tuple[list[np.ndarray], list[tuple[int, int]]]:
     """
-    Breaks a large image into smaller patches of target_size, using a sliding window approach.
-    Overlapping patches are allowed.
-    
-    Parameters:
-    - input (np.ndarray): The input image.
-    - target_size (int): The size of the smaller patches (e.g., 512).
-    - stride (int): The step size for sliding the window. Typically, it's the same as the target_size, but can be smaller for overlap.
-    
+    # ...existing docstring...
     Returns:
-    - list[np.ndarray]: A list of smaller image patches.
+    - If return_positions is False: list[np.ndarray] of patches
+    - If return_positions is True: tuple(list[np.ndarray], list[tuple[int, int]]) of patches and their positions
     """
     patches = []
+    positions = []  # Store (y, x) positions of each patch
     h, w = input.shape[:2]
     
     for y in range(0, h - target_size + 1, stride):
         for x in range(0, w - target_size + 1, stride):
             patch = input[y:y + target_size, x:x + target_size]
             patches.append(patch)
+            positions.append((y, x))
     
-    # Handle the rightmost part of the image (padding if necessary)
+    # Handle the rightmost part
     if w % target_size != 0:
         for y in range(0, h - target_size + 1, stride):
             patch = input[y:y + target_size, -target_size:]
             patches.append(patch)
+            positions.append((y, w - target_size))
     
-    # Handle the bottom part of the image (padding if necessary)
+    # Handle the bottom part
     if h % target_size != 0:
         for x in range(0, w - target_size + 1, stride):
             patch = input[-target_size:, x:x + target_size]
             patches.append(patch)
+            positions.append((h - target_size, x))
     
-    # Bottom-right corner padding (if both dimensions aren't divisible by target_size)
+    # Bottom-right corner
     if h % target_size != 0 and w % target_size != 0:
         patch = input[-target_size:, -target_size:]
         patches.append(patch)
+        positions.append((h - target_size, w - target_size))
     
-    return patches
+    return (patches, positions) if return_positions else patches
 
 
-# --------------------TEST--------------------
+def _harmonized_bit_number(img: np.ndarray) -> np.ndarray:
+    """
+    Convert the images to float32 format.
+    For images with multiple channels, the function will issue a warning and convert to grayscale.
+    For images with uint16 datatype, the function will convert them to 8-bit images float.
+    For images with uint8 datatype, the function will change the datatype to float32.
+    """
+    
+    match (len(img.shape), img.dtype):
+        case (2, 'uint16'):
+            return fb.bitconverter.convert_to_8bit_one_image(img, type='float')
+        case (2, 'uint8'):
+            img = img.astype('float32')
+            return img
+        case (2, 'float32'):
+            return img
+        case (dims, _) if dims != 2:
+            raise ValueError('The images should be grayscale')
+        case _:
+            raise ValueError('I do not know how to handle this image')
 
-def test_padding_img():
-    img = cv2.imread('g:/temp16bit/0028.384.png', cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise FileNotFoundError("Image file not found")
 
-    padded_img = padding_img(img)
-    plt.imshow(padded_img, cmap='gray')
-    plt.show()
+def _append_patches(img: np.ndarray, target_size: int, stride: int) -> tuple[list, tuple, dict, list]:
+    """Helper function to handle patch creation and appending"""
+    h, w = img.shape
+    patches = []
+    patch_positions = []  # Store (y, x) positions of each patch
+    stats = {'is_split': False, 'is_padded': False, 'patch_count': 0}
+    
+    if h < target_size or w < target_size:
+        patches.append(padding_img(img, target_size, color=255))
+        patch_positions.append((0, 0))  # Single centered patch
+        stats['is_padded'] = True
+        stats['patch_count'] = 1
+    elif h > target_size or w > target_size:
+        patches, patch_positions = sliding_window(img, target_size, stride, return_positions=True)
+        stats['is_split'] = True
+        stats['patch_count'] = len(patches)
+    else:
+        patches.append(img)
+        patch_positions.append((0, 0))
+        stats['patch_count'] = 1
+        
+    return patches, (h, w), stats, patch_positions
 
 
-# --------------------MAIN--------------------
+def precheck(dataset: list[np.ndarray], labels: list[np.ndarray], target_size: int = 512, stride: int = 512, verbose: bool = True) -> dict:
+    """
+    Preprocess the dataset and labels by:
+    1. Converting images to float32 format, and the maximum value to 255.
+    2. Ensuring labels contain only values 0 and 255.
+    3.1 Padding smaller images to the target size if needed.
+    3.2 Handling large images by splitting them using a sliding window technique.
+    4. Converting images to 0-1 range.
+    
+    Parameters:
+    - dataset (list[np.ndarray]): List of input images (grayscale).
+    - labels (list[np.ndarray]): List of label images (grayscale).
+    - target_size (int): Target patch size for splitting large images.
+    - stride (int): Stride for sliding window (equal to target_size).
+    - verbose (bool): If True, print detailed processing logs.
+    
+    Returns:
+    - dict: Dictionary containing:
+        - 'image_patches': List of lists, where each inner list contains patches for one original image
+        - 'label_patches': List of lists, where each inner list contains label patches for one original image
+        - 'patch_positions': List of lists, where each inner list contains (y, x) positions for patches
+        - 'original_image_info': List of original image sizes
+    """
+    if len(dataset) != len(labels):
+        raise ValueError('The number of images in the dataset does not match the number of images in the labels')
+    
+    image_patches = []  # List of lists for patches
+    label_patches = []  # List of lists for label patches
+    patch_positions = []  # List of lists for patch positions
+    original_image_info = []
+    stats = {'thresholded': 0, 'padded': 0, 'split': 0, 'total_patches': 0}
 
-if __name__ == '__main__':
-    test_padding_img()
+    for img, label in zip(dataset, labels):
+        # Convert images to float32
+        img = _harmonized_bit_number(img)
+        label = _harmonized_bit_number(label)
+
+        if set(label.flatten()) != {0, 255}:
+            label = tpi.user_threshold(image=label, optimal_threshold=255//2)
+            stats['thresholded'] += 1
+
+        # Handle patches
+        new_patches, img_info, patch_stats, positions = _append_patches(img, target_size, stride)
+        new_labels, _, _, _ = _append_patches(label, target_size, stride)
+        
+        # Convert to 0-1 range
+        new_patches = [fb.bitconverter.grayscale_to_binary_one_image(p) for p in new_patches]
+        new_labels = [fb.bitconverter.grayscale_to_binary_one_image(l) for l in new_labels]
+        
+        # Store patches and positions for this image
+        image_patches.extend(new_patches)
+        label_patches.extend(new_labels)
+        patch_positions.append(positions)
+        original_image_info.append(img_info)
+        
+        # Update statistics
+        if patch_stats['is_split']:
+            stats['split'] += 1
+        if patch_stats['is_padded']:
+            stats['padded'] += 1
+        if patch_stats['patch_count'] > 0:
+            stats['total_patches'] += patch_stats['patch_count']
+
+    if verbose:
+        print(f'Labels thresholded to binary: {stats["thresholded"]}')
+        print(f'Images and labels padded: {stats["padded"]}')
+        print(f'Images split using sliding window: {stats["split"]}')
+        print(f'Total patches created: {stats["total_patches"]}')
+
+    return {
+        'image_patches': image_patches,
+        'label_patches': label_patches,
+        'patch_positions': patch_positions,
+        'original_image_info': original_image_info
+    }
