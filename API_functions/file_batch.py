@@ -459,14 +459,15 @@ def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, star
     print(f'\033[1;3mRename completely!\033[0m')
 
 
-def windows_adjustment(path_in: str, path_out: str):
+def windows_adjustment(path_in: str, path_out: str, min: Optional[int], max: Optional[int]):
     """
     Only for gray images! png format.
     """
     image_lists = get_image_names(path_in, None, 'png')
     image_names = [os.path.basename(item) for item in image_lists]
     images = read_images(image_lists, gray='gray', read_all=True)
-    min, max = pre_process.get_average_windows(images)
+    if min is None or max is None:
+        min, max = pre_process.get_average_windows(images)
     print(f"min: {min}, max: {max}")
 
     for j, image in enumerate(tqdm(images)):
