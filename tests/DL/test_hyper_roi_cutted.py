@@ -92,36 +92,37 @@ class TestHyperRoiCutted:
 
     def test_cut_with_shape(self):
         """
-        Test new parameter reuse functionality.
-        It's a very special case, where we have to use label image to detect parameters, and then apply them to dataset image.
+        Test new parameter reuse functionality in batch mode.
+        Process all label images to detect parameters, then apply them to corresponding dataset images.
         """
         # Manually set parameters
-        # fill_color parameter is used in this function only for dataset image
         is_label = True
-        fill_color = 1 if is_label else 0
+        fill_color = 0
         draw_mask = True
-        img_index = 3
 
-        # Use first label image to detect parameters
-        label_image = self.label_images[img_index]
-        image = self.images[img_index]
-        base_name = Path(self.label_paths[img_index]).stem
         output_dir = Path(self.special_output_dir)
         
-        # Detect shape parameters from label, and cut image
-        label_images, params = processor.process_shape_detection(label_image, detector.EllipseDetector(), is_label=is_label, draw_mask=draw_mask)
-        image_cut = processor.cut_with_shape(image, params, fillcolor=fill_color)
-
-        # Save results
-        self.save_processed_results(label_images['cut'], output_dir, base_name + '.label')
-        self.save_processed_results(image_cut, output_dir, base_name + '.image')
-
-        if draw_mask:
-            # Draw dataset image with detected parameters
-            image = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')
-            image_draw = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-            image_draw = processor.ShapeDrawer.draw_shape(image_draw, params)
+        # Process all images
+        for i in tqdm(range(len(self.label_images))):
+            # Get corresponding images and base name
+            label_image = self.label_images[i]
+            image = self.images[i]
+            base_name = Path(self.label_paths[i]).stem
             
-            # Save results 
-            self.save_processed_results(label_images['draw'], output_dir, base_name + '.label_draw')
-            self.save_processed_results(image_draw, output_dir, base_name + '.image_draw')
+            # Detect shape parameters from label, and cut image
+            label_images, params = processor.process_shape_detection(label_image, detector.EllipseDetector(), is_label=is_label, draw_mask=draw_mask)
+            image_cut = processor.cut_with_shape(image, params, fillcolor=fill_color)
+
+            # Save results
+            self.save_processed_results(label_images['cut'], output_dir, base_name + '.label')
+            self.save_processed_results(image_cut, output_dir, base_name + '.image')
+
+            if draw_mask:
+                # Draw dataset image with detected parameters
+                image = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')
+                image_draw = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                image_draw = processor.ShapeDrawer.draw_shape(image_draw, params)
+                
+                # Save results 
+                self.save_processed_results(label_images['draw'], output_dir, base_name + '.label_draw')
+                self.save_processed_results(image_draw, output_dir, base_name + '.image_draw')
