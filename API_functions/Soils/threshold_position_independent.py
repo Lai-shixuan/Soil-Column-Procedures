@@ -111,8 +111,10 @@ def user_threshold(image: np.ndarray, optimal_threshold: int):
         _, threshold_image = cv2.threshold(image, optimal_threshold, 65535, cv2.THRESH_BINARY)
     elif image.max() > 1:
         _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
-    else:
+    elif image.max() <= 1:
         _, threshold_image = cv2.threshold(image, optimal_threshold, 1, cv2.THRESH_BINARY)
+    else:
+        raise ValueError('Wrong value range of image')
     return threshold_image
 
 
