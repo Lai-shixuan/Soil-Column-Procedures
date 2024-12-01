@@ -1,5 +1,7 @@
 import numpy as np
 import sys
+import warnings
+import cv2
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
@@ -40,11 +42,11 @@ def restore_image_batch(datasets: dict, target_size: int = 512):
         if count == 1:
             # Image wasn't split, just save the single patch directly
             patch_idx = datasets['patch_to_image_map'].index(img_idx)
-            images_restrored.append(datasets['image_patches'][patch_idx])
+            images_restrored.append(datasets['patches'][patch_idx])
         else:
             # Image was split into multiple patches, needs restoration
             image_patches = [
-                patch for patch, map_idx in zip(datasets['image_patches'], datasets['patch_to_image_map'])
+                patch for patch, map_idx in zip(datasets['patches'], datasets['patch_to_image_map'])
                 if map_idx == img_idx
             ]
             image_positions = datasets['patch_positions'][img_idx]
@@ -125,37 +127,48 @@ def sliding_window(input: np.ndarray, target_size: int, stride: int, return_posi
     return (patches, positions) if return_positions else patches
 
 
-def _harmonized_bit_number(img: np.ndarray) -> np.ndarray:
+def harmonized_normalize(img: np.ndarray) -> np.ndarray:
     """
-    Convert the images to float32 format.
-    For images with multiple channels, the function will issue a warning and convert to grayscale.
-    For images with uint16 datatype, the function will convert them to 8-bit images float.
-    For images with uint8 datatype, the function will change the datatype to float32.
+    Convert images to float32 format and standardize to grayscale using OpenCV.
+    
+    Handles:
+    - 2D grayscale images
+    - 3-channel RGB images
+    - 4-channel RGBA images
+    - Different bit depths (uint8, uint16)
+    
+    Returns:
+    - np.ndarray: Grayscale float32 image with values between 0 and 1
     """
     
-    match (len(img.shape), img.dtype):
-        case (2, 'uint16'):
-            return fb.bitconverter.convert_to_8bit_one_image(img, type='float')
-        case (2, 'uint8'):
-            img = img.astype('float32')
-            return img
-        case (2, 'float32'):
-            return img
-        case (dims, _) if dims != 2:
-            raise ValueError('The images should be grayscale')
+    match img.shape:
+        case (_, _):  # height, width
+            return fb.bitconverter.grayscale_to_binary_one_image(img)
+            
+        case (_, _, 3):  # height, width, RGB
+            warnings.warn('Converting RGB image to grayscale')
+            gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            return fb.bitconverter.grayscale_to_binary_one_image(gray_img)
+            
+        case (_, _, 4):  # height, width, RGBA
+            warnings.warn('Converting RGBA image to grayscale')
+            gray_img = cv2.cvtColor(img, cv2.COLOR_RGBA2GRAY)
+            return fb.bitconverter.grayscale_to_binary_one_image(gray_img)
+            
         case _:
-            raise ValueError('I do not know how to handle this image')
+            raise ValueError(f'Unsupported image format: shape={img.shape}, dtype={img.dtype}')
 
 
-def _append_patches(img: np.ndarray, target_size: int, stride: int) -> tuple[list, tuple, dict, list]:
+def _append_patches(img: np.ndarray, target_size: int, stride: int, is_label: bool) -> tuple[list, tuple, dict, list]:
     """Helper function to handle patch creation and appending"""
     h, w = img.shape
     patches = []
     patch_positions = []  # Store (y, x) positions of each patch
     stats = {'is_split': False, 'is_padded': False, 'patch_count': 0}
+    padding_color = 0 if is_label else 1
     
     if h < target_size or w < target_size:
-        patches.append(padding_img(img, target_size, color=255))
+        patches.append(padding_img(img, target_size, color=padding_color))
         patch_positions.append((0, 0))  # Single centered patch
         stats['is_padded'] = True
     elif h > target_size or w > target_size:
@@ -172,11 +185,10 @@ def _append_patches(img: np.ndarray, target_size: int, stride: int) -> tuple[lis
 def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int = 512, stride: int = 512, verbose: bool = True) -> dict:
     """
     Preprocess the images by:
-    1. Converting images to float32 format, and the maximum value to 255.
-    2. (Only for labels) Ensuring labels contain only values 0 and 255.
+    1. Converting images to float32 format, and the maximum value to 1.
+    2. (Only for labels) Ensuring labels contain only values 0 and 1.
     3.1 Padding smaller images to the target size if needed.
     3.2 Handling large images by splitting them using a sliding window technique.
-    4. Converting images to 0-1 range.
     
     Parameters:
     - images (list[np.ndarray]): List of input images (grayscale).
@@ -202,18 +214,15 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
 
     for img in images:
         # Convert images to float32
-        img = _harmonized_bit_number(img)
+        img = harmonized_normalize(img)
 
         # Apply thresholding only if this is a label image
-        if is_label and set(img.flatten()) != {0, 255}:
-            img = tpi.user_threshold(image=img, optimal_threshold=255//2)
+        if is_label and set(img.flatten()) != {0, 1}:
+            img = tpi.user_threshold(image=img, optimal_threshold=1/2)
             stats['thresholded'] += 1
 
         # Handle patches
-        new_patches, img_info, patch_stats, positions = _append_patches(img, target_size, stride)
-        
-        # Convert to 0-1 range
-        new_patches = [fb.bitconverter.grayscale_to_binary_one_image(p) for p in new_patches]
+        new_patches, img_info, patch_stats, positions = _append_patches(img, target_size, stride, is_label)
         
         # Store patches and positions for this image
         patches.extend(new_patches)

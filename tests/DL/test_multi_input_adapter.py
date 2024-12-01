@@ -3,8 +3,8 @@ import cv2
 import sys
 import matplotlib.pyplot as plt
 import pytest
-from pathlib import Path
 import logging
+from pathlib import Path
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
@@ -25,7 +25,7 @@ class TestImageProcessing:
         cls.test_labels = [cv2.imread(p, cv2.IMREAD_UNCHANGED) for p in test_labels_paths]
         cls.test_image_no_coordinating_labels = [cv2.imread(p, cv2.IMREAD_UNCHANGED) for p in test_image_no_coordinating_labels]
         
-    def test_harmonized_bit_number(self, caplog):
+    def test_harmonized_normalize(self, caplog):
         """Test harmonized_bit_number function for all images in one test"""
         caplog.set_level(logging.INFO)
         logging.basicConfig(level=logging.INFO)
@@ -33,7 +33,7 @@ class TestImageProcessing:
         for i, img in enumerate(self.tests + self.test_labels + self.test_image_no_coordinating_labels):
 
             try:
-                converted_img = multi_input_adapter._harmonized_bit_number(img)
+                converted_img = multi_input_adapter.harmonized_normalize(img)
                 output_path = f'g:/DL_Data_raw/Unit_test/precheck/test_image_no_coordinating_labels/converted/{i}.tif'
                 cv2.imwrite(output_path, converted_img)
             except Exception as e:
@@ -63,19 +63,33 @@ class TestImageProcessing:
         logging.info(labels['original_image_info'])
         logging.info(labels['patch_to_image_map'])
 
-    def test_padding_img():
-        img = cv2.imread('g:/temp16bit/0028.384.png', cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise FileNotFoundError("Image file not found")
+    def test_padding_img(self):
+        path = 'g:/DL_Data_raw/Unit_test/precheck/padding/to_do/'
+        image_paths = fb.get_image_names(path, None, 'png')
 
-        padded_img = multi_input_adapter.padding_img(img)
-        plt.imshow(padded_img, cmap='gray')
-        plt.show()
+        for path in image_paths:
+            img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+            img = multi_input_adapter.harmonized_normalize(img)
+            if img is None:
+                raise FileNotFoundError("Image file not found")
+
+            padded_img = multi_input_adapter.padding_img(img, 512, color=255)
+            padded_img = fb.bitconverter.binary_to_grayscale_one_image(padded_img, 'uint8')
+
+            plt.imshow(padded_img, cmap='gray')
+            plt.show()
     
     def test_restore_image_batch(self):
-        datasets = multi_input_adapter.precheck(self.tests, self.test_labels)
+        datasets = multi_input_adapter.precheck(self.tests)
         restored_images = multi_input_adapter.restore_image_batch(datasets, target_size=512)
+
+        labels = multi_input_adapter.precheck(self.test_labels, is_label=True)
+        restored_labels = multi_input_adapter.restore_image_batch(labels, target_size=512)
 
         for img_idx, image in enumerate(restored_images): 
             output_path = f'g:/DL_Data_raw/Unit_test/precheck/restored/restored_image_{img_idx}.tif'
+            cv2.imwrite(output_path, image)
+        
+        for img_idx, image in enumerate(restored_labels): 
+            output_path = f'g:/DL_Data_raw/Unit_test/precheck/restored/restored_labels_{img_idx}.tif'
             cv2.imwrite(output_path, image)
