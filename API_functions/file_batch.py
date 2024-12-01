@@ -471,7 +471,7 @@ def windows_adjustment(path_in: str, path_out: str, min: Optional[int], max: Opt
     """
     Only for gray images! png format.
     """
-    image_lists = get_image_names(path_in, None, 'png')
+    image_lists = get_image_names(path_in, None, 'tif')
     image_names = [os.path.basename(item) for item in image_lists]
     images = read_images(image_lists, gray='gray', read_all=True)
     if min is None or max is None:
@@ -479,7 +479,7 @@ def windows_adjustment(path_in: str, path_out: str, min: Optional[int], max: Opt
     print(f"min: {min}, max: {max}")
 
     for j, image in enumerate(tqdm(images)):
-        image = pre_process.map_range_to_65536(image, min, max)
+        image = pre_process.map_range_to_1(image, min, max)
 
         if not os.path.exists(path_out):
             os.makedirs(path_out)
