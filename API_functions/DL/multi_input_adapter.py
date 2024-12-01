@@ -10,6 +10,7 @@ from API_functions.Soils import threshold_position_independent as tpi
 from API_functions import file_batch as fb
 from API_functions.DL import shape_processor as processor
 from API_functions.DL import shape_detectors as detector
+from tqdm import tqdm
 
 
 def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
@@ -217,7 +218,7 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
     patch_to_image_map = []  # Track which original image each patch belongs to
     current_image_idx = 0
 
-    for img in images:
+    for img in tqdm(images):
         # Convert images to float32
         img = harmonized_normalize(img)
 
