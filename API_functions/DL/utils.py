@@ -10,7 +10,7 @@ def check_corners(image: np.ndarray, corner_size: int = 4) -> bool:
         image[h-corner_size:h, 0:corner_size],
         image[h-corner_size:h, w-corner_size:w]
     ]
-    return all(np.any(corner == 255) for corner in corners)
+    return all(np.any(corner == 1) for corner in corners)
 
 
 def create_circular_mask(image: np.ndarray) -> np.ndarray:
@@ -23,5 +23,5 @@ def create_circular_mask(image: np.ndarray) -> np.ndarray:
     dist_from_center = np.sqrt((X - center[0])**2 + (Y - center[1])**2)
     
     mask = np.zeros_like(image)
-    mask[dist_from_center <= radius] = 255
+    mask[dist_from_center <= radius] = 1
     return mask

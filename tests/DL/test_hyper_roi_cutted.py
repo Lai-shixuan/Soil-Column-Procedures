@@ -10,6 +10,7 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 from API_functions import file_batch as fb
 from API_functions.DL import shape_processor as processor
 from API_functions.DL import shape_detectors as detector
+from API_functions.DL import multi_input_adapter as adapter
 
 
 class TestHyperRoiCutted:
@@ -27,8 +28,8 @@ class TestHyperRoiCutted:
         self.image_paths = fb.get_image_names(self.image_folder, None, 'png')
         
         # Read all images
-        self.label_images = [cv2.imread(str(path), cv2.IMREAD_UNCHANGED) for path in self.label_paths]
-        self.images = [cv2.imread(str(path), cv2.IMREAD_UNCHANGED) for path in self.image_paths]
+        self.label_images = [adapter.harmonized_normalize(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)) for path in self.label_paths]
+        self.images = [adapter.harmonized_normalize(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)) for path in self.image_paths]
 
         # ---------------------------- Batch processing ---------------------------- #
 
@@ -42,15 +43,15 @@ class TestHyperRoiCutted:
         self.batch_image_paths = fb.get_image_names(self.batch_image_folder, None, 'png')
 
         # Read all images for batch processing
-        self.batch_label_images = [cv2.imread(str(path), cv2.IMREAD_UNCHANGED) for path in self.batch_label_paths]
-        self.batch_images = [cv2.imread(str(path), cv2.IMREAD_UNCHANGED) for path in self.batch_image_paths]
+        self.batch_label_images = [adapter.harmonized_normalize(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)) for path in self.batch_label_paths]
+        self.batch_images = [adapter.harmonized_normalize(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)) for path in self.batch_image_paths]
 
     @staticmethod
     def save_processed_results(processed_image: np.ndarray, output_dir: str, base_name: str, suffix: str = ''):
         """Helper function to save processed images"""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"{base_name}{suffix}.png"
+        output_path = output_dir / f"{base_name}{suffix}.tif"
         cv2.imwrite(str(output_path), processed_image)
 
     def test_hyper_roi_cutted_batch(self):
@@ -97,7 +98,7 @@ class TestHyperRoiCutted:
         # Manually set parameters
         # fill_color parameter is used in this function only for dataset image
         is_label = True
-        fill_color = 255 if is_label else 0
+        fill_color = 1 if is_label else 0
         draw_mask = True
         img_index = 3
 
@@ -117,6 +118,7 @@ class TestHyperRoiCutted:
 
         if draw_mask:
             # Draw dataset image with detected parameters
+            image = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')
             image_draw = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             image_draw = processor.ShapeDrawer.draw_shape(image_draw, params)
             

@@ -27,12 +27,12 @@ class ShapeDetector(ABC, Generic[T]):
     def _count_covered_pixels(self, image: np.ndarray, params: T) -> int:
         """Count pixels covered by the shape"""
         mask = self._create_shape_mask(image.shape, params)
-        return np.count_nonzero(cv2.bitwise_and(image, mask) == 255)
+        return np.count_nonzero(cv2.bitwise_and(image, mask) == 1)
 
     @staticmethod
     def _get_total_target_pixels(image: np.ndarray) -> int:
         """Get total number of white pixels in image"""
-        return np.count_nonzero(image == 255)
+        return np.count_nonzero(image == 1)
 
     @abstractmethod
     def detect(self, image: np.ndarray) -> T:

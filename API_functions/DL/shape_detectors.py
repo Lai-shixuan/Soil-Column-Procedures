@@ -12,10 +12,10 @@ class EllipseDetector(ShapeDetector[EllipseParams]):
         super().__init__(min_size)
 
     def _create_shape_mask(self, image_shape: tuple, params: EllipseParams) -> np.ndarray:
-        mask = np.zeros(image_shape, dtype=np.uint8)
+        mask = np.zeros(image_shape, dtype=np.float32)
         cv2.ellipse(mask, params.center, 
                    (params.long_axis // 2, params.short_axis // 2),
-                    0, 0, 360, 255, -1)
+                    0, 0, 360, 1, -1)
         return mask
 
     def _try_shrink_fixed_center(self, image: np.ndarray, params: EllipseParams,
@@ -181,11 +181,11 @@ class RectangleDetector(ShapeDetector[RectangleParams]):
     """Rectangle detector implementation"""
     
     def _create_shape_mask(self, image_shape: tuple, params: RectangleParams) -> np.ndarray:
-        mask = np.zeros(image_shape, dtype=np.uint8)
+        mask = np.zeros(image_shape, dtype=np.float32)
         half_width, half_height = params.width // 2, params.height // 2
         top_left = (params.center[0] - half_width, params.center[1] - half_height)
         bottom_right = (params.center[0] + half_width, params.center[1] + half_height)
-        cv2.rectangle(mask, top_left, bottom_right, 255, -1)
+        cv2.rectangle(mask, top_left, bottom_right, 1, -1)
         return mask
 
     def _try_shrink_fixed_center(self, image: np.ndarray, params: RectangleParams,

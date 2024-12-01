@@ -73,7 +73,7 @@ class TestImageProcessing:
             if img is None:
                 raise FileNotFoundError("Image file not found")
 
-            padded_img = multi_input_adapter.padding_img(img, 512, color=255)
+            padded_img = multi_input_adapter.padding_img(img, 512, color=1)
             padded_img = fb.bitconverter.binary_to_grayscale_one_image(padded_img, 'uint8')
 
             plt.imshow(padded_img, cmap='gray')
