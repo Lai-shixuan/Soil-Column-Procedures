@@ -1,9 +1,13 @@
 import cv2
 import logging
+import os
+import glob
+import sys
+
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+
 from pathlib import Path
 from typing import List, Union
-import os
-
 from API_functions import file_batch as fb
 from API_functions.DL import multi_input_adapter
 
@@ -28,21 +32,11 @@ def batch_precheck_and_save(
     logger = logging.getLogger(__name__)
 
     # Create output directories
-    patch_dir = os.path.join(output_dir, 'patch_labels' if is_label else 'patches')
+    patch_dir = os.path.join(output_dir, 'labels' if is_label else 'images')
     Path(patch_dir).mkdir(parents=True, exist_ok=True)
 
     # Read images
-    images = []
-    for path in image_paths:
-        try:
-            img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-            if img is not None:
-                images.append(img)
-            else:
-                logger.warning(f"Could not read image: {path}")
-        except Exception as e:
-            logger.error(f"Error reading {path}: {str(e)}")
-            continue
+    images = fb.read_images(image_paths, 'gray', read_all=True)
 
     # Perform precheck
     try:
@@ -66,17 +60,15 @@ def batch_precheck_and_save(
     return results
 
 if __name__ == "__main__":
-    # Example usage
-    import glob
     
     # Example paths - modify these according to your data location
-    image_dir = "path/to/your/images"
-    label_dir = "path/to/your/labels"
-    output_dir = "path/to/output"
+    image_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/image/"
+    label_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/label/"
+    output_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/"
     
     # Get all image files
-    image_paths = glob.glob(f"{image_dir}/*.png")  # adjust file extension as needed
-    label_paths = glob.glob(f"{label_dir}/*.png")
+    image_paths = glob.glob(f"{image_dir}/*.tif")  # adjust file extension as needed
+    label_paths = glob.glob(f"{label_dir}/*.tif")
     
     # Process regular images
     print("Processing images...")
