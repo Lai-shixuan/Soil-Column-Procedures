@@ -120,9 +120,9 @@ def high_boost_filter(image, sigma=1.0, k=1.5):
     return enhanced_image
 
 
-def map_range_to_65536(image, range_min, range_max):
+def map_range_to_1(image, range_min, range_max):
     """
-    Map a specific range of the original image to 0-65535 and reduce the other parts of the image.
+    Map a specific range of the original image to 0-1 and reduce the other parts of the image.
     
     Parameters:
         image (numpy.ndarray): Input image object (OpenCV format, grayscale).
@@ -142,13 +142,13 @@ def map_range_to_65536(image, range_min, range_max):
     mapped_image = cv2.bitwise_and(image, image, mask=mask)
     
     # Using a linear remap
-    mapped_image = np.interp(mapped_image, (range_min, range_max), (0, 65535)).astype(np.uint16)
+    mapped_image = np.interp(mapped_image, (range_min, range_max), (0, 1)).astype(np.float32)
 
     # Set pixels below range_min to 0
     mapped_image[image < range_min] = 0
     
     # Set pixels above range_max to 65535
-    mapped_image[image > range_max] = 65535
+    mapped_image[image > range_max] = 1 
     
     return mapped_image
 
@@ -184,11 +184,21 @@ def noise_reduction(image, d=9, sigma_color=75, sigma_space=75):
 
 # To get the right windows for the images, or the levels tools in Photoshop
 def get_average_windows(image_files: np.array) -> tuple:
+    '''
+    Get the average min and max values of the images in the image_files
+    The value range is between 0 and 1
+    '''
     min_values = []
     max_values = []
     for image_file in image_files:
-        min_values.append(image_file.min())
-        max_values.append(image_file.max())
+
+        # remove the 0 and 1 values, and use mask to get the values
+        mask = (image_file > 0) & (image_file < 1)
+        filtered_image = image_file[mask]
+
+        min_values.append(filtered_image.min())
+        max_values.append(filtered_image.max())
+
     my_min = np.percentile(min_values, 50)
     my_max = np.percentile(max_values, 50)
     return my_min, my_max
