@@ -159,19 +159,7 @@ def format_transformer(image_name_lists: list[str], output_folder: str,
     print("\033[1;3mOutput completely!\033[0m")
 
 
-
-# Function to convert binary images to grayscale
-def binary_to_grayscale(read_path:str, image_names:Union[ImageName, None], format:str, output_path:str):
-
-    png_files = get_image_names(folder_path=read_path, image_names=image_names, image_format=format)
-    for idx, binary_file in enumerate(png_files):
-        image = cv2.imread(binary_file, cv2.IMREAD_GRAYSCALE)
-        if image is not None:
-            grayscale_image = image * 255
-            new_file_path = os.path.join(output_path, os.path.basename(binary_file))
-            cv2.imwrite(new_file_path, grayscale_image)
-        else:
-            print(f"Image not found: {binary_file}")
+ 
 
 
 # Function to convert grayscale images to RGB
@@ -298,20 +286,17 @@ class bitconverter:
     # Have 2 functions, one for converting a single image and one for batch conversion
 
     def grayscale_to_binary_one_image(image):
-        """
-        Convert a single grayscale image to binary.
-        """
         if image.dtype == np.uint8:
-            binary_image = (image / 255).astype(np.float32)
+            binary_image = image.astype(np.float32) / 255.0
         elif image.dtype == np.uint16:
-            binary_image = (image / 65535).astype(np.float32)
+            binary_image = image.astype(np.float32) / 65535.0
         elif image.dtype == np.float32:
             if np.max(image) <= 1:
                 binary_image = image
             elif np.max(image) <= 255:
-                binary_image = image / 255
+                binary_image = image / 255.0
             elif np.max(image) <= 65535:
-                binary_image = image / 65535
+                binary_image = image / 65535.0
         else:
             raise Exception('Error: Image is not in 8-bit or 16-bit or float32 grayscale format!')
         return binary_image
@@ -339,6 +324,29 @@ class bitconverter:
 
         print(f"\033[1;3m{len(image_paths)} images' conversion to binary completed!\033[0m")
 
+    # ---------------------------- Binary to grayscale ----------------------------
+
+    def binary_to_grayscale_one_image(image, output_dtype):
+        """Convert binary images to grayscale format."""
+        if output_dtype == 'uint8':
+            return (image * 255).clip(0, 255).astype(np.uint8)
+        elif output_dtype == 'uint16':
+            return (image * 65535).clip(0, 65535).astype(np.uint16)
+        else:
+            raise Exception('Error: Output data type must be uint8 or uint16!')
+
+    # Function to convert binary images to grayscale
+    def binary_to_grayscale(read_path:str, image_names:Union[ImageName, None], format:str, output_path:str):
+
+        png_files = get_image_names(folder_path=read_path, image_names=image_names, image_format=format)
+        for idx, binary_file in enumerate(png_files):
+            image = cv2.imread(binary_file, cv2.IMREAD_GRAYSCALE)
+            if image is not None:
+                grayscale_image = image * 255
+                new_file_path = os.path.join(output_path, os.path.basename(binary_file))
+                cv2.imwrite(new_file_path, grayscale_image)
+            else:
+                print(f"Image not found: {binary_file}")
 
 # ---------------------------- Test functions ----------------------------
 
