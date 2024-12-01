@@ -53,15 +53,15 @@ class TestImageProcessing:
         for i, img in enumerate(labels['patches']):
             cv2.imwrite(f'g:/DL_Data_raw/Unit_test/precheck/patch_labels/{i}.tif', img)
 
-        for item in datasets['patch_positions']:
-            logging.info(item)
+        logging.info(datasets['patch_positions'])
         logging.info(datasets['original_image_info'])
         logging.info(datasets['patch_to_image_map'])
+        logging.info(datasets['shape_params'])
         
-        for item in labels['patch_positions']:
-            logging.info(item)
+        logging.info(labels['patch_positions'])
         logging.info(labels['original_image_info'])
         logging.info(labels['patch_to_image_map'])
+        logging.info(labels['shape_params'])
 
     def test_padding_img(self):
         path = 'g:/DL_Data_raw/Unit_test/precheck/padding/to_do/'

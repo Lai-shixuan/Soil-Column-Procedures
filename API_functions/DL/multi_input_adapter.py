@@ -8,6 +8,8 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from API_functions.Soils import threshold_position_independent as tpi
 from API_functions import file_batch as fb
+from API_functions.DL import shape_processor as processor
+from API_functions.DL import shape_detectors as detector
 
 
 def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
@@ -187,8 +189,9 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
     Preprocess the images by:
     1. Converting images to float32 format, and the maximum value to 1.
     2. (Only for labels) Ensuring labels contain only values 0 and 1.
-    3.1 Padding smaller images to the target size if needed.
-    3.2 Handling large images by splitting them using a sliding window technique.
+    3. Detecting the shape of the ROI and cutting the image to the shape boundary.
+    4.1 Padding smaller images to the target size if needed.
+    4.2 Handling large images by splitting them using a sliding window technique.
     
     Parameters:
     - images (list[np.ndarray]): List of input images (grayscale).
@@ -203,10 +206,12 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
         - 'patch_positions': List of lists, where each inner list contains (y, x) positions for patches of one image
         - 'original_image_info': List of original image sizes
         - 'patch_to_image_map': List indicating which original image each patch belongs to
+        - 'shape_params': List of shape parameters for each image
     """
     patches = []  # List of lists for patches
     patch_positions = []  # List of lists for patch positions
     original_image_info = []
+    shape_params = []  # New list to store shape parameters
     stats = {'thresholded': 0, 'padded': 0, 'split': 0, 'total_patches': 0}
 
     patch_to_image_map = []  # Track which original image each patch belongs to
@@ -220,6 +225,12 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
         if is_label and set(img.flatten()) != {0, 1}:
             img = tpi.user_threshold(image=img, optimal_threshold=1/2)
             stats['thresholded'] += 1
+
+        # Auto detect the boundary of the circle or rectangle ROI, if the image is larger than target_size, cut it 
+        result, params = processor.process_shape_detection(img, detector.EllipseDetector(), is_label=is_label, draw_mask=False)
+        img = result['cut']
+        img = processor.adjust_image_to_shape(img, params, target_size)
+        shape_params.append(params)  # Store the shape parameters
 
         # Handle patches
         new_patches, img_info, patch_stats, positions = _append_patches(img, target_size, stride, is_label)
@@ -251,5 +262,6 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
         'patches': patches,
         'patch_positions': patch_positions,
         'original_image_info': original_image_info,
-        'patch_to_image_map': patch_to_image_map
+        'patch_to_image_map': patch_to_image_map,
+        'shape_params': shape_params
     }

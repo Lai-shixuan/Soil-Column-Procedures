@@ -74,6 +74,46 @@ def cut_with_shape(image: np.ndarray, params: ShapeParams, fillcolor: int) -> np
     return result
 
 
+def adjust_image_to_shape(image: np.ndarray, params: ShapeParams, target_size: int = 512) -> np.ndarray:
+    """
+    Adjust image size based on detected shape parameters.
+    If shape is smaller than target_size but image is larger, crop around the shape.
+    
+    Args:
+        image (np.ndarray): Input image
+        params (ShapeParams): Detected shape parameters
+        target_size (int): Target size for the image
+        
+    Returns:
+        np.ndarray: Adjusted image
+    """
+    h, w = image.shape
+    if h <= target_size and w <= target_size:
+        return image
+
+    # Calculate shape bounds
+    if isinstance(params, EllipseParams):
+        shape_width = params.long_axis
+        shape_height = params.short_axis
+    elif isinstance(params, RectangleParams):
+        shape_width = params.width
+        shape_height = params.height
+    
+    # If shape is smaller than target_size but image is larger, crop around shape
+    if shape_width <= target_size and shape_height <= target_size:
+        center_x, center_y = params.center
+        
+        # Calculate crop coordinates ensuring we don't exceed image bounds
+        start_x = max(0, min(w - target_size, center_x - target_size // 2))
+        start_y = max(0, min(h - target_size, center_y - target_size // 2))
+        end_x = start_x + target_size
+        end_y = start_y + target_size
+        
+        return image[start_y:end_y, start_x:end_x]
+    
+    return image
+
+
 def process_shape_detection(input_image: np.ndarray,
                             detector: ShapeDetector[T],
                             is_label: bool,
@@ -114,18 +154,22 @@ def process_shape_detection(input_image: np.ndarray,
         if is_label == False:
             origional_image = input_image.copy()
             input_image = tpi.user_threshold(input_image, 1.0/8)
+        else:
+            input_image = input_image   # Do nothing
 
         # Detect shape
         params = detector.detect(input_image)
-        
         result_dict = {}
 
         # Cut image using shape parameters, fill outside pixels with 0, 1 if are not label
         if is_label == False:
             cut_image = origional_image.copy()
+            fill_value = 1
         else:
             cut_image = input_image.copy()
-        fill_value = 0 if is_label else 1
+            fill_value = 0
+
+        # Cut the image with the detected shape 
         cut_image = cut_with_shape(cut_image, params, fill_value)
         result_dict['cut'] = cut_image
 
