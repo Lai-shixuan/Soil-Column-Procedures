@@ -16,12 +16,15 @@ from API_functions.DL import multi_input_adapter as adapter
 class TestHyperRoiCutted:
     def setup_method(self):
 
-        # ---------------------------- Special cases ---------------------------- #
+        # ---------------------------- Cut with Shape ---------------------------- #
 
         # Define common paths used for special cases
         self.label_folder = 'g:/DL_Data_raw/Unit_test/round_square/labels/'
         self.image_folder = 'g:/DL_Data_raw/Unit_test/round_square/images/'
-        self.special_output_dir = "g:/DL_Data_raw/Unit_test/round_square/special_output_dir/"
+        # self.special_output_dir = "g:/DL_Data_raw/Unit_test/round_square/special_output_dir/"
+        self.label_folder = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/labels/'
+        self.image_folder = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/1.Reconstruct/images/'
+        self.special_output_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/'
         
         # Load all images for both tests
         self.label_paths = fb.get_image_names(self.label_folder, None, 'png')
@@ -114,8 +117,8 @@ class TestHyperRoiCutted:
             image_cut = processor.cut_with_shape(image, params, fillcolor=fill_color)
 
             # Save results
-            self.save_processed_results(label_images['cut'], output_dir, base_name + '.label')
-            self.save_processed_results(image_cut, output_dir, base_name + '.image')
+            self.save_processed_results(label_images['cut'], output_dir / 'label', base_name)
+            self.save_processed_results(image_cut, output_dir / 'image', base_name)
 
             if draw_mask:
                 # Draw dataset image with detected parameters
@@ -124,5 +127,5 @@ class TestHyperRoiCutted:
                 image_draw = processor.ShapeDrawer.draw_shape(image_draw, params)
                 
                 # Save results 
-                self.save_processed_results(label_images['draw'], output_dir, base_name + '.label_draw')
-                self.save_processed_results(image_draw, output_dir, base_name + '.image_draw')
+                self.save_processed_results(label_images['draw'], output_dir / 'label_draw', base_name)
+                self.save_processed_results(image_draw, output_dir / 'image_draw', base_name)
