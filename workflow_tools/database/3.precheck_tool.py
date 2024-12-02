@@ -3,6 +3,8 @@ import logging
 import os
 import glob
 import sys
+import pandas as pd
+import numpy as np
 
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
@@ -63,8 +65,10 @@ if __name__ == "__main__":
     
     # Example paths - modify these according to your data location
     image_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/image/"
+    # image_dir = "f:/3.Experimental_Data/Soils/temp/image/"
     label_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/label/"
-    output_dir = "f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/"
+    # output_dir = "f:/3.Experimental_Data/Soils/temp/output/"
+    output_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/'
     
     # Get all image files
     image_paths = glob.glob(f"{image_dir}/*.tif")  # adjust file extension as needed
@@ -86,6 +90,18 @@ if __name__ == "__main__":
         is_label=True
     )
     
+    # Save results to CSV
+    image_df = multi_input_adapter.results_to_dataframe(image_results)
+    label_df = multi_input_adapter.results_to_dataframe(label_results)
+    
+    # Save to CSV files
+    csv_output_dir = os.path.join(output_dir, 'metadata')
+    Path(csv_output_dir).mkdir(parents=True, exist_ok=True)
+    
+    image_df.to_csv(os.path.join(csv_output_dir, 'image_patches.csv'), index=False)
+    label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
+    
     print("Processing complete!")
     print(f"Images processed: {len(image_results['patches'])}")
     print(f"Labels processed: {len(label_results['patches'])}")
+    print(f"Metadata saved to: {csv_output_dir}")

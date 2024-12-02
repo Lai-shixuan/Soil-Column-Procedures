@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import warnings
 import cv2
+import pandas as pd
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
@@ -266,3 +267,51 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
         'patch_to_image_map': patch_to_image_map,
         'shape_params': shape_params
     }
+
+
+def format_ellipse_params(params):
+    """Convert EllipseParams to dictionary"""
+    return {
+        'center_x': params.center[0],
+        'center_y': params.center[1],
+        'covered_pixels': params.covered_pixels,
+        'long_axis': params.long_axis,
+        'short_axis': params.short_axis
+    }
+
+def results_to_dataframe(results: dict) -> pd.DataFrame:
+    """Convert precheck results to a DataFrame format with proper handling of nested structures"""
+    data = []
+    
+    # Get total number of patches
+    n_patches = len(results['patches'])
+    
+    for i in range(n_patches):
+        # Get image index for this patch
+        img_idx = results['patch_to_image_map'][i]
+        
+        # Get position for this patch from nested structure
+        position = results['patch_positions'][img_idx][i % len(results['patch_positions'][img_idx])]
+        
+        # Get original image dimensions
+        orig_dims = results['original_image_info'][img_idx]
+        
+        # Get shape parameters and convert to dict
+        shape_params = format_ellipse_params(results['shape_params'][img_idx])
+        
+        row = {
+            'patch_index': i,
+            'original_image_index': img_idx,
+            'position_x': position[0],
+            'position_y': position[1],
+            'original_width': orig_dims[0],
+            'original_height': orig_dims[1],
+            'center_x': shape_params['center_x'],
+            'center_y': shape_params['center_y'],
+            'covered_pixels': shape_params['covered_pixels'],
+            'long_axis': shape_params['long_axis'],
+            'short_axis': shape_params['short_axis']
+        }
+        data.append(row)
+    
+    return pd.DataFrame(data)
