@@ -14,8 +14,8 @@ class ImageViewer(QMainWindow):
     def __init__(self, folder1, folder2):
         super().__init__()
 
-        self.images1_list = fb.get_image_names(folder1, None, 'png')
-        self.images2_list = fb.get_image_names(folder2, None, 'png')
+        self.images1_list = fb.get_image_names(folder1, None, 'tif')
+        self.images2_list = fb.get_image_names(folder2, None, 'tif')
         
         # Index of the current image
         self.index1 = 0
@@ -49,8 +49,8 @@ class ImageViewer(QMainWindow):
             axis.clear()
 
         # Read new images
-        img1 = cv2.imread(self.images1_list[self.index1], cv2.IMREAD_GRAYSCALE)
-        img2 = cv2.imread(self.images2_list[self.index2], cv2.IMREAD_GRAYSCALE)
+        img1 = cv2.imread(self.images1_list[self.index1], cv2.IMREAD_UNCHANGED)
+        img2 = cv2.imread(self.images2_list[self.index2], cv2.IMREAD_UNCHANGED)
 
         # Display the images
         self.ax[0].imshow(img1, cmap='gray')
@@ -79,8 +79,8 @@ class ImageViewer(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    folder1 = 'f:/3.Experimental_Data/Soils/Online/images/'
-    folder2 = 'f:/3.Experimental_Data/Soils/Online/labels/'
+    folder1 = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/images/'
+    folder2 = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/labels/'
 
     viewer = ImageViewer(folder1, folder2)
     viewer.show()
