@@ -1,19 +1,11 @@
 #%%
 # This file is a step following the raw2picturs
-# 3 main functions: cut_roi and preprocess and thresholding
-
-#%%
 import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 
-from API_functions.Soils import pre_process
-from API_functions.Soils import threshold_position_independent as tmi
 from API_functions import file_batch as fb
 import pandas as pd
-import numpy as np
-import cv2 as cv
-import os
-from tqdm import tqdm
+
 
 #%%
 # Using pandas to read a csv, each line stands for a roi region, and the columns are the starting point of roi and the size of roi
@@ -38,6 +30,7 @@ def get_roi_region_list(csv_file) -> list:
 csv_file = pd.read_csv("f:/3.Experimental_Data/Soils/Metadata_of_whole_database.csv")
 roi_region_list = get_roi_region_list(csv_file)
 
+
 #%%
 # cut_roi function
 
@@ -45,30 +38,3 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
     fb.roi_select(path_in='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/16bits/1.Reconstruct/', path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/16bits/2.ROI/', name_read=None, roi=roi_region_list[i-28], img_format='png')
     print('')
     print('')
-
-#%%
-# preprocess function
-
-for i in [28, 29, 30, 31, 32, 33, 34]:
-    path_in = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/2.ROI/'
-    path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/3.Preprocess/Remap/'
-    fb.windows_adjustment(path_in, path_out)
-    break
-
-#%%
-# Thresholding the images
-
-for i in [28, 29, 30, 31, 32, 33, 34]:
-    path_in = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/3.Preprocess/Remap/'
-    image_lists = fb.get_image_names(path_in, None, 'png')
-    image_names = [os.path.basename(item) for item in image_lists]
-    images = fb.read_images(image_lists, gray='gray', read_all=True)
-    images = np.array(images)
-
-    for j, image in enumerate(tqdm(images)):
-        image = tmi.otsu(image)
-        path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.00' + str(i) + '/4.Threshold/Remap-otsu/'
-        if not os.path.exists(path_out):
-            os.makedirs(path_out)
-        cv.imwrite(os.path.join(path_out, image_names[j]), image)
-    break
