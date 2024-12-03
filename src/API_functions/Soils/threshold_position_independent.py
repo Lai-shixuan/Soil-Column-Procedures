@@ -18,8 +18,10 @@ def origin(numbers: np.ndarray):
 def otsu(numbers: np.ndarray):
     if numbers.max() > 255:
         _, dst = cv2.threshold(numbers, 0, 65535, cv2.THRESH_OTSU)
-    else:
+    elif numbers.max() > 1:
         _, dst = cv2.threshold(numbers, 0, 255, cv2.THRESH_OTSU)
+    elif numbers.max() <= 1:
+        _, dst = cv2.threshold(numbers, 0, 1, cv2.THRESH_OTSU)
     return dst
 
 
@@ -72,27 +74,59 @@ def kapur_entropy_3d(image: np.ndarray):
     return threshold_image
 
 
-def kmeans_3d(numbers: np.ndarray):
+def kmeans_3d(numbers: np.ndarray, mask: np.ndarray = None):
     """
-    K-means clustering for 3D image, and 16bit image is supported.
+    K-means clustering for 3D image with consistent labeling.
+    The brighter pixels will always be labeled as 1, darker as 0.
     """
-    if numbers.max()  > 65535:
-        bit16 = True
+    original_shape = numbers.shape
+    
+    if numbers.max() > 255:
+        type = '16bit'
         numbers = numbers / 65535
-    else:
-        bit16 = False
+    elif numbers.max() > 1:
+        type = '8bit'
         numbers = numbers / 255
-
-    shape = numbers.shape
-    numbers = numbers.reshape(-1, 1)
-    kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(numbers)
-    classes = kmeans_filter.labels_
-    classes = classes.reshape(shape)
-
-    if bit16:
-        classes = classes * 65535
     else:
+        type = 'float'
+        numbers = numbers
+
+    if mask is not None:
+        # Only cluster masked pixels
+        masked_values = numbers[mask].reshape(-1, 1)
+        kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(masked_values)
+        
+        # Check if labels need to be flipped based on cluster centers
+        centers = kmeans_filter.cluster_centers_.flatten()
+        labels = kmeans_filter.labels_
+        if centers[0] > centers[1]:
+            # Flip labels if cluster 0 is brighter than cluster 1
+            labels = 1 - labels
+        
+        # Create output array filled with zeros
+        classes = np.zeros_like(numbers)
+        # Assign clustered values back to masked positions
+        classes[mask] = labels
+    else:
+        numbers_reshaped = numbers.reshape(-1, 1)
+        kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(numbers_reshaped)
+        
+        # Check if labels need to be flipped based on cluster centers
+        centers = kmeans_filter.cluster_centers_.flatten()
+        labels = kmeans_filter.labels_
+        if centers[0] > centers[1]:
+            # Flip labels if cluster 0 is brighter than cluster 1
+            labels = 1 - labels
+            
+        classes = labels.reshape(original_shape)
+
+    if type == '16bit':
+        classes = classes * 65535
+    elif type == '8bit':
         classes = classes * 255
+    else:
+        classes = classes
+
     return classes
 
 
