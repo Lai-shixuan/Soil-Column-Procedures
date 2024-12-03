@@ -8,10 +8,10 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 from pathlib import Path
 from tqdm import tqdm
 from src.API_functions.Images import file_batch as fb
-from API_functions.Soils import threshold_position_independent as tpi
-from API_functions.DL import shape_processor as processor
-from API_functions.DL import shape_detectors as detector
-from API_functions.DL import multi_input_adapter as adapter
+from src.API_functions.Soils import threshold_position_independent as tpi
+from src.API_functions.DL import shape_processor as processor
+from src.API_functions.DL import shape_detectors as detector
+from src.API_functions.DL import multi_input_adapter as adapter
 
 class ShapeROICutter:
     """Utility class for cutting ROIs from images based on shape detection in label images"""

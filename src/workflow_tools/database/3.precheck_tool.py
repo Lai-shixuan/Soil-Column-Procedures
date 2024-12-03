@@ -11,7 +11,7 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 from pathlib import Path
 from typing import List, Union
 from src.API_functions.Images import file_batch as fb
-from API_functions.DL import multi_input_adapter
+from src.API_functions.DL import multi_input_adapter
 
 def batch_precheck_and_save(
     image_paths: List[str],

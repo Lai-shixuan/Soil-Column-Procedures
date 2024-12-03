@@ -9,8 +9,8 @@ import shutil
 import sys
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-from API_functions.Soils import pre_process
-from API_functions.Soils import threshold_position_independent
+from src.API_functions.Soils import pre_process
+from src.API_functions.Soils import threshold_position_independent
 
 
 # A date structure to include prefix, suffix and middle name:

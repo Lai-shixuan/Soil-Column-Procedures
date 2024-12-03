@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Union, Tuple
 from dataclasses import dataclass
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
-from API_functions.DL import load_data, evaluate
+from src.API_functions.DL import load_data, evaluate
 from src.API_functions.Images import file_batch as fb
 
 
@@ -331,7 +331,7 @@ class InferencePipeline:
 if __name__ == "__main__":
     config = InferenceConfig(
         model_type='DeepLabV3Plus',
-        model_path='workflow_tools/model_DeepLabv3+_16.whole.new.dataset.pth',
+        model_path='src/workflow_tools/model_DeepLabv3+_16.whole.new.dataset.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation
