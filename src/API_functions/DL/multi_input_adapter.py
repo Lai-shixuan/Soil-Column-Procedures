@@ -229,7 +229,7 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
             stats['thresholded'] += 1
 
         # Auto detect the boundary of the circle or rectangle ROI, if the image is larger than target_size, cut it 
-        result, params = processor.process_shape_detection(img, detector.EllipseDetector(), is_label=is_label, draw_mask=False)
+        result, params = processor.process_shape_detection(img, detector.RectangleDetector(), is_label=is_label, draw_mask=False)
         img = result['cut']
         img = processor.adjust_image_to_shape(img, params, target_size)
         shape_params.append(params)  # Store the shape parameters
@@ -271,7 +271,10 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
 
 def format_ellipse_params(params):
     """Convert EllipseParams to dictionary"""
+    if params is None:
+        return None
     return {
+        'type': 'ellipse',
         'center_x': params.center[0],
         'center_y': params.center[1],
         'covered_pixels': params.covered_pixels,
@@ -279,26 +282,39 @@ def format_ellipse_params(params):
         'short_axis': params.short_axis
     }
 
+def format_rectangle_params(params):
+    """Convert RectangleParams to dictionary"""
+    if params is None:
+        return None
+    return {
+        'type': 'rectangle',
+        'center_x': params.center[0],
+        'center_y': params.center[1],
+        'covered_pixels': params.covered_pixels,
+        'width': params.width,
+        'height': params.height
+    }
+
 def results_to_dataframe(results: dict) -> pd.DataFrame:
     """Convert precheck results to a DataFrame format with proper handling of nested structures"""
     data = []
-    
-    # Get total number of patches
     n_patches = len(results['patches'])
     
     for i in range(n_patches):
-        # Get image index for this patch
         img_idx = results['patch_to_image_map'][i]
-        
-        # Get position for this patch from nested structure
         position = results['patch_positions'][img_idx][i % len(results['patch_positions'][img_idx])]
-        
-        # Get original image dimensions
         orig_dims = results['original_image_info'][img_idx]
         
-        # Get shape parameters and convert to dict
-        shape_params = format_ellipse_params(results['shape_params'][img_idx])
+        # Get shape parameters and determine type
+        shape_params = results['shape_params'][img_idx]
+        if hasattr(shape_params, 'long_axis'):  # It's an ellipse
+            params_dict = format_ellipse_params(shape_params)
+        else:  # It's a rectangle
+            params_dict = format_rectangle_params(shape_params)
         
+        if params_dict is None:
+            continue
+            
         row = {
             'patch_index': i,
             'original_image_index': img_idx,
@@ -306,12 +322,24 @@ def results_to_dataframe(results: dict) -> pd.DataFrame:
             'position_y': position[1],
             'original_width': orig_dims[0],
             'original_height': orig_dims[1],
-            'center_x': shape_params['center_x'],
-            'center_y': shape_params['center_y'],
-            'covered_pixels': shape_params['covered_pixels'],
-            'long_axis': shape_params['long_axis'],
-            'short_axis': shape_params['short_axis']
+            'shape_type': params_dict['type'],
+            'center_x': params_dict['center_x'],
+            'center_y': params_dict['center_y'],
+            'covered_pixels': params_dict['covered_pixels']
         }
+        
+        # Add shape-specific parameters
+        if params_dict['type'] == 'ellipse':
+            row.update({
+                'long_axis': params_dict['long_axis'],
+                'short_axis': params_dict['short_axis']
+            })
+        else:  # rectangle
+            row.update({
+                'width': params_dict['width'],
+                'height': params_dict['height']
+            })
+            
         data.append(row)
     
     return pd.DataFrame(data)
