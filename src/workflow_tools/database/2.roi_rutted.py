@@ -3,7 +3,7 @@
 import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 import pandas as pd
 
 

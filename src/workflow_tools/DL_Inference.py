@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from API_functions.DL import load_data, evaluate
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 
 
 # Configure logging

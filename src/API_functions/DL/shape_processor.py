@@ -7,7 +7,7 @@ from .shape_base import ShapeDetector, ShapeParams, EllipseParams, RectanglePara
 from .log import logger_manager
 from .utils import create_circular_mask, check_corners
 from API_functions.Soils import threshold_position_independent as tpi
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 
 T = TypeVar('T', bound=ShapeParams)
 

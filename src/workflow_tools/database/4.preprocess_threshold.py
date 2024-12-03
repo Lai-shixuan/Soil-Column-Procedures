@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 from API_functions.Soils import threshold_position_independent as tmi
 
 

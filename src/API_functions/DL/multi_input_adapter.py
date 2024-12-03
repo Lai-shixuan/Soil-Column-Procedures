@@ -8,7 +8,7 @@ import pandas as pd
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from API_functions.Soils import threshold_position_independent as tpi
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 from API_functions.DL import shape_processor as processor
 from API_functions.DL import shape_detectors as detector
 from tqdm import tqdm

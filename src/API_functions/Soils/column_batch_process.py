@@ -3,7 +3,7 @@ import os
 import csv
 
 # User-defined library import
-from .. import file_batch
+from ..Images import file_batch
 
 # A class to define the soil column structure, including parts and subfolders:
 class SoilColumn:

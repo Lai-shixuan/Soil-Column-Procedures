@@ -9,7 +9,7 @@ import cupy as cp
 from skimage.measure import label
 
 # User-defined library import
-from .. import file_batch
+from ..Images import file_batch
 
 
 # get the left and right surface of the image array

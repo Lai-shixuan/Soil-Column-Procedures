@@ -6,7 +6,7 @@
 import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 
-from API_functions import read_raw
+from src.API_functions.Images import read_raw
 import os
 import cv2
 import numpy as np

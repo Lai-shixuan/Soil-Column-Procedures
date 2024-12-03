@@ -8,7 +8,7 @@ import matplotlib
 matplotlib.use('Qt5Agg')
 
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 
 class ImageViewer(QMainWindow):
     def __init__(self, folder1, folder2):

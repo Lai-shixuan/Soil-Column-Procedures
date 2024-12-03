@@ -7,7 +7,7 @@ from sklearn.mixture import GaussianMixture
 import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
-from API_functions import file_batch as fb
+from src.API_functions.Images import file_batch as fb
 
 
 def origin(numbers: np.ndarray):
