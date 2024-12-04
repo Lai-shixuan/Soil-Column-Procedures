@@ -33,8 +33,11 @@ def padding_img(input: np.ndarray, target_size: int, color: int) -> np.ndarray:
 
 def restore_image_batch(datasets: dict, target_size: int = 512):
     """Restore the original images from patches and their positions."""
-
     images_restrored = []
+    
+    # Validate input data
+    if not all(key in datasets for key in ['patches', 'patch_positions', 'patch_to_image_map', 'original_image_info']):
+        raise ValueError("Missing required keys in datasets dictionary")
 
     # Get number of patches for each image
     patch_counts = {}
@@ -44,11 +47,16 @@ def restore_image_batch(datasets: dict, target_size: int = 512):
     # Process each original image
     for img_idx, count in patch_counts.items():
         if count == 1:
-            # Image wasn't split, just save the single patch directly
+            # Single patch case
             patch_idx = datasets['patch_to_image_map'].index(img_idx)
-            images_restrored.append(datasets['patches'][patch_idx])
+            patch = datasets['patches'][patch_idx]
+            # Ensure patch matches original dimensions
+            orig_shape = datasets['original_image_info'][img_idx]
+            if patch.shape != orig_shape:
+                patch = patch[:orig_shape[0], :orig_shape[1]]
+            images_restrored.append(patch)
         else:
-            # Image was split into multiple patches, needs restoration
+            # Multiple patches case
             image_patches = [
                 patch for patch, map_idx in zip(datasets['patches'], datasets['patch_to_image_map'])
                 if map_idx == img_idx
@@ -73,7 +81,7 @@ def restore_image(patches: list[np.ndarray], patch_positions: list[tuple[int, in
     
     Parameters:
     - patches: List of image patches
-    - patch_positions: List of (y, x) positions for each patch
+    - patch_positions: List of (row, col) positions for each patch
     - image_shape: Original image shape (height, width)
     - target_size: Size of each patch
     """
@@ -81,46 +89,53 @@ def restore_image(patches: list[np.ndarray], patch_positions: list[tuple[int, in
     output = np.zeros((h, w), dtype=np.float32)
     count = np.zeros((h, w), dtype=np.float32)
 
-    # Add each patch to the output image 
-    for patch, (y, x) in zip(patches, patch_positions):
-        output[y:y + target_size, x:x + target_size] += patch
-        count[y:y + target_size, x:x + target_size] += 1
+    for patch, (row, col) in zip(patches, patch_positions):
+        # Get actual patch dimensions
+        ph, pw = patch.shape
+        
+        # Calculate valid region sizes (handle boundary conditions)
+        valid_h = min(ph, h - row)
+        valid_w = min(pw, w - col)
+        
+        # Add patch to output using only valid regions
+        output[row:row + valid_h, col:col + valid_w] += patch[:valid_h, :valid_w]
+        count[row:row + valid_h, col:col + valid_w] += 1
     
-    # Average out the overlapping regions
-    output /= count
+    # Avoid division by zero
+    mask = count > 0
+    output[mask] /= count[mask]
+    
     return output
 
 
 def sliding_window(input: np.ndarray, target_size: int, stride: int, return_positions: bool = False) -> tuple[list[np.ndarray], list[tuple[int, int]]]:
     """
-    # ...existing docstring...
-    Returns:
-    - If return_positions is False: list[np.ndarray] of patches
-    - If return_positions is True: tuple(list[np.ndarray], list[tuple[int, int]]) of patches and their positions
+    Creates patches using sliding window. Position coordinates are in (row, col) format.
+    Returns positions as (y,x) where y is row and x is column.
     """
     patches = []
-    positions = []  # Store (y, x) positions of each patch
+    positions = []  # Store (row, col) positions of each patch
     h, w = input.shape[:2]
     
-    for y in range(0, h - target_size + 1, stride):
-        for x in range(0, w - target_size + 1, stride):
-            patch = input[y:y + target_size, x:x + target_size]
+    for row in range(0, h - target_size + 1, stride):
+        for col in range(0, w - target_size + 1, stride):
+            patch = input[row:row + target_size, col:col + target_size]
             patches.append(patch)
-            positions.append((y, x))
+            positions.append((row, col))
     
     # Handle the rightmost part
     if w % target_size != 0:
-        for y in range(0, h - target_size + 1, stride):
-            patch = input[y:y + target_size, -target_size:]
+        for row in range(0, h - target_size + 1, stride):
+            patch = input[row:row + target_size, -target_size:]
             patches.append(patch)
-            positions.append((y, w - target_size))
+            positions.append((row, w - target_size))
     
     # Handle the bottom part
     if h % target_size != 0:
-        for x in range(0, w - target_size + 1, stride):
-            patch = input[-target_size:, x:x + target_size]
+        for col in range(0, w - target_size + 1, stride):
+            patch = input[-target_size:, col:col + target_size]
             patches.append(patch)
-            positions.append((h - target_size, x))
+            positions.append((h - target_size, col))
     
     # Bottom-right corner
     if h % target_size != 0 and w % target_size != 0:
@@ -229,7 +244,7 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
             stats['thresholded'] += 1
 
         # Auto detect the boundary of the circle or rectangle ROI, if the image is larger than target_size, cut it 
-        result, params = processor.process_shape_detection(img, detector.RectangleDetector(), is_label=is_label, draw_mask=False)
+        result, params = processor.process_shape_detection(img, detector.EllipseDetector(), is_label=is_label, draw_mask=False)
         img = result['cut']
         img = processor.adjust_image_to_shape(img, params, target_size)
         shape_params.append(params)  # Store the shape parameters
@@ -300,9 +315,17 @@ def results_to_dataframe(results: dict) -> pd.DataFrame:
     data = []
     n_patches = len(results['patches'])
     
+    # Keep track of how many patches we've seen for each image
+    patch_counts = {}
+    
     for i in range(n_patches):
         img_idx = results['patch_to_image_map'][i]
-        position = results['patch_positions'][img_idx][i % len(results['patch_positions'][img_idx])]
+        # Initialize or increment patch count for this image
+        patch_counts[img_idx] = patch_counts.get(img_idx, 0)
+        # Get the correct position using the current patch count
+        position = results['patch_positions'][img_idx][patch_counts[img_idx]]
+        patch_counts[img_idx] += 1
+        
         orig_dims = results['original_image_info'][img_idx]
         
         # Get shape parameters and determine type

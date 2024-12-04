@@ -54,7 +54,7 @@ def batch_precheck_and_save(
         original_path = image_paths[patch_to_image_map[i]]
         original_filename = os.path.splitext(os.path.basename(original_path))[0]
         # Create new filename with original name and patch number
-        output_path = os.path.join(patch_dir, f'{original_filename}_patch_{i}.tif')
+        output_path = os.path.join(patch_dir, f'{original_filename}_patch_{i:04d}.tif')
         cv2.imwrite(output_path, img)
 
     # Log information
@@ -69,13 +69,13 @@ def batch_precheck_and_save(
 if __name__ == "__main__":
     
     # Example paths - modify these according to your data location
-    image_dir = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/2.ROI/'
-    # label_dir = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/2.ROI/label/'
-    output_dir = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/3.Precheck/'
+    image_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/image/'
+    label_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/label/'
+    output_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/'
     
     # Get all image files
-    image_paths = glob.glob(f"{image_dir}/*.png")  # adjust file extension as needed
-    # label_paths = glob.glob(f"{label_dir}/*.tif")
+    image_paths = glob.glob(f"{image_dir}/*.tif")  # adjust file extension as needed
+    label_paths = glob.glob(f"{label_dir}/*.tif")
     
     # Process regular images
     print("Processing images...")
@@ -85,26 +85,26 @@ if __name__ == "__main__":
         is_label=False
     )
     
-    # # Process label images
-    # print("Processing labels...")
-    # label_results = batch_precheck_and_save(
-    #     image_paths=label_paths,
-    #     output_dir=output_dir,
-    #     is_label=True
-    # )
+    # Process label images
+    print("Processing labels...")
+    label_results = batch_precheck_and_save(
+        image_paths=label_paths,
+        output_dir=output_dir,
+        is_label=True
+    )
     
     # Save results to CSV
     image_df = multi_input_adapter.results_to_dataframe(image_results)
-    # label_df = multi_input_adapter.results_to_dataframe(label_results)
+    label_df = multi_input_adapter.results_to_dataframe(label_results)
     
     # Save to CSV files
     csv_output_dir = os.path.join(output_dir, 'metadata')
     Path(csv_output_dir).mkdir(parents=True, exist_ok=True)
     
     image_df.to_csv(os.path.join(csv_output_dir, 'image_patches.csv'), index=False)
-    # label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
+    label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
     
     print("Processing complete!")
     print(f"Images processed: {len(image_results['patches'])}")
-    # print(f"Labels processed: {len(label_results['patches'])}")
+    print(f"Labels processed: {len(label_results['patches'])}")
     print(f"Metadata saved to: {csv_output_dir}")
