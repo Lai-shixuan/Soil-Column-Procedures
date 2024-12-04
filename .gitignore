@@ -3,10 +3,13 @@ __pycache__/
 wandb/
 .vscode/
 .pytest_cache/
+dist/
+build/
 
 *.pth
 *.pyc
 *.cpython
 *.db
+*.exe
 
 nohup.out
