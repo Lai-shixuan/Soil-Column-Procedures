@@ -99,7 +99,7 @@ def kmeans_3d(numbers: np.ndarray, mask: np.ndarray = None):
         # Check if labels need to be flipped based on cluster centers
         centers = kmeans_filter.cluster_centers_.flatten()
         labels = kmeans_filter.labels_
-        if centers[0] > centers[1]:
+        if centers[1] > centers[0]:
             # Flip labels if cluster 0 is brighter than cluster 1
             labels = 1 - labels
         
@@ -114,7 +114,7 @@ def kmeans_3d(numbers: np.ndarray, mask: np.ndarray = None):
         # Check if labels need to be flipped based on cluster centers
         centers = kmeans_filter.cluster_centers_.flatten()
         labels = kmeans_filter.labels_
-        if centers[0] > centers[1]:
+        if centers[1] > centers[0]:
             # Flip labels if cluster 0 is brighter than cluster 1
             labels = 1 - labels
             

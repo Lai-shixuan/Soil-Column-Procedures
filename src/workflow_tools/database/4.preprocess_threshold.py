@@ -35,7 +35,7 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
         
         # Pass both the original image and mask to kmeans_3d
         image = tmi.kmeans_3d(image, mask)
-        image = 1 - image
+        # image = 1 - image
         
         path_out=f'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.{i:04d}/4.Threshold/Remap-kmeans/'
         if not os.path.exists(path_out):
