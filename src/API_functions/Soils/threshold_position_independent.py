@@ -140,11 +140,23 @@ def gmm_3d(numbers: np.ndarray):
     return pixels_gmm
 
 
-def user_threshold(image: np.ndarray, optimal_threshold: int):
+def user_threshold(image: np.ndarray, optimal_threshold: float):
+    """Apply threshold with value in 0-1 range.
+    
+    Args:
+        image: Input image array
+        optimal_threshold: Threshold value in range [0,1]
+        
+    Returns:
+        Binary image
+    """
+    # Convert threshold to image range
     if image.max() > 255:
-        _, threshold_image = cv2.threshold(image, optimal_threshold, 65535, cv2.THRESH_BINARY)
+        threshold = optimal_threshold * 65535
+        _, threshold_image = cv2.threshold(image, threshold, 65535, cv2.THRESH_BINARY)
     elif image.max() > 1:
-        _, threshold_image = cv2.threshold(image, optimal_threshold, 255, cv2.THRESH_BINARY)
+        threshold = optimal_threshold * 255
+        _, threshold_image = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
     elif image.max() <= 1:
         _, threshold_image = cv2.threshold(image, optimal_threshold, 1, cv2.THRESH_BINARY)
     else:
