@@ -140,27 +140,42 @@ def gmm_3d(numbers: np.ndarray):
     return pixels_gmm
 
 
-def user_threshold(image: np.ndarray, optimal_threshold: float):
+def user_threshold(image: np.ndarray, optimal_threshold: float, mask: np.ndarray = None):
     """Apply threshold with value in 0-1 range.
     
     Args:
         image: Input image array
         optimal_threshold: Threshold value in range [0,1]
+        mask: Optional binary mask where True indicates pixels to threshold
         
     Returns:
         Binary image
     """
+    # Create output array
+    threshold_image = np.zeros_like(image)
+    
     # Convert threshold to image range
     if image.max() > 255:
         threshold = optimal_threshold * 65535
-        _, threshold_image = cv2.threshold(image, threshold, 65535, cv2.THRESH_BINARY)
+        max_val = 65535
     elif image.max() > 1:
         threshold = optimal_threshold * 255
-        _, threshold_image = cv2.threshold(image, threshold, 255, cv2.THRESH_BINARY)
+        max_val = 255
     elif image.max() <= 1:
-        _, threshold_image = cv2.threshold(image, optimal_threshold, 1, cv2.THRESH_BINARY)
+        threshold = optimal_threshold
+        max_val = 1
     else:
         raise ValueError('Wrong value range of image')
+
+    if mask is not None:
+        # Apply threshold only to masked regions
+        threshold_image[mask] = np.where(image[mask] > threshold, max_val, 0)
+        threshold_image[mask] = max_val - threshold_image[mask]
+    else:
+        # Apply threshold to entire image
+        _, threshold_image = cv2.threshold(image, threshold, max_val, cv2.THRESH_BINARY)
+        threshold_image = max_val - threshold_image
+        
     return threshold_image
 
 
