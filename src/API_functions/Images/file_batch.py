@@ -467,6 +467,20 @@ def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, star
     print(f'\033[1;3mRename completely!\033[0m')
 
 
+def windows_adjustment_one_image(image: np.ndarray, min: Optional[int] = None, max: Optional[int] = None) -> np.ndarray:
+    """
+    Adjust the windows of a single grayscale image.
+    Args:
+        image: Input image as numpy array
+        min: Optional minimum value for window
+        max: Optional maximum value for window
+    Returns:
+        Processed image as numpy array
+    """
+    if min is None or max is None:
+        min, max = pre_process.get_average_windows([image])
+    return pre_process.map_range_to_1(image, min, max)
+
 def windows_adjustment(path_in: str, path_out: str, min: Optional[int], max: Optional[int]):
     """
     Only for gray images! png format.
@@ -474,16 +488,17 @@ def windows_adjustment(path_in: str, path_out: str, min: Optional[int], max: Opt
     image_lists = get_image_names(path_in, None, 'tif')
     image_names = [os.path.basename(item) for item in image_lists]
     images = read_images(image_lists, gray='gray', read_all=True)
+    
     if min is None or max is None:
         min, max = pre_process.get_average_windows(images)
     print(f"min: {min}, max: {max}")
 
     for j, image in enumerate(tqdm(images)):
-        image = pre_process.map_range_to_1(image, min, max)
+        processed_image = windows_adjustment_one_image(image, min, max)
 
         if not os.path.exists(path_out):
             os.makedirs(path_out)
-        cv2.imwrite(os.path.join(path_out, image_names[j]), image)
+        cv2.imwrite(os.path.join(path_out, image_names[j]), processed_image)
     print(f'\033[1;3mWindows adjustment completely!\033[0m')
 
 
