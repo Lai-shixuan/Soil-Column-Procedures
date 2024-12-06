@@ -67,10 +67,41 @@ def watershed(image):
     output = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
     return output
 
-    # # Step 8: Display the Result
-    # cv2.imshow('Segmented Image', output)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    #
-    # # Step 9: Save the Result
-    # cv2.imwrite('color_segmented_image.jpg', output)
+
+def local_threshold(image: np.ndarray, block_size: int = 11, C: int = 2, mask: np.ndarray = None):
+    """
+    Apply adaptive threshold with optional masking.
+    
+    Args:
+        image: Input grayscale image (only uint8, restricted by OpenCV)
+        block_size: Size of pixel neighborhood used for threshold calculation
+        C: Constant subtracted from mean
+        mask: Optional binary mask where True indicates pixels to threshold
+        
+    Returns:
+        Binary image with local thresholding applied (uint8)
+    """
+    
+    # Apply adaptive threshold
+    if mask is not None:
+        output = np.zeros_like(image)
+        local_thresh = cv2.adaptiveThreshold(
+            image,
+            255,  # maxValue should be 255 for uint8
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            block_size,
+            C
+        )
+        output[mask] = local_thresh[mask]
+    else:
+        output = cv2.adaptiveThreshold(
+            image,
+            255,  # maxValue should be 255 for uint8
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            block_size,
+            C
+        )
+        
+    return output
