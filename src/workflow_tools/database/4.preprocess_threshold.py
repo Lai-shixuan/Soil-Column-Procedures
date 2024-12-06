@@ -8,15 +8,22 @@ import sys
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
+from pathlib import Path
 from src.API_functions.Images import file_batch as fb
 from src.API_functions.Soils import threshold_position_independent as tmi
 
 #%%
 # Adjust the windows of the images
 
-path_in = 'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/3.Precheck/images/'
-path_out='f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.0028/4.Preprocess/Remap/'
-fb.windows_adjustment(path_in, path_out, min=None, max=None)
+for i in range(10, 22):
+    path_in = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/3.Precheck/images/'
+    path_out = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/4.Preprocess/Remap/'
+
+    path_out = Path(path_out)
+    if not path_out.exists():
+        path_out.mkdir(parents=True)
+
+    fb.windows_adjustment(path_in, path_out, min=None, max=None)
 
 
 #%%

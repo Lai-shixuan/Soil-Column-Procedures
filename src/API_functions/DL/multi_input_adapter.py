@@ -244,7 +244,7 @@ def precheck(images: list[np.ndarray], is_label: bool = False, target_size: int 
             stats['thresholded'] += 1
 
         # Auto detect the boundary of the circle or rectangle ROI, if the image is larger than target_size, cut it 
-        result, params = processor.process_shape_detection(img, detector.EllipseDetector(), is_label=is_label, draw_mask=False)
+        result, params = processor.process_shape_detection(img, detector.RectangleDetector(), is_label=is_label, draw_mask=False)
         img = result['cut']
         img = processor.adjust_image_to_shape(img, params, target_size)
         shape_params.append(params)  # Store the shape parameters

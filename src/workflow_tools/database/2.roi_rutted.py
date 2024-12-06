@@ -11,6 +11,7 @@ Typical usage example:
 """
 
 import pandas as pd
+import os
 import sys
 
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
@@ -45,7 +46,7 @@ def get_roi_region_list(csv_file) -> list:
     id_col = 'id'
 
     # try to locate the id 28 and get its information
-    for i in [28, 29, 30, 31, 32, 33, 34]:
+    for i in range(10, 22):
         roi_x = int(csv_file.loc[csv_file[id_col] == i, x_col].values[0])
         roi_y = int(csv_file.loc[csv_file[id_col] == i, y_col].values[0])
         cutted_height_start = int(csv_file.loc[csv_file[id_col] == i, h_start_col].values[0])
@@ -62,10 +63,12 @@ if __name__ == '__main__':
     csv_file = pd.read_csv("f:/3.Experimental_Data/Soils/Metadata_of_whole_database.csv")
     roi_region_list = get_roi_region_list(csv_file)
 
-    for i in [28, 29, 30, 31, 32, 33, 34]:
-        path_in = f'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.{i:04d}/1.Reconstruct/'
-        path_out = f'f:/3.Experimental_Data/Soils/Quzhou_Henan/Soil.column.{i:04d}/2.ROI/'
-        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[i-28], img_format='png')
-        print('')
+    for i in range(10, 22):
+        path_in = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/1.Reconstruct/'
+        path_out = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/2.ROI/'
 
-        break
+        if not os.path.exists(path_out):
+            os.makedirs(path_out)
+
+        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[i-10], img_format='png')
+        print('')

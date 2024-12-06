@@ -170,11 +170,11 @@ def user_threshold(image: np.ndarray, optimal_threshold: float, mask: np.ndarray
     if mask is not None:
         # Apply threshold only to masked regions
         threshold_image[mask] = np.where(image[mask] > threshold, max_val, 0)
-        threshold_image[mask] = max_val - threshold_image[mask]
+        # threshold_image[mask] = max_val - threshold_image[mask]
     else:
         # Apply threshold to entire image
         _, threshold_image = cv2.threshold(image, threshold, max_val, cv2.THRESH_BINARY)
-        threshold_image = max_val - threshold_image
+        # threshold_image = max_val - threshold_image
         
     return threshold_image
 

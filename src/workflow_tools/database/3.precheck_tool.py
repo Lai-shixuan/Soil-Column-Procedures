@@ -67,44 +67,45 @@ def batch_precheck_and_save(
     return results
 
 if __name__ == "__main__":
-    
-    # Example paths - modify these according to your data location
-    image_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/image/'
-    label_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/2.ROI/label/'
-    output_dir = 'f:/3.Experimental_Data/Soils/Online/Soil.column.0035/3.Precheck/'
-    
-    # Get all image files
-    image_paths = glob.glob(f"{image_dir}/*.tif")  # adjust file extension as needed
-    label_paths = glob.glob(f"{label_dir}/*.tif")
-    
-    # Process regular images
-    print("Processing images...")
-    image_results = batch_precheck_and_save(
-        image_paths=image_paths,
-        output_dir=output_dir,
-        is_label=False
-    )
-    
-    # Process label images
-    print("Processing labels...")
-    label_results = batch_precheck_and_save(
-        image_paths=label_paths,
-        output_dir=output_dir,
-        is_label=True
-    )
-    
-    # Save results to CSV
-    image_df = multi_input_adapter.results_to_dataframe(image_results)
-    label_df = multi_input_adapter.results_to_dataframe(label_results)
-    
-    # Save to CSV files
-    csv_output_dir = os.path.join(output_dir, 'metadata')
-    Path(csv_output_dir).mkdir(parents=True, exist_ok=True)
-    
-    image_df.to_csv(os.path.join(csv_output_dir, 'image_patches.csv'), index=False)
-    label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
-    
-    print("Processing complete!")
-    print(f"Images processed: {len(image_results['patches'])}")
-    print(f"Labels processed: {len(label_results['patches'])}")
-    print(f"Metadata saved to: {csv_output_dir}")
+
+    for i in range(10, 22):
+        # Example paths - modify these according to your data location
+        image_dir = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/2.ROI/'
+        # label_dir = f'f:/3.Experimental_Data/Soils/Online/Soil.column.{i:04d}/2.ROI/label/'
+        output_dir = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/3.Precheck'
+        # csv_output_dir = os.path.join(output_dir, 'metadata')
+        csv_output_dir = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Soil.column.{i:04d}/'
+        
+        # Get all image files
+        image_paths = glob.glob(f"{image_dir}/*.png")  # adjust file extension as needed
+        # label_paths = glob.glob(f"{label_dir}/*.tif")
+        
+        # Process regular images
+        print("Processing images...")
+        image_results = batch_precheck_and_save(
+            image_paths=image_paths,
+            output_dir=output_dir,
+            is_label=False
+        )
+        
+        # # Process label images
+        # print("Processing labels...")
+        # label_results = batch_precheck_and_save(
+        #     image_paths=label_paths,
+        #     output_dir=output_dir,
+        #     is_label=True
+        # )
+        
+        # Save results to CSV
+        image_df = multi_input_adapter.results_to_dataframe(image_results)
+        # label_df = multi_input_adapter.results_to_dataframe(label_results)
+        
+        # Save to CSV files
+        Path(csv_output_dir).mkdir(parents=True, exist_ok=True)
+        image_df.to_csv(os.path.join(csv_output_dir, 'image_patches.csv'), index=False)
+        # label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
+        
+        print("Processing complete!")
+        print(f"Images processed: {len(image_results['patches'])}")
+        # print(f"Labels processed: {len(label_results['patches'])}")
+        print(f"Metadata saved to: {csv_output_dir}")
