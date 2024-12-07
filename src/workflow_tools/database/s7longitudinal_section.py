@@ -1,9 +1,11 @@
 """Module for extracting longitudinal sections from ROI-processed soil column images.
 
-This module creates two vertical sections from each soil column image:
-1. A section through the middle of the width (Y-Z plane)
-2. A section through the middle of the height (X-Z plane)
+This module performs vertical sectioning of 3D soil column images to create two types of views:
+1. Y-Z plane: A section through the middle of the column width
+2. X-Z plane: A section through the middle of the column height
 
+The module handles both pixel repetition and interpolation-based stretching to account for
+physical dimensions of the soil columns.
 """
 
 import os
@@ -16,21 +18,37 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 from src.API_functions.Images import file_batch as fb
 from src.API_functions.DL import multi_input_adapter as adapter
 
-def extract_longitudinal_sections(path_in: str, col_id: str, label_square: tuple = None):
-    """Extracts vertical sections and returns them instead of saving.
+def extract_longitudinal_sections(path_in: str, col_id: str, label_square: tuple = None) -> tuple:
+    """Extracts vertical sections from a stack of soil column images.
+
+    Algorithm:
+        1. Reads all images into a 3D numpy array (depth x height x width)
+        2. Takes middle slices along width and height axes
+        3. Normalizes images to float32 in range [0,1]
+        4. Adjusts window level for better contrast
+        5. If label_square provided:
+           - Creates stretched versions using both pixel repetition and interpolation
+           - Stretch ratio = label depth / label width
 
     Args:
-        path_in: Input directory containing ROI-processed images
-        col_id: Column ID for naming the output files
-        label_square: Tuple of (width, depth) dimensions to calculate stretch ratio
+        path_in (str): Directory containing ROI-processed images
+        col_id (str): Column identifier for naming output files
+        label_square (tuple, optional): (width, depth) dimensions for stretch calculation
 
     Returns:
-        dict: Dictionary containing all section images
+        tuple: Contains:
+            - dict: Sections dictionary with keys:
+                - Without label_square: {'YZ': y-z_section, 'XZ': x-z_section}
+                - With label_square: {'YZ_repeated', 'XZ_repeated', 'YZ_resized', 'XZ_resized'}
+            - tuple: Original 3D stack shape
+            - float: Stretch ratio used (1.0 if no label_square)
     """
     # Get image names and read all images
     images_paths = fb.get_image_names(path_in, None, 'png')
     img_stack = fb.read_images(images_paths, 'gray', read_all=True)
     img_stack = np.array(img_stack)
+    
+    original_shape = img_stack.shape
 
     # Get middle sections directly from 3D array
     mid_width = img_stack.shape[2] // 2
@@ -68,61 +86,91 @@ def extract_longitudinal_sections(path_in: str, col_id: str, label_square: tuple
             'XZ_repeated': height_section_repeated,
             'YZ_resized': width_section_resized,
             'XZ_resized': height_section_resized
-        }
+        }, original_shape, ratio_decimal  # Added ratio_decimal to return
     else:
         return {
             'YZ': width_section,
             'XZ': height_section
-        }
+        }, original_shape, 1.0
 
-def combine_sections(images_list, spacing=50, target_width=210):
-    """Combines multiple sections horizontally with spacing, handling different heights.
-    
+def combine_sections(images_list, original_heights, stretch_ratios, spacing=50, standard_height=3000):
+    """Combines multiple section images into a single comparison image.
+
+    Algorithm:
+        1. Calculates height ratios based on original stack heights
+        2. Resizes each image proportionally to maintain relative heights
+        3. Creates a blank canvas with standard height
+        4. Places each image sequentially with spacing
+        5. Preserves aspect ratios during resizing
+
     Args:
-        images_list: List of image arrays to combine
-        spacing: Number of blank pixels between images
-        target_width: Target width for all images after resizing
+        images_list (list): List of image arrays to combine
+        original_heights (list): Original stack heights from 3D matrices
+        stretch_ratios (list): Stretch ratios from label squares
+        spacing (int, optional): Pixels between images. Defaults to 50.
+        standard_height (int, optional): Target height for longest column. Defaults to 3000.
+
+    Returns:
+        ndarray: Combined image with all sections
     """
-    # Resize all images to same width while maintaining aspect ratio
+    # Calculate height ratios directly from original stack heights
+    max_orig_height = max(original_heights)
+    height_ratios = [h/max_orig_height for h in original_heights]
+    
+    # Calculate heights for each column based on standard_height and original ratios
+    target_heights = [int(standard_height * ratio) for ratio in height_ratios]
+    
+    # Resize images maintaining width proportions but using target heights
     resized_images = []
-    for img in images_list:
-        scale = target_width / img.shape[1]
-        new_height = int(img.shape[0] * scale)
-        resized = cv2.resize(img, (target_width, new_height), interpolation=cv2.INTER_LINEAR)
+    for img, target_height in zip(images_list, target_heights):
+        # Calculate new width to maintain aspect ratio
+        aspect_ratio = img.shape[1] / img.shape[0]
+        new_width = int(target_height * aspect_ratio)
+        resized = cv2.resize(img, (new_width, target_height), interpolation=cv2.INTER_LINEAR)
         resized_images.append(resized)
     
-    # Find maximum height after resizing
-    max_height = max(img.shape[0] for img in resized_images)
-    
     # Calculate total width needed
-    total_width = (target_width * len(resized_images)) + (spacing * (len(resized_images) - 1))
+    total_width = sum(img.shape[1] for img in resized_images) + (spacing * (len(resized_images) - 1))
     
-    # Create blank canvas
-    combined = np.full((max_height, total_width), 0, dtype=np.float32)
+    # Create blank canvas with standard height
+    combined = np.full((standard_height, total_width), 0, dtype=np.float32)
     
     # Place each resized image at the top of the canvas
     current_x = 0
     for img in resized_images:
-        combined[0:img.shape[0], current_x:current_x + target_width] = img
-        current_x += target_width + spacing
+        combined[0:img.shape[0], current_x:current_x + img.shape[1]] = img
+        current_x += img.shape[1] + spacing
     
     return combined
 
-def generate_summaries(sections_dict, output_dir):
-    """Generates summary images from collected sections.
-    
+def generate_summaries(sections_dict, output_dir, original_heights, stretch_ratios):
+    """Generates summary images for each type of section.
+
+    Algorithm:
+        1. Iterates through each section type (YZ, XZ, etc.)
+        2. For each type, combines all column images into one summary
+        3. Saves combined image as TIFF file
+
     Args:
-        sections_dict: Dictionary of section types containing lists of images
-        output_dir: Directory to save summary images
+        sections_dict (dict): Dictionary of section types containing lists of images
+        output_dir (str): Directory to save summary images
+        original_heights (list): Original stack heights for ratio calculation
+        stretch_ratios (list): Stretch ratios from label squares
+
+    Returns:
+        None
     """
     for section_type, images in sections_dict.items():
         if images:
-            combined = combine_sections(images)
+            # Use standard height of 3000 pixels
+            combined = combine_sections(images, original_heights, stretch_ratios, 
+                                     spacing=50, standard_height=3000)
             output_path = os.path.join(output_dir, f'summary_{section_type}.tif')
             cv2.imwrite(output_path, combined)
             print(f'Created summary for {section_type}')
 
 if __name__ == '__main__':
+
     # Configuration
     config = {
         'base_path': "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/",
@@ -152,13 +200,15 @@ if __name__ == '__main__':
     if not os.path.exists(config['output_dir']):
         os.makedirs(config['output_dir'])
 
-    # Collect all sections in dictionaries
+    # Collect all sections and original heights in dictionaries
     sections_dict = {
         'YZ_repeated': [],
         'XZ_repeated': [],
         'YZ_resized': [],
         'XZ_resized': []
     }
+    original_heights = []
+    stretch_ratios = []
 
     # Process each column and collect images
     for i in range(config['columns']['start'], config['columns']['end'] + 1):
@@ -172,8 +222,11 @@ if __name__ == '__main__':
             print(f'Warning: No label_square configuration found for {col_id}')
             continue
         
-        # Get sections for this column
-        column_sections = extract_longitudinal_sections(path_in, col_id, label_square=label_square)
+        # Get sections, original shape, and stretch ratio for this column
+        column_sections, original_shape, stretch_ratio = extract_longitudinal_sections(
+            path_in, col_id, label_square=label_square)
+        original_heights.append(original_shape[0])
+        stretch_ratios.append(stretch_ratio)
         
         # Save individual sections and add to collections
         for section_type, image in column_sections.items():
@@ -184,6 +237,6 @@ if __name__ == '__main__':
             # Add to collection for summary
             sections_dict[section_type].append(image)
 
-    # Generate summary images
+    # Generate summary images with both ratios
     print('\nGenerating summary images...')
-    generate_summaries(sections_dict, config['output_dir'])
+    generate_summaries(sections_dict, config['output_dir'], original_heights, stretch_ratios)
