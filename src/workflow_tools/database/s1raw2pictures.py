@@ -16,7 +16,7 @@ from tqdm import tqdm
 # %%
 # Get the file names and their dimensions
 
-path = "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Straightened/"
+path = "g:/3.Experimental_Data/Soils/Dongying_highRH/Straightened/"
 files = [f for f in os.listdir(path) if f.endswith('.raw')]
 file_dict = {}
 for file in files:
@@ -32,17 +32,24 @@ for file in files:
 # 1. The images are reversed in order, because avizo shows the images in reverse order, so many soil columns actually be reversed when saved
 # 2. The images are converted from 16bit signed to 16bit unsigned
 
-output_path = "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/"
+output_path = "g:/3.Experimental_Data/Soils/Dongying_highRH/"
 
 for key, pair in file_dict.items():
-    image3d = read_raw.read_raw(path + pair[3], pair[0], pair[1], pair[2], virtual=False)
+    if key == '0009':
+        image3d = read_raw.read_raw(file_path=path + pair[3], height=pair[0], width=pair[1], depth=pair[2], dtype=np.dtype('<u2'),virtual=False)
+        
+        img_path = f'{output_path}/Soil.column.{key}/1.Reconstruct/'
 
-    for i in tqdm(range(image3d.shape[0])):
-        # Reverse the order of the images
-        reversed_name = f'{image3d.shape[0] - i - 1:03d}'
-        img_name = f'{output_path}/Soil.column.{key}/1.Reconstruct/{key}.{reversed_name}.png'
+        if not os.path.exists(img_path):
+            os.makedirs(img_path)
 
-        # Convert to 16bit unsigned integer from 16bit signed
-        img_uint16 = (image3d[i] + 32768).astype(np.uint16)
+        for i in tqdm(range(image3d.shape[0])):
+            # Reverse the order of the images
+            reversed_name = f'{image3d.shape[0] - i - 1:05d}'
+            img_name = f'{key}-{reversed_name}-reconstruct.png'
+            img_full_path = os.path.join(img_path, img_name)
 
-        cv2.imwrite(img_name, img_uint16)
+            # Convert to 16bit unsigned integer from 16bit signed
+            # img_uint16 = (image3d[i] + 32768).astype(np.uint16)
+
+            cv2.imwrite(img_full_path, image3d[i])
