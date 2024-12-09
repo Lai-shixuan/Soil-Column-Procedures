@@ -382,7 +382,7 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
     def extract_index(filename):
         # Split the filename to isolate the numeric part
         # Only works for filenames with '1-1_rec00000105.bmp'
-        if 'rec' in filename:
+        if '_rec' in filename:
             parts = filename.split('_rec')
             if len(parts) > 1:
                 numeric_part = parts[1].split('.')[0]
@@ -394,6 +394,8 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
             parts = filename.split('.')
             if len(parts) > 1:
                 numeric_part = parts[-2]
+                if '-' in numeric_part:
+                    numeric_part = numeric_part.split('-')[1]
                 return int(numeric_part)
 
     image_files = get_image_names(folder_path=path_in, image_names=name_read, image_format=img_format)
@@ -420,8 +422,8 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
         image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
         roi_image = image[roi.y1:roi.y1 + roi.height, roi.x1:roi.x1 + roi.width]
         old_file_name = os.path.basename(image_file)
-        old_file_name, _ = os.path.splitext(old_file_name)
-        new_file_path = os.path.join(path_out, old_file_name + '.png')
+        new_file_name = old_file_name.replace('reconstruct', 'cutted')
+        new_file_path = os.path.join(path_out, new_file_name + '.png')
         cv2.imwrite(new_file_path, roi_image)
         temp_list.append(new_file_path)
     show_image_names(temp_list)
