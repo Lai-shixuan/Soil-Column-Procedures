@@ -14,7 +14,7 @@ from src.API_functions.DL.shape_detectors import EllipseParams, RectangleParams
 def reconstruct_data_from_csv(csv_path: str, patches: list) -> dict:
     """
     Reconstruct the data structure needed for restoration from CSV file.
-    Positions in CSV are (row, col) format where row is y and col is x.
+    
     Args:
         csv_path: Path to the CSV file containing patch information
         patches: List of patch images
@@ -22,18 +22,17 @@ def reconstruct_data_from_csv(csv_path: str, patches: list) -> dict:
         dict: Data structure compatible with restore_image_batch
     """
     df = pd.read_csv(csv_path)
-    
-    # Get unique original images
     unique_images = df['original_image_index'].unique()
     
     patch_positions = []
     original_image_info = []
     patch_to_image_map = df['original_image_index'].tolist()
-    shape_params = []  # Add shape parameters list
+    shape_params = []
+    padding_info_list = []
     
     for img_idx in unique_images:
         img_patches = df[df['original_image_index'] == img_idx]
-        # Get positions for this image - keep as (row, col) format
+        # Get positions for this image
         positions = list(zip(img_patches['position_x'], img_patches['position_y']))
         patch_positions.append(positions)
         
@@ -44,9 +43,13 @@ def reconstruct_data_from_csv(csv_path: str, patches: list) -> dict:
         )
         original_image_info.append(original_shape)
         
-        # Reconstruct shape parameters
+        # Reconstruct shape parameters based on shape_type
         first_patch = img_patches.iloc[0]
-        if first_patch['shape_type'] == 'ellipse':
+        shape_type = first_patch['shape_type']
+        
+        if shape_type == 'none':
+            params = None
+        elif shape_type == 'ellipse':
             params = EllipseParams(
                 center=(first_patch['center_x'], first_patch['center_y']),
                 covered_pixels=first_patch['covered_pixels'],
@@ -62,12 +65,27 @@ def reconstruct_data_from_csv(csv_path: str, patches: list) -> dict:
             )
         shape_params.append(params)
     
+    for i in range(len(patches)):
+        patch_data = df.iloc[i]
+        if pd.notna(patch_data['padding_top']):
+            padding_info = {
+                'top': int(patch_data['padding_top']),
+                'bottom': int(patch_data['padding_bottom']),
+                'left': int(patch_data['padding_left']),
+                'right': int(patch_data['padding_right']),
+                'color': int(patch_data['padding_color'])
+            }
+        else:
+            padding_info = None
+        padding_info_list.append(padding_info)
+    
     return {
         'patches': patches,
         'patch_positions': patch_positions,
         'original_image_info': original_image_info,
         'patch_to_image_map': patch_to_image_map,
-        'shape_params': shape_params  # Add shape parameters to returned dictionary
+        'shape_params': shape_params,
+        'padding_info': padding_info_list  # Add padding info to results
     }
 
 def restore_images_workflow(input_images_path: str, output_dir: str, csv_path: str = None):
