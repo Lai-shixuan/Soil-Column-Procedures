@@ -63,12 +63,12 @@ if __name__ == '__main__':
     csv_file = pd.read_csv("f:/3.Experimental_Data/Soils/Metadata_of_whole_database.csv")
     roi_region_list = get_roi_region_list(csv_file)
 
-    for i in range(7, 8):
+    for j, i in [(1, 7) , (2, 9)]:
         path_in = f'g:/3.Experimental_Data/Soils/Dongying_highRH/Soil.column.{i:04d}/1.Reconstruct/'
         path_out = f'g:/3.Experimental_Data/Soils/Dongying_highRH/Soil.column.{i:04d}/2.ROI/'
 
         if not os.path.exists(path_out):
             os.makedirs(path_out)
 
-        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[i-6], img_format='png')
+        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[j], img_format='png')
         print('')

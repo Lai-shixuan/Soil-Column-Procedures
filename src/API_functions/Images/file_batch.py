@@ -423,7 +423,7 @@ def roi_select(path_in: str, path_out: str, name_read: Union[ImageName, None], r
         roi_image = image[roi.y1:roi.y1 + roi.height, roi.x1:roi.x1 + roi.width]
         old_file_name = os.path.basename(image_file)
         new_file_name = old_file_name.replace('reconstruct', 'cutted')
-        new_file_path = os.path.join(path_out, new_file_name + '.png')
+        new_file_path = os.path.join(path_out, new_file_name)
         cv2.imwrite(new_file_path, roi_image)
         temp_list.append(new_file_path)
     show_image_names(temp_list)
