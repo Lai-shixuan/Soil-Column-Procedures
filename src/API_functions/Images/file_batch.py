@@ -109,11 +109,11 @@ def read_images(image_files_names: list, gray: str = "gray", read_all: bool = Fa
         print(f"\033[1;3mReading completely!\033[0m")
         return images
     else:
-        for image_file in tqdm(image_files_names[:min(read_num, len(image_files_names))]):
+        for image_file in image_files_names[:min(read_num, len(image_files_names))]:
             read()
-        print(f"first {len(images)} images have been read")
-        print(f"if you want to read all, please set read_all=True")
-        print(f"\033[1;3mReading completely!\033[0m")
+        # print(f"first {len(images)} images have been read")
+        # print(f"if you want to read all, please set read_all=True")
+        # print(f"\033[1;3mReading completely!\033[0m")
         return images
 
 

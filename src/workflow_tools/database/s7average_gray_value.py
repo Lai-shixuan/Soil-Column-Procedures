@@ -14,17 +14,32 @@ class GrayValueAnalyzer:
     @staticmethod
     def average_gray_value(path_in: str):
         """Calculate average gray values from stack of images"""
-        # Get image names and read all images
-        images_paths = fb.get_image_names(path_in, None, 'png')
-        img_stack = fb.read_images(images_paths, 'gray', read_all=True)
-        img_stack = np.array(img_stack)
+        # Get image names
+        images_paths = fb.get_image_names(path_in, None, 'tif')
         
-        # Calculate average gray value for each slice
-        return [np.mean(img_stack[i]) for i in range(img_stack.shape[0])]
+        # Pre-allocate results list
+        results = []
+        total_images = len(images_paths)
+        
+        # Process images one by one
+        for idx, img_path in enumerate(images_paths, 1):
+            if idx % 500 == 0:  # Progress feedback every 500 images
+                print(f"Processing image {idx}/{total_images}")
+                
+            # Read single image
+            img = fb.read_images([img_path], 'gray', read_all=False)[0]
+            # Calculate and store average
+            results.append(np.mean(img))
+            
+        return results
 
     @classmethod
-    def process_multiple_columns(cls, base_path: str, output_dir: str, start_col: int, end_col: int):
-        """Process multiple soil columns and save combined results"""
+    def process_multiple_columns(cls, base_path: str, output_dir: str, columns: list, column_pairs=None):
+        """Process specific soil columns and save combined results
+        Args:
+            columns: List of column numbers to process [5, 7, 9]
+            column_pairs: List of tuples specifying which columns should be paired in same colors
+        """
         os.makedirs(output_dir, exist_ok=True)
         all_data = {}
         max_length = 0
@@ -32,13 +47,12 @@ class GrayValueAnalyzer:
         global_max = float('-inf')
         
         # Collect all data and find global min/max
-        for col_num in range(start_col, end_col + 1):
+        for col_num in columns:
             col_id = f"Soil.column.00{col_num:02d}"
-            input_path = os.path.join(base_path, col_id, "2.ROI")
             
             print(f"\nProcessing {col_id}...")
             try:
-                avg_values = cls.average_gray_value(input_path)
+                avg_values = cls.average_gray_value(os.path.join(base_path, col_id, '3.Harmonized'))
                 all_data[col_id] = avg_values
                 max_length = max(max_length, len(avg_values))
                 
@@ -61,22 +75,40 @@ class GrayValueAnalyzer:
         # Define plot parameters
         colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#d62728', '#9467bd', '#8c564b']
         line_styles = ['-', '--']
-        mid_point = start_col + (end_col - start_col + 1) // 2
-
+        
         # Create plots with consistent axes
         plt.figure(figsize=(15, 8))  # Combined plot
 
+        # Determine color assignment strategy
+        if len(columns) == 1:
+            # Single column - use black
+            color_map = {columns[0]: ('black', '-')}
+        elif column_pairs:
+            # Paired columns
+            color_map = {}
+            for idx, (col1, col2) in enumerate(column_pairs):
+                color_idx = idx % len(colors)
+                color_map[col1] = (colors[color_idx], '-')
+                color_map[col2] = (colors[color_idx], '--')
+        else:
+            # Multiple columns - different colors
+            color_map = {
+                col: (colors[idx % len(colors)], '-')
+                for idx, col in enumerate(columns)
+            }
+
         # Plot individual and combined graphs
-        for col_num in range(start_col, end_col + 1):
+        for col_num in columns:
             col_id = f"Soil.column.00{col_num:02d}"
             if col_id not in all_data:
                 continue
                 
             values = all_data[col_id]
+            color, linestyle = color_map[col_num]
             
             # Individual plot with consistent axes
             plt.figure(figsize=(10, 6))
-            plt.plot(range(len(values)), values)
+            plt.plot(range(len(values)), values, color=color)
             plt.title(f'Average Gray Value - {col_id}')
             plt.xlabel('Slice Number')
             plt.ylabel('Average Gray Value')
@@ -87,12 +119,10 @@ class GrayValueAnalyzer:
 
             # Add to combined plot
             plt.figure(1)
-            color_idx = (col_num - start_col) % ((end_col - start_col + 1) // 2)
-            style_idx = 0 if col_num < mid_point else 1
             plt.plot(range(len(values)), values, 
                     label=col_id,
-                    color=colors[color_idx],
-                    linestyle=line_styles[style_idx],
+                    color=color,
+                    linestyle=linestyle,
                     linewidth=2)
 
         # Save summary CSV
@@ -120,25 +150,24 @@ class GrayValueAnalyzer:
 def main():
     # Configuration
     config = {
-        'base_path': "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/",
-        'output_dir': "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Analysis/",  # New output directory
-        'columns': {
-            'start': 10,
-            'end': 21
-        }
+        'base_path': "g:/3.Experimental_Data/Soils/Dongying_highRH/",
+        'output_dir': "g:/3.Experimental_Data/Soils/Dongying_highRH/Analysis/",
+        'columns': [5, 7, 9],  # Specify exact columns to process
+        'column_pairs': None  # Example: [(5,7), (9,11)]
     }
     
     print("Configuration:")
     print(f"Base path: {config['base_path']}")
     print(f"Output directory: {config['output_dir']}")
-    print(f"Processing columns: {config['columns']['start']} to {config['columns']['end']}\n")
+    print(f"Processing columns: {config['columns']}")
+    print(f"Column pairs: {config['column_pairs']}\n")
     
     analyzer = GrayValueAnalyzer()
     csv_path = analyzer.process_multiple_columns(
         base_path=config['base_path'],
         output_dir=config['output_dir'],
-        start_col=config['columns']['start'],
-        end_col=config['columns']['end']
+        columns=config['columns'],
+        column_pairs=config['column_pairs']
     )
     print(f"\nResults saved in: {config['output_dir']}")
     print(f"Combined CSV: {csv_path}")
