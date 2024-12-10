@@ -16,60 +16,58 @@ import numpy as np
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 
 from src.API_functions.Images import file_batch as fb
-from src.API_functions.DL import multi_input_adapter as adapter
+from tqdm import tqdm
 
-def extract_longitudinal_sections(path_in: str, col_id: str, label_square: tuple = None) -> tuple:
+
+def extract_longitudinal_sections(path_in: str, label_square: tuple = None) -> tuple:
     """Extracts vertical sections from a stack of soil column images.
 
-    Algorithm:
-        1. Reads all images into a 3D numpy array (depth x height x width)
-        2. Takes middle slices along width and height axes
-        3. Normalizes images to float32 in range [0,1]
-        4. Adjusts window level for better contrast
-        5. If label_square provided:
-           - Creates stretched versions using both pixel repetition and interpolation
-           - Stretch ratio = label depth / label width
+    Processes images one by one to reduce memory usage. Takes middle slices along width
+    and height axes to create YZ and XZ plane sections.
 
     Args:
-        path_in (str): Directory containing ROI-processed images
-        col_id (str): Column identifier for naming output files
-        label_square (tuple, optional): (width, depth) dimensions for stretch calculation
+        path_in (str): Directory path containing the image stack.
+        label_square (tuple, optional): Physical dimensions (width, depth) for stretch calculation.
+            Used to adjust aspect ratio. Defaults to None.
 
     Returns:
-        tuple: Contains:
-            - dict: Sections dictionary with keys:
-                - Without label_square: {'YZ': y-z_section, 'XZ': x-z_section}
-                - With label_square: {'YZ_repeated', 'XZ_repeated', 'YZ_resized', 'XZ_resized'}
-            - tuple: Original 3D stack shape
+        tuple: Contains three elements:
+            - dict: Sections dictionary with keys depending on label_square:
+                Without label_square: {'YZ': y-z_section, 'XZ': x-z_section}
+                With label_square: {'YZ_repeated', 'XZ_repeated', 'YZ_resized', 'XZ_resized'}
+            - tuple: Original 3D stack shape (depth, height, width)
             - float: Stretch ratio used (1.0 if no label_square)
+
+    Raises:
+        ValueError: If no images found in path_in.
     """
-    # Get image names and read all images
-    images_paths = fb.get_image_names(path_in, None, 'png')
-    img_stack = fb.read_images(images_paths, 'gray', read_all=True)
-    img_stack = np.array(img_stack)
+    # Get image names
+    images_paths = fb.get_image_names(path_in, None, 'tif')
     
-    original_shape = img_stack.shape
-
-    # Get middle sections directly from 3D array
-    mid_width = img_stack.shape[2] // 2
-    mid_height = img_stack.shape[1] // 2
+    # Read first image to get dimensions
+    first_img = cv2.imread(images_paths[0], cv2.IMREAD_UNCHANGED)
+    height, width = first_img.shape
+    depth = len(images_paths)
     
-    width_section = img_stack[:, :, mid_width]    # YZ plane
-    height_section = img_stack[:, mid_height, :]  # XZ plane
-
-    # Change the images to float32
-    width_section = adapter.harmonized_normalize(width_section)
-    height_section = adapter.harmonized_normalize(height_section)
-
-    # Adjust window level and width
-    width_section = fb.windows_adjustment_one_image(width_section)
-    height_section = fb.windows_adjustment_one_image(height_section)
-
-    if label_square is not None:
-        # Calculate integer ratio for pixel repetition
-        ratio_int = int(np.ceil(label_square[1] / label_square[0]))
+    # Initialize arrays for sections
+    mid_width = width // 2
+    mid_height = height // 2
+    width_section = np.zeros((depth, height), dtype=np.float32)    # YZ plane
+    height_section = np.zeros((depth, width), dtype=np.float32)    # XZ plane
+    
+    # Process images one by one
+    for z, img_path in enumerate(tqdm(images_paths)):
+        # Read single image
+        img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
         
-        # Calculate decimal ratio for resize (rounded to 1 decimal place)
+        # Extract middle lines and store them
+        width_section[z, :] = img[:, mid_width]    # YZ plane
+        height_section[z, :] = img[mid_height, :]  # XZ plane
+    
+    # If label_square is provided, perform pixel repetition and interpolation
+    if label_square is not None:
+        # Calculate ratios
+        ratio_int = int(np.ceil(label_square[1] / label_square[0]))
         ratio_decimal = round(label_square[1] / label_square[0], 1)
         
         # Create repeated pixel versions
@@ -86,32 +84,34 @@ def extract_longitudinal_sections(path_in: str, col_id: str, label_square: tuple
             'XZ_repeated': height_section_repeated,
             'YZ_resized': width_section_resized,
             'XZ_resized': height_section_resized
-        }, original_shape, ratio_decimal  # Added ratio_decimal to return
+        }, (depth, height, width), ratio_decimal
     else:
         return {
             'YZ': width_section,
             'XZ': height_section
-        }, original_shape, 1.0
+        }, (depth, height, width), 1.0
 
-def combine_sections(images_list, original_heights, stretch_ratios, spacing=50, standard_height=3000):
+def combine_sections(images_list, original_heights, spacing=50, standard_height=3000):
     """Combines multiple section images into a single comparison image.
 
-    Algorithm:
-        1. Calculates height ratios based on original stack heights
-        2. Resizes each image proportionally to maintain relative heights
-        3. Creates a blank canvas with standard height
-        4. Places each image sequentially with spacing
-        5. Preserves aspect ratios during resizing
+    Creates a composite image by placing all sections side by side while maintaining
+    their relative height proportions.
 
     Args:
-        images_list (list): List of image arrays to combine
-        original_heights (list): Original stack heights from 3D matrices
-        stretch_ratios (list): Stretch ratios from label squares
+        images_list (list): List of image arrays to combine.
+        original_heights (list): Original stack heights from 3D matrices.
+        stretch_ratios (list): Stretch ratios calculated from label squares.
         spacing (int, optional): Pixels between images. Defaults to 50.
         standard_height (int, optional): Target height for longest column. Defaults to 3000.
 
     Returns:
-        ndarray: Combined image with all sections
+        ndarray: Combined image array with all sections placed side by side.
+            Shape is (standard_height, total_width) where total_width depends on
+            input image widths and spacing.
+
+    Note:
+        Images are resized proportionally based on their original heights relative
+        to the maximum height in the set.
     """
     # Calculate height ratios directly from original stack heights
     max_orig_height = max(original_heights)
@@ -132,8 +132,11 @@ def combine_sections(images_list, original_heights, stretch_ratios, spacing=50, 
     # Calculate total width needed
     total_width = sum(img.shape[1] for img in resized_images) + (spacing * (len(resized_images) - 1))
     
-    # Create blank canvas with standard height
-    combined = np.full((standard_height, total_width), 0, dtype=np.float32)
+    # Calculate minimum value from all sections instead of mean
+    min_value = min(np.min(img) for img in resized_images)
+    
+    # Create blank canvas with minimum value instead of mean gray
+    combined = np.full((standard_height, total_width), min_value, dtype=np.float32)
     
     # Place each resized image at the top of the canvas
     current_x = 0
@@ -143,56 +146,69 @@ def combine_sections(images_list, original_heights, stretch_ratios, spacing=50, 
     
     return combined
 
-def generate_summaries(sections_dict, output_dir, original_heights, stretch_ratios):
+def generate_summaries(sections_dict, output_dir, original_heights):
     """Generates summary images for each type of section.
 
-    Algorithm:
-        1. Iterates through each section type (YZ, XZ, etc.)
-        2. For each type, combines all column images into one summary
-        3. Saves combined image as TIFF file
+    Creates and saves combined summary images for each section type (YZ, XZ)
+    by combining all columns into single comparison images.
 
     Args:
-        sections_dict (dict): Dictionary of section types containing lists of images
-        output_dir (str): Directory to save summary images
-        original_heights (list): Original stack heights for ratio calculation
-        stretch_ratios (list): Stretch ratios from label squares
+        sections_dict (dict): Dictionary of section types containing lists of images.
+            Expected keys are combinations of 'YZ'/'XZ' with '_repeated'/'_resized'.
+        output_dir (str): Directory path where summary images will be saved.
+        original_heights (list): Original stack heights for ratio calculation.
+        stretch_ratios (list): Stretch ratios from label squares.
 
     Returns:
         None
+
+    Note:
+        Saves TIFF files named 'summary_{section_type}.tif' in output_dir.
+        Prints confirmation message for each summary created.
     """
     for section_type, images in sections_dict.items():
         if images:
             # Use standard height of 3000 pixels
-            combined = combine_sections(images, original_heights, stretch_ratios, 
-                                     spacing=50, standard_height=3000)
+            combined = combine_sections(images, original_heights, spacing=50, standard_height=3000)
+
             output_path = os.path.join(output_dir, f'summary_{section_type}.tif')
             cv2.imwrite(output_path, combined)
             print(f'Created summary for {section_type}')
 
 if __name__ == '__main__':
-
     # Configuration
     config = {
-        'base_path': "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/",
-        'output_dir': "f:/3.Experimental_Data/Soils/Dongying_Tiantan-Hospital/Analysis/vertical_sections/",
-        'columns': {
-            'start': 10,
-            'end': 21
-        },
-        # Add label_square configurations for each column
+        'base_path': "f:/3.Experimental_Data/Soils/Dongying_normal/",
+        'output_dir': "f:/3.Experimental_Data/Soils/Dongying_normal/Analysis/vertical_sections/",
+        'columns': [i for i in range(22, 28)],  # Specific column numbers to process
         'label_squares': {
-            'Soil.column.0010': (124023, 1000000),
-            'Soil.column.0011': (72265.6, 950000),
-            'Soil.column.0012': (118164, 980000),
-            'Soil.column.0013': (131836, 975000),
-            'Soil.column.0014': (139648, 990000),
-            'Soil.column.0015': (129883, 995000),
-            'Soil.column.0016': (124023, 985000),
-            'Soil.column.0017': (72265.6, 970000),
-            'Soil.column.0018': (118164, 960000),
-            'Soil.column.0019': (131836, 965000),
-            'Soil.column.0020': (139648, 975000),
-            'Soil.column.0021': (129883, 980000),
+            'Soil.column.0022': (1, 1),
+            'Soil.column.0023': (1, 1),
+            'Soil.column.0024': (1, 1),
+            'Soil.column.0025': (1, 1),
+            'Soil.column.0026': (1, 1),
+            'Soil.column.0027': (1, 1),
+            # 'Soil.column.0028': (78125, 1000000),
+            # 'Soil.column.0029': (78125, 1000000),
+            # 'Soil.column.0030': (78125, 1000000),
+            # 'Soil.column.0031': (78125, 1000000),
+            # 'Soil.column.0032': (78125, 1000000),
+            # 'Soil.column.0033': (78125, 1000000),
+            # 'Soil.column.0034': (78125, 1000000)
+
+            # 'Soil.column.0010': (124023, 1000000),
+            # 'Soil.column.0011': (72265.6, 1000000),
+            # 'Soil.column.0012': (118164, 1000000),
+            # 'Soil.column.0013': (131836, 1000000),
+            # 'Soil.column.0014': (139648, 1000000),
+            # 'Soil.column.0015': (129883, 1000000),
+
+            # 'Soil.column.0016': (124023, 1000000),
+            # 'Soil.column.0017': (72265.6, 1000000),
+            # 'Soil.column.0018': (118164, 1000000),
+            # 'Soil.column.0019': (131836, 1000000),
+            # 'Soil.column.0020': (139648, 1000000),
+            # 'Soil.column.0021': (129883, 1000000),
         }
     }
 
@@ -210,21 +226,19 @@ if __name__ == '__main__':
     original_heights = []
     stretch_ratios = []
 
-    # Process each column and collect images
-    for i in range(config['columns']['start'], config['columns']['end'] + 1):
-        col_id = f'Soil.column.{i:04d}'
-        path_in = os.path.join(config['base_path'], col_id, '2.ROI/')
+    # Process specific columns
+    for col_num in config['columns']:
+        col_id = f'Soil.column.{col_num:04d}'
+        path_in = os.path.join(config['base_path'], col_id, '3.Harmonized/image')
         print(f'Processing longitudinal sections for {col_id}')
         
         # Get label_square for this specific column
         label_square = config['label_squares'].get(col_id)
         if not label_square:
-            print(f'Warning: No label_square configuration found for {col_id}')
-            continue
+            raise ValueError(f'Label square not found for {col_id}')
         
         # Get sections, original shape, and stretch ratio for this column
-        column_sections, original_shape, stretch_ratio = extract_longitudinal_sections(
-            path_in, col_id, label_square=label_square)
+        column_sections, original_shape, stretch_ratio = extract_longitudinal_sections(path_in, label_square)
         original_heights.append(original_shape[0])
         stretch_ratios.append(stretch_ratio)
         
@@ -239,4 +253,4 @@ if __name__ == '__main__':
 
     # Generate summary images with both ratios
     print('\nGenerating summary images...')
-    generate_summaries(sections_dict, config['output_dir'], original_heights, stretch_ratios)
+    generate_summaries(sections_dict, config['output_dir'], original_heights)

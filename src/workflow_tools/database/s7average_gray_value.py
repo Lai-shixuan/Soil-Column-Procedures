@@ -28,6 +28,11 @@ class GrayValueAnalyzer:
                 
             # Read single image
             img = fb.read_images([img_path], 'gray', read_all=False)[0]
+
+            # Add a mask to exclude background 0 values
+            mask = img > 0
+            img = img[mask]
+
             # Calculate and store average
             results.append(np.mean(img))
             
@@ -52,7 +57,7 @@ class GrayValueAnalyzer:
             
             print(f"\nProcessing {col_id}...")
             try:
-                avg_values = cls.average_gray_value(os.path.join(base_path, col_id, '3.Harmonized'))
+                avg_values = cls.average_gray_value(os.path.join(base_path, col_id, '3.Harmonized/image'))
                 all_data[col_id] = avg_values
                 max_length = max(max_length, len(avg_values))
                 
@@ -73,8 +78,7 @@ class GrayValueAnalyzer:
                 all_data[col_id] = all_data[col_id] + padding
 
         # Define plot parameters
-        colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#d62728', '#9467bd', '#8c564b']
-        line_styles = ['-', '--']
+        colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#d62728', '#9467bd', '#8c564b', '#e377c2']
         
         # Create plots with consistent axes
         plt.figure(figsize=(15, 8))  # Combined plot
@@ -150,10 +154,10 @@ class GrayValueAnalyzer:
 def main():
     # Configuration
     config = {
-        'base_path': "g:/3.Experimental_Data/Soils/Dongying_highRH/",
-        'output_dir': "g:/3.Experimental_Data/Soils/Dongying_highRH/Analysis/",
-        'columns': [5, 7, 9],  # Specify exact columns to process
-        'column_pairs': None  # Example: [(5,7), (9,11)]
+        'base_path': "f:/3.Experimental_Data/Soils/Dongying_normal/",
+        'output_dir': "f:/3.Experimental_Data/Soils/Dongying_normal/Analysis/",
+        'columns': [i for i in range(22, 28)],  # Specify exact columns to process
+        'column_pairs': None    # [(i, i+6) for i in range(10, 16)]
     }
     
     print("Configuration:")

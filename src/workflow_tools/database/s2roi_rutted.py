@@ -19,13 +19,15 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 from src.API_functions.Images import file_batch as fb
 
 
-def get_roi_region_list(csv_file) -> list:
+def get_roi_region_list(csv_file, start: int, end: int) -> list:
     """Extracts ROI region inforation for specific soil columns from a CSV file.
 
     Args:
         csv_file: A pandas DataFrame containing ROI metadata for soil columns.
             Expected columns include 'id', 'Cutted_starting_point_x',
             'Cutted_starting_point_y', 'Reversed_cut_h[0]', and 'Reversed_cut_h[1]'.
+        start (int): The starting ID of the soil columns to extract ROI information for.
+        end (int): The ending ID of the soil columns to extract ROI information for.
 
     Returns:
         list: A list of fb.roi_region objects containing ROI parameters for soil 
@@ -46,7 +48,7 @@ def get_roi_region_list(csv_file) -> list:
     id_col = 'id'
 
     # try to locate the id 28 and get its information
-    for i in range(5, 10, 2):
+    for i in range(start, end):
         roi_x = int(csv_file.loc[csv_file[id_col] == i, x_col].values[0])
         roi_y = int(csv_file.loc[csv_file[id_col] == i, y_col].values[0])
         cutted_height_start = int(csv_file.loc[csv_file[id_col] == i, h_start_col].values[0])
@@ -61,14 +63,20 @@ def get_roi_region_list(csv_file) -> list:
 
 if __name__ == '__main__':
     csv_file = pd.read_csv("f:/3.Experimental_Data/Soils/Metadata_of_whole_database.csv")
-    roi_region_list = get_roi_region_list(csv_file)
+    start = 25
+    end = 26
 
-    for j, i in [(1, 7) , (2, 9)]:
-        path_in = f'g:/3.Experimental_Data/Soils/Dongying_highRH/Soil.column.{i:04d}/1.Reconstruct/'
-        path_out = f'g:/3.Experimental_Data/Soils/Dongying_highRH/Soil.column.{i:04d}/2.ROI/'
+    roi_region_list = get_roi_region_list(csv_file, start, end)
+
+    for i in range(start, end):
+        path_in = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/1.Reconstruct/'
+        path_out = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/2.ROI/'
+
+        start_point = i - start
 
         if not os.path.exists(path_out):
             os.makedirs(path_out)
-
-        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[j], img_format='png')
+        
+        # The new name will replace 'reconstruct' with 'cutted'
+        fb.roi_select(path_in, path_out, name_read=None, roi=roi_region_list[start_point], img_format='png')
         print('')
