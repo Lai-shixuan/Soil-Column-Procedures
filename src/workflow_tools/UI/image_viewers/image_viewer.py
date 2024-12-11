@@ -104,8 +104,8 @@ class ImageViewer(QMainWindow):
         self.controls.enable_threshold.stateChanged.connect(self.on_threshold_enabled)
         self.controls.threshold_value.textChanged.connect(self.on_threshold_value_changed)
         self.controls.save_threshold.clicked.connect(self.save_threshold_result)
-        self.controls.threshold_up.clicked.connect(lambda: self.adjust_threshold(0.01))
-        self.controls.threshold_down.clicked.connect(lambda: self.adjust_threshold(-0.01))
+        self.controls.threshold_up.clicked.connect(lambda: self.adjust_threshold(0.001))
+        self.controls.threshold_down.clicked.connect(lambda: self.adjust_threshold(-0.001))
         
         # ROI controls
         self.controls.draw_roi.clicked.connect(self.roi_handler.start_drawing)
@@ -116,6 +116,16 @@ class ImageViewer(QMainWindow):
         # Scrollbar and mouse wheel
         self.scrollbar.valueChanged.connect(self.scroll_images)
         self.canvas.mpl_connect('scroll_event', self.on_scroll)
+        
+        # Add folder2 enable handler
+        self.controls.enable_folder2.stateChanged.connect(self.on_folder2_enabled)
+
+        # Mean filter controls
+        self.controls.enable_mean_filter.clicked.connect(self.on_mean_filter_clicked)
+        self.controls.filter_size.textChanged.connect(self.on_filter_size_changed)
+
+        # Histogram equalization control
+        self.controls.enable_histogram_eq.clicked.connect(self.on_histogram_eq_clicked)
 
     def scroll_images(self, value: int) -> None:
         """Update displayed images based on scroll position."""
@@ -149,13 +159,17 @@ class ImageViewer(QMainWindow):
 
     def display_images(self) -> None:
         """Display current images using ImageDisplay."""
-        if not self.file_manager.images1_list or not self.file_manager.images2_list:
+        if not self.file_manager.images1_list:
             return
 
-        if not (0 <= self.index1 < len(self.file_manager.images1_list) and 
-                0 <= self.index2 < len(self.file_manager.images2_list)):
+        if not (0 <= self.index1 < len(self.file_manager.images1_list)):
             print("Invalid image indices")
             return
+
+        # Check if second column is enabled and has valid images
+        show_second_column = (self.controls.enable_folder2.isChecked() and 
+                             self.file_manager.images2_list and 
+                             0 <= self.index2 < len(self.file_manager.images2_list))
 
         zoom_region = None
         if self.controls.enable_zoom.isChecked():
@@ -179,9 +193,12 @@ class ImageViewer(QMainWindow):
             except ValueError:
                 pass
 
+        img2_path = (self.file_manager.images2_list[self.index2] 
+                    if show_second_column else None)
+
         self.display.display_pair(
             self.file_manager.images1_list[self.index1],
-            self.file_manager.images2_list[self.index2],
+            img2_path,
             zoom_region=zoom_region,
             threshold_enabled=threshold_enabled,
             threshold_value=threshold_value
@@ -227,6 +244,9 @@ class ImageViewer(QMainWindow):
         self.controls.threshold_value.setEnabled(enabled)
         self.controls.threshold_up.setEnabled(enabled)
         self.controls.threshold_down.setEnabled(enabled)
+        self.controls.enable_mean_filter.setEnabled(enabled)
+        self.controls.filter_size.setEnabled(enabled)
+        self.controls.enable_histogram_eq.setEnabled(enabled)
         if not enabled:
             self.controls.threshold_value.clear()
         self.update_save_threshold_button()
@@ -285,6 +305,43 @@ class ImageViewer(QMainWindow):
         try:
             current = float(self.controls.threshold_value.text() or 0)
             new_value = max(0, min(1, current + delta))
-            self.controls.threshold_value.setText(f"{new_value:.2f}")
+            self.controls.threshold_value.setText(f"{new_value:.4f}")  # Changed from .3f to .4f
         except ValueError:
-            self.controls.threshold_value.setText("0.50")
+            self.controls.threshold_value.setText("0.5000")  # Changed initial value to 4 decimals
+
+    def on_folder2_enabled(self, state: int) -> None:
+        """Handle enabling/disabling of second folder."""
+        enabled = bool(state)
+        self.controls.btn_folder2.setEnabled(enabled)
+        self.controls.label_folder2.setEnabled(enabled)
+        if not enabled:
+            self.file_manager.folder2 = None
+            self.file_manager.images2_list = []
+            self.controls.label_folder2.setText('No folder selected')
+        self.display_images()
+
+    def on_mean_filter_clicked(self):
+        """Toggle mean filter."""
+        self.display.mean_filter_enabled = not self.display.mean_filter_enabled
+        self.controls.enable_mean_filter.setStyleSheet(
+            "background-color: lightblue;" if self.display.mean_filter_enabled else ""
+        )
+        self.display_images()
+
+    def on_filter_size_changed(self, value: str):
+        """Handle filter size changes."""
+        try:
+            size = int(value)
+            if size >= 3 and self.controls.enable_threshold.isChecked():
+                self.display.filter_size = size
+                self.display_images()
+        except ValueError:
+            pass
+
+    def on_histogram_eq_clicked(self):
+        """Toggle histogram equalization."""
+        self.display.histogram_eq_enabled = not self.display.histogram_eq_enabled
+        self.controls.enable_histogram_eq.setStyleSheet(
+            "background-color: lightblue;" if self.display.histogram_eq_enabled else ""
+        )
+        self.display_images()

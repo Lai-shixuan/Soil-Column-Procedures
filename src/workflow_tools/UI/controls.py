@@ -34,16 +34,22 @@ class ImageControls:
         """Setup folder selection controls."""
         self.btn_folder1 = QPushButton('Select Folder 1')
         self.btn_folder2 = QPushButton('Select Folder 2')
+        self.enable_folder2 = QCheckBox('Enable Second Folder')
         self.label_folder1 = QLabel('No folder selected')
         self.label_folder2 = QLabel('No folder selected')
 
         folder_layout = QVBoxLayout()
         folder_layout.addWidget(self.btn_folder1)
         folder_layout.addWidget(self.label_folder1)
-        folder_layout.addWidget(self.btn_folder2)
+        
+        folder2_group = QHBoxLayout()
+        folder2_group.addWidget(self.enable_folder2)
+        folder2_group.addWidget(self.btn_folder2)
+        folder_layout.addLayout(folder2_group)
         folder_layout.addWidget(self.label_folder2)
         folder_layout.addStretch()
 
+        self.btn_folder2.setEnabled(False)
         self.layout.addLayout(folder_layout)
 
     def _setup_zoom_controls(self):
@@ -106,7 +112,7 @@ class ImageControls:
         self.threshold_value.setFixedWidth(60)
         self.threshold_value.setPlaceholderText('0-1')
         self.threshold_value.setEnabled(False)
-        self.threshold_value.setValidator(QDoubleValidator(0.0, 1.0, 3))
+        self.threshold_value.setValidator(QDoubleValidator(0.0, 1.0, 4))  # Changed from 3 to 4
         
         # Create adjustment buttons
         self.threshold_up = QPushButton('▲')
@@ -122,6 +128,26 @@ class ImageControls:
         threshold_header.addWidget(self.enable_threshold)
         threshold_header.addLayout(threshold_value_container)
         threshold_group.addLayout(threshold_header)
+        
+        # Add mean filter controls
+        filter_container = QHBoxLayout()
+        self.enable_mean_filter = QPushButton('Mean Filter')
+        self.enable_mean_filter.setEnabled(False)
+        self.filter_size = QLineEdit()
+        self.filter_size.setFixedWidth(30)
+        self.filter_size.setPlaceholderText('3')
+        self.filter_size.setValidator(QIntValidator(3, 15))  # Only odd numbers from 3-15
+        self.filter_size.setEnabled(False)
+        
+        filter_container.addWidget(self.enable_mean_filter)
+        filter_container.addWidget(self.filter_size)
+
+        # Add histogram equalization control
+        self.enable_histogram_eq = QPushButton('Histogram Equalization')
+        self.enable_histogram_eq.setEnabled(False)
+        filter_container.addWidget(self.enable_histogram_eq)
+        
+        threshold_group.addLayout(filter_container)
         
         # Add save button
         self.save_threshold = QPushButton('Save Threshold')
@@ -144,3 +170,4 @@ class ImageControls:
         self.threshold_value.clear()
         for widget in [self.zoom_y, self.zoom_x, self.zoom_width, self.zoom_height]:
             widget.clear()
+        self.filter_size.setText('3')  # Set default filter size
