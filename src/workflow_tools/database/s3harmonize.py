@@ -38,7 +38,7 @@ def batch_harmonize_and_save(image_paths: list, output_dir: str):
 
             # Create output path, change the suffix
             filename = os.path.basename(image_path)
-            filename = filename.replace("cutted", "harmonized")
+            filename = filename.replace("processed", "harmonized")
             filename = filename.replace(".png", ".tif")
 
             # Change to tif
@@ -51,18 +51,20 @@ def batch_harmonize_and_save(image_paths: list, output_dir: str):
             logger.error(f"Error processing {image_path}: {str(e)}")
 
 if __name__ == "__main__":
-    for i in range(22, 28):
+    # for i in range(22, 28):
         # Example paths - modify these according to your data location
-        image_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/2.ROI/'
-        output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/3.Harmonized/image'
-        
-        # Get all image files
-        image_paths = fb.get_image_names(image_dir, None, 'png')
-        
-        print(f"Processing column {i}...")
+        # image_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/2.ROI/'
+        # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/3.Harmonized/image'
+    image_dir = f'f:/3.Experimental_Data/Core_datasets/Batches/2.training-processed/label/'
+    output_dir = f'f:/3.Experimental_Data/Core_datasets/Batches/3.Harmonized/label/'
+    
+    # Get all image files
+    image_paths = fb.get_image_names(image_dir, None, 'tif')
+    
+    # print(f"Processing column {i}...")
 
-        # Change the 'png' to 'tif' in the output directory
-        # Change the 'cutted' to 'harmonized' in the output directory
-        batch_harmonize_and_save(image_paths, output_dir)
+    # Change the 'png' to 'tif' in the output directory
+    # Change the 'cutted' to 'harmonized' in the output directory
+    batch_harmonize_and_save(image_paths, output_dir)
 
-        print(f"Completed column {i}")
+    # print(f"Completed column {i}")

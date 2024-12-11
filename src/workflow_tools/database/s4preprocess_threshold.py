@@ -49,3 +49,25 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
             os.makedirs(path_out)
         cv.imwrite(os.path.join(path_out, image_names[j]), image)
     break
+
+#%%
+# Batch inverse the images
+def invert_image(image):
+    return 1.0 - image
+
+def batch_invert_images(path_in):
+    image_lists = fb.get_image_names(path_in, None, 'tif')
+    
+    for image_path in tqdm(image_lists, desc="Inverting images"):
+        # Read image
+        image = cv.imread(image_path, cv.IMREAD_UNCHANGED)
+        
+        # Invert image
+        inverted = invert_image(image)
+        
+        # Save with same name in same location
+        cv.imwrite(image_path, inverted)
+
+# Example usage
+path_in = 'g:/DL_Data_raw/version4-classes/4.test_label_set/'
+batch_invert_images(path_in)

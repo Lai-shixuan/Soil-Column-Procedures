@@ -331,16 +331,16 @@ class InferencePipeline:
 if __name__ == "__main__":
     config = InferenceConfig(
         model_type='DeepLabV3Plus',
-        model_path='src/workflow_tools/model_DeepLabv3+_16.whole.new.dataset.pth',
+        model_path='src/workflow_tools/model_DeepLabv3+_20.merge_high_low_resolution.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation
 
-        images_path='g:/DL_Data_raw/version3-inf/inference/',
-        labels_path='g:/DL_Data_raw/version3-inf/test_labels/',
-        save_path='g:/DL_Data_raw/version3-inf/inference_outputs/',
+        images_path='g:/DL_Data_raw/version4-classes/6.precheck_test/image/',
+        labels_path='g:/DL_Data_raw/version4-classes/6.precheck_test/label/',
+        save_path='g:/DL_Data_raw/version4-classes/6.precheck_test/inference/',
 
-        batch_size=32,
+        batch_size=8,
         run_config={
             'summary_filename': 'inference_summary.csv'  # Simplified config
         }
