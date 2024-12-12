@@ -19,6 +19,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from src.API_functions.DL import load_data, evaluate
 from src.API_functions.Images import file_batch as fb
+from src.API_functions.Soils import pre_process
 
 
 # Configure logging
@@ -305,6 +306,10 @@ class InferencePipeline:
         image_paths = fb.get_image_names(self.config.images_path, None, 'tif')
         images = fb.read_images(image_paths, 'gray', read_all=True)
         
+        for i in range(len(images)):
+            images[i] = pre_process.median(images[i], 3)
+            images[i] = pre_process.histogram_equalization_float32(images[i])
+
         if self.config.mode == 'evaluation':
             label_paths = fb.get_image_names(self.config.labels_path, None, 'tif')
             labels = fb.read_images(label_paths, 'gray', read_all=True)
@@ -329,16 +334,19 @@ class InferencePipeline:
 
 
 if __name__ == "__main__":
+
+    # Have using preprocess equalization, be attenetion!!!
+
     config = InferenceConfig(
         model_type='DeepLabV3Plus',
-        model_path='src/workflow_tools/model_DeepLabv3+_20.merge_high_low_resolution.pth',
+        model_path='src/workflow_tools/model_DeepLabv3+_27.More_data_median_hist.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation
 
-        images_path='g:/DL_Data_raw/version4-classes/6.precheck_test/image/',
-        labels_path='g:/DL_Data_raw/version4-classes/6.precheck_test/label/',
-        save_path='g:/DL_Data_raw/version4-classes/6.precheck_test/inference/',
+        images_path='g:/DL_Data_raw/version4-classes/5.precheck_test/image/',
+        labels_path='g:/DL_Data_raw/version4-classes/5.precheck_test/label/',
+        save_path='g:/DL_Data_raw/version4-classes/_inference/',
 
         batch_size=8,
         run_config={

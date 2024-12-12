@@ -10,6 +10,7 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 from tqdm import tqdm
 from pathlib import Path
 from src.API_functions.Images import file_batch as fb
+from src.API_functions.Soils import pre_process
 from src.API_functions.Soils import threshold_position_independent as tmi
 
 #%%
@@ -55,7 +56,8 @@ for i in [28, 29, 30, 31, 32, 33, 34]:
 def invert_image(image):
     return 1.0 - image
 
-def batch_invert_images(path_in):
+
+def batch_images(path_in):
     image_lists = fb.get_image_names(path_in, None, 'tif')
     
     for image_path in tqdm(image_lists, desc="Inverting images"):
@@ -63,11 +65,12 @@ def batch_invert_images(path_in):
         image = cv.imread(image_path, cv.IMREAD_UNCHANGED)
         
         # Invert image
-        inverted = invert_image(image)
+        inverted = pre_process.histogram_equalization_float32(image)
         
         # Save with same name in same location
         cv.imwrite(image_path, inverted)
 
 # Example usage
-path_in = 'g:/DL_Data_raw/version4-classes/4.test_label_set/'
-batch_invert_images(path_in)
+path_in = r'g:\DL_Data_raw\version4-classes\to_equlize'
+batch_images(path_in)
+
