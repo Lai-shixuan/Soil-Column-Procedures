@@ -14,26 +14,9 @@ def adjust_gamma(img, gamma_value=1):
     return cv2.LUT(img, table)
 
 
-def equalized_hist(img):
-    return cv2.equalizeHist(img)
-
-
 def median(img, kernel_size: int=3):
+    '''Can be used for both uint8 and float32 images'''
     return cv2.medianBlur(img, kernel_size)
-
-
-# Only for 2D image, that is, grayscale image
-def image_cut(img, x0, y0, edge_length):
-    return img[x0 - int(1 / 2 * edge_length): x0 + int(1 / 2 * edge_length),
-           y0 - int(1 / 2 * edge_length): y0 + int(1 / 2 * edge_length)]
-
-
-# RGB to grayscale, whether it is a RGB image or not
-def rgb2gray(img):
-    if len(img.shape) == 3:
-        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    elif len(img.shape) == 2:
-        return img
 
 
 def laplacian_edge_enhancement(image, alpha=1):
@@ -202,6 +185,40 @@ def get_average_windows(image_files: np.array) -> tuple:
     my_min = np.percentile(min_values, 50)
     my_max = np.percentile(max_values, 50)
     return my_min, my_max
+
+
+def histogram_equalization_float32(image: np.array) -> np.array:
+    """
+    Perform histogram equalization on a float32 image with values in the range [0, 1],
+    ignoring pixels with values exactly 0 or 1.
+
+    Parameters:
+        image (numpy.ndarray): Input float32 image with values in [0, 1].
+
+    Returns:
+        numpy.ndarray: Histogram-equalized image with values in [0, 1].
+    """
+    if not (image.dtype == np.float32 and image.min() >= 0.0 and image.max() <= 1.0):
+        raise ValueError("Input image must be a float32 array with values in the range [0, 1].")
+
+    # Create a mask to exclude pixels with values 0 or 1
+    mask = (image > 0) & (image < 1)
+    valid_pixels = image[mask]
+
+    # Compute histogram and cumulative distribution function (CDF) for valid pixels
+    hist, bin_edges = np.histogram(valid_pixels, bins=65536, range=(0, 1), density=False)
+    cdf = hist.cumsum()
+    cdf_normalized = cdf / cdf[-1]  # Normalize to range [0, 1]
+
+    # Use linear interpolation to map original pixel values to equalized values
+    equalized = np.zeros_like(image, dtype=np.float32)
+    equalized[mask] = np.interp(valid_pixels, bin_edges[:-1], cdf_normalized)
+
+    return equalized
+
+
+def equalized_hist(img):
+    return cv2.equalizeHist(img)
 
 
 if __name__ == '__main__':
