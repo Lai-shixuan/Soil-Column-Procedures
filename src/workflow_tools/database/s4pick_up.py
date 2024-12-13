@@ -97,17 +97,17 @@ if __name__ == "__main__":
     config = {
         # Path configurations
         'base_input': "f:/3.Experimental_Data/Soils/",
-        'output_folder': "g:/DL_Data_raw/version4-classes/",
+        'output_folder': "g:/DL_Data_raw/version5-formal/",
         'column_ids': [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
         
         # Extraction configurations
         'extraction_mode': 'random',    # 'random' or 'average'
-        'continuous': True,
-        'images_per_section': 3,
+        'continuous': False,
+        'images_per_section': 2,
         'num_sections': 1,
 
         # Seed
-        'random_seed': 44,
+        'random_seed': 48,
     }
     
     process_all_columns(config)
