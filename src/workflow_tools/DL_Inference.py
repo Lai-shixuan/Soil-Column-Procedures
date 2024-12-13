@@ -139,7 +139,7 @@ class InferencePipeline:
                 classes=1
             ),
             'Unet': lambda: smp.Unet(
-                encoder_name="efficientnet-b0",
+                encoder_name="efficientnet-b2",
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
@@ -338,8 +338,8 @@ if __name__ == "__main__":
     # Have using preprocess equalization, be attenetion!!!
 
     config = InferenceConfig(
-        model_type='DeepLabV3Plus',
-        model_path='src/workflow_tools/model_DeepLabv3+_27.More_data_median_hist.pth',
+        model_type='Unet',
+        model_path='src/workflow_tools/pths/model_U-Net_30.no_val_transfer.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation
