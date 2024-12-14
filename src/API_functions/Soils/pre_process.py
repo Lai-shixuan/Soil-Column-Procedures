@@ -1,5 +1,10 @@
 import cv2
 import numpy as np
+import sys
+
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+
+from src.API_functions.Images import file_batch as fb
 
 
 def origin(img):
@@ -221,28 +226,39 @@ def equalized_hist(img):
     return cv2.equalizeHist(img)
 
 
-if __name__ == '__main__':
-    path = 'f:/3.Experimental_Data/Soils/temp/100_origin_segmented0009.png'
-    image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    enhanced_image = high_boost_filter(image, sigma=1, k=1.2)
-    # enhanced_image = laplacian_edge_enhancement(image, alpha=1)
-    
-    # Example usage of map_range_to_255
-    range_min = 54
-    range_max = 126
-    mapped_image = map_range_to_255(image, range_min, range_max)
-    mapped_enhanced_image = map_range_to_255(enhanced_image, range_min, range_max)
-    
-    # Create scalable windows
-    cv2.namedWindow('Original Image', cv2.WINDOW_NORMAL)
-    cv2.namedWindow('Enhanced Image', cv2.WINDOW_NORMAL)
-    cv2.namedWindow('Mapped Image', cv2.WINDOW_NORMAL)
-    cv2.namedWindow('Mapped Enhanced Image', cv2.WINDOW_NORMAL)
-    
-    cv2.imshow('Original Image', image)
-    cv2.imshow('Enhanced Image', enhanced_image)
-    cv2.imshow('Mapped Image', mapped_image)
-    cv2.imshow('Mapped Enhanced Image', mapped_enhanced_image)
+def clahe_float32(image: np.array, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8)) -> np.array:
+    """
+    Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to a float32 image with values in [0, 1],
+    ignoring pixels with values exactly 0 or 1.
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    Parameters:
+        image (numpy.ndarray): Input float32 image with values in [0, 1].
+        clip_limit (float): Threshold for contrast limiting. Higher values give more contrast.
+        tile_grid_size (tuple): Size of grid for histogram equalization. Tuple of (rows, cols).
+
+    Returns:
+        numpy.ndarray: CLAHE-enhanced image with values in [0, 1].
+    """
+    if not (image.dtype == np.float32 and image.min() >= 0.0 and image.max() <= 1.0):
+        raise ValueError("Input image must be a float32 array with values in the range [0, 1].")
+
+    # Create a mask to exclude pixels with values 0 or 1
+    mask = (image > 0) & (image < 1)
+    
+    # Convert to uint16 for CLAHE processing (more precision than uint8)
+    img_uint16 = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint16')
+    
+    # Create CLAHE object
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+    
+    # Apply CLAHE
+    enhanced_uint16 = clahe.apply(img_uint16)
+    
+    # Convert back to float32 [0,1] range
+    enhanced_float32 = fb.bitconverter.grayscale_to_binary_one_image(enhanced_uint16)
+    
+    # Preserve original 0 and 1 values using the mask
+    result = image.copy()
+    result[mask] = enhanced_float32[mask]
+    
+    return result
