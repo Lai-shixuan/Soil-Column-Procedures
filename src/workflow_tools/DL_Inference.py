@@ -60,6 +60,7 @@ class InferenceConfig:
         Raises:
             ValueError: If model_type is invalid or labels_path is missing in evaluation mode.
             FileNotFoundError: If any required paths don't exist.
+            RuntimeError: If CSV files are not accessible.
         """
         valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet'}
         if self.model_type not in valid_model_types:
@@ -74,8 +75,23 @@ class InferenceConfig:
         if not Path(self.save_path).exists():
             raise FileNotFoundError(f"Save path does not exist: {self.save_path}")
         
-        if self.mode == 'evaluation' and (not self.labels_path or not Path(self.labels_path).exists()):
-            raise ValueError("Labels path must be provided and exist in evaluation mode")
+        if self.mode == 'evaluation':
+            if not self.labels_path or not Path(self.labels_path).exists():
+                raise ValueError("Labels path must be provided and exist in evaluation mode")
+            
+            # Check CSV files accessibility
+            csv_files = [
+                Path(self.save_path) / "detailed_metrics.csv",
+                Path(self.save_path) / self.run_config['summary_filename']
+            ]
+            
+            for csv_file in csv_files:
+                if csv_file.exists():
+                    try:
+                        with open(csv_file, 'a') as f:
+                            pass
+                    except PermissionError:
+                        raise RuntimeError(f"Cannot access {csv_file}. Please close any applications that might be using this file.")
 
 
 class InferencePipeline:
@@ -97,6 +113,7 @@ class InferencePipeline:
     def __init__(self, config: InferenceConfig):
         self.config = config
         self.config.validate()
+        
         self.model = self._setup_model()
         self.transform = self._get_transform()
         self.logger = logging.getLogger(__name__)
@@ -139,7 +156,7 @@ class InferencePipeline:
                 classes=1
             ),
             'Unet': lambda: smp.Unet(
-                encoder_name="efficientnet-b2",
+                encoder_name="efficientnet-b0",
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
@@ -161,6 +178,16 @@ class InferencePipeline:
         return A.Compose([
             ToTensorV2()
         ])
+
+    def _extract_model_log(self) -> str:
+        """Extracts the model log information from the model path filename.
+        
+        Returns:
+            str: The part of the model filename after the second underscore.
+        """
+        model_filename = Path(self.config.model_path).name
+        parts = model_filename.split('_', 2)
+        return parts[2].replace('.pth', '') if len(parts) > 2 else ''
 
     def process_batch(self, batch: Tuple[torch.Tensor, torch.Tensor], 
                     image_paths: List[str], 
@@ -223,6 +250,7 @@ class InferencePipeline:
             'run_id': self.run_id,
             'image_name': image_name,
             'model_type': self.config.model_type,
+            'model_log': self._extract_model_log(),
             'timestamp': pd.Timestamp.now()
         }
         
@@ -262,10 +290,18 @@ class InferencePipeline:
         detailed_metrics_file = save_path / "detailed_metrics.csv"
         summary_file = save_path / self.config.run_config['summary_filename']
 
+        # Ensure model_log is in the fourth column position for both DataFrames
+        column_order = ['run_id', 'image_name', 'model_type', 'model_log', 'timestamp']
+        if self.config.mode == 'evaluation':
+            column_order.extend(['dice_score', 'iou_score', 'bce_loss'])
+        
+        metrics_df = metrics_df.reindex(columns=column_order)
+
         # Save/Update detailed metrics
         if detailed_metrics_file.exists():
             existing_df = pd.read_csv(detailed_metrics_file)
             updated_df = pd.concat([existing_df, metrics_df], ignore_index=True)
+            updated_df = updated_df.reindex(columns=column_order)
             updated_df.to_csv(detailed_metrics_file, index=False)
         else:
             metrics_df.to_csv(detailed_metrics_file, index=False)
@@ -275,6 +311,7 @@ class InferencePipeline:
             'run_id': self.run_id,
             'timestamp': pd.Timestamp.now(),
             'model_type': self.config.model_type,
+            'model_log': self._extract_model_log(),
             'num_images': len(metrics_df),
             'avg_dice_score': metrics_df['dice_score'].mean(),
             'avg_iou_score': metrics_df['iou_score'].mean(),
@@ -282,9 +319,14 @@ class InferencePipeline:
         }
         
         summary_df = pd.DataFrame([summary])
+        summary_column_order = ['run_id', 'timestamp', 'model_type', 'model_log', 
+                              'num_images', 'avg_dice_score', 'avg_iou_score', 'avg_bce_loss']
+        summary_df = summary_df.reindex(columns=summary_column_order)
+
         if summary_file.exists():
             existing_df = pd.read_csv(summary_file)
             updated_df = pd.concat([existing_df, summary_df], ignore_index=True)
+            updated_df = updated_df.reindex(columns=summary_column_order)
             updated_df.to_csv(summary_file, index=False)
         else:
             summary_df.to_csv(summary_file, index=False)
@@ -339,7 +381,7 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='Unet',
-        model_path='src/workflow_tools/pths/model_U-Net_30.no_val_transfer.pth',
+        model_path='src/workflow_tools/pths/model_U-Net_30.semi_supervised.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation

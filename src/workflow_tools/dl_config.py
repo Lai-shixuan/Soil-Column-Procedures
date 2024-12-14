@@ -24,13 +24,17 @@ def get_parameters():
         'scheduler_patience': 10,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
-        'batch_size': 8,
         'loss_function': 'cross_entropy',
 
+        'label_batch_size': 8,
+        'unlabel_batch_size': 32,
         'n_epochs': 1000,
         'patience': 50,
 
-        'wandb': '30.no_val_transfer'
+        'wandb': '30.semi_supervised',
+        # Add semi-supervised parameters
+        'consistency_weight': 0.1,
+        'consistency_rampup': 100,
     }
 
 def get_transforms(seed_value):
@@ -60,7 +64,7 @@ def setup_model():
     #     classes=1,
     # )
     model = smp.Unet(
-        encoder_name="efficientnet-b2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_name="efficientnet-b0",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
         in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         classes=1,                      # model output channels (number of classes in your dataset)
@@ -80,14 +84,24 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     return optimizer, scheduler, criterion
 
 def load_and_preprocess_data():
-    data_paths = fb.get_image_names(r'g:\DL_Data_raw\version4-classes\5.precheck_train_val\image', None, 'tif')
-    labels_paths = fb.get_image_names(r'g:\DL_Data_raw\version4-classes\5.precheck_train_val\label', None, 'tif')
+    # Load labeled data
+    labeled_data_paths = fb.get_image_names(r'g:\DL_Data_raw\version4-classes\5.precheck_train_val\image', None, 'tif')
+    labeled_labels_paths = fb.get_image_names(r'g:\DL_Data_raw\version4-classes\5.precheck_train_val\label', None, 'tif')
     
-    data = fb.read_images(data_paths, 'gray', read_all=True)
-    labels = fb.read_images(labels_paths, 'gray', read_all=True)
+    # Load unlabeled data
+    unlabeled_data_paths = fb.get_image_names(r'g:\DL_Data_raw\version4-classes\5.precheck_unlabeled\image', None, 'tif')
     
-    for i in range(len(data)):
-        data[i] = pre_process.median(data[i], kernel_size=3)
-        data[i] = pre_process.histogram_equalization_float32(data[i])
+    labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
+    labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
+    unlabeled_data = fb.read_images(unlabeled_data_paths, 'gray', read_all=True)
     
-    return data, labels
+    # Preprocess all data
+    for i in range(len(labeled_data)):
+        labeled_data[i] = pre_process.median(labeled_data[i], kernel_size=3)
+        labeled_data[i] = pre_process.histogram_equalization_float32(labeled_data[i])
+    
+    for i in range(len(unlabeled_data)):
+        unlabeled_data[i] = pre_process.median(unlabeled_data[i], kernel_size=3)
+        unlabeled_data[i] = pre_process.histogram_equalization_float32(unlabeled_data[i])
+    
+    return labeled_data, labels, unlabeled_data

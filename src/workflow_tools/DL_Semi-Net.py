@@ -2,6 +2,7 @@ import sys
 import torch
 import wandb
 import signal
+import numpy as np
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
@@ -37,72 +38,134 @@ wandb.init(
     config=my_parameters,
 )
 
-# Add signal handler before training loop
+# ------------------- Signal Handling -------------------
+
+# Global flag to track interruption
+interrupted = False
+
 def signal_handler(signum, frame):
-    print("\nCaught interrupt signal. Cleaning up...")
-    wandb.finish()
+    global interrupted
+    if interrupted:
+        print("\nForced exit...")
+        sys.exit(1)
+    
+    interrupted = True
+    print(f"\nCaught signal {signum}. Gracefully shutting down...")
+    
+    try:
+        # Cleanup wandb
+        if wandb.run is not None:
+            wandb.finish()
+            
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+    
     sys.exit(0)
 
-# Register the signal handler
-signal.signal(signal.SIGINT, signal_handler)
+# Register multiple signals
+signal.signal(signal.SIGINT, signal_handler)   # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Termination request
 
 # ------------------- Data -------------------
 
-data, labels = dl_config.load_and_preprocess_data()
+# Load both labeled and unlabeled data
+labeled_data, labels, unlabeled_data = dl_config.load_and_preprocess_data()
+
+# Split labeled data
 train_data, val_data, train_labels, val_labels = train_test_split(
-    data, labels, test_size=my_parameters['ratio'], random_state=my_parameters['seed']
+    labeled_data, labels, test_size=my_parameters['ratio'], random_state=my_parameters['seed']
 )
 
+# Create datasets
 train_dataset = load_data.my_Dataset(train_data, train_labels, transform=transform_train)
 val_dataset = load_data.my_Dataset(val_data, val_labels, transform=transform_val)
+unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), transform=transform_train)
 
-train_loader = DataLoader(train_dataset, batch_size=my_parameters['batch_size'], shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=my_parameters['batch_size'], shuffle=False)
+# Create data loaders
+train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+unlabeled_loader = DataLoader(unlabeled_dataset, batch_size=my_parameters['unlabel_batch_size'], shuffle=True)
 
-print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}')
+print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}, len of unlabeled_data: {len(unlabeled_data)}')
+
+def consistency_weight(epoch):
+    return my_parameters['consistency_weight'] * np.clip(epoch/my_parameters['consistency_rampup'], 0, 1)
 
 # ------------------- Training -------------------
 
 val_loss_best = float('inf')
 proceed_once = True
+unlabeled_iter = iter(unlabeled_loader)
 
 try:
     for epoch in range(my_parameters['n_epochs']):
         model.train()
         train_loss = 0.0
+        consistency_loss = 0.0
 
         for images, labels in tqdm(train_loader):
+            # Get a batch of unlabeled data
+            try:
+                unlabeled_images = next(unlabeled_iter)
+            except StopIteration:
+                unlabeled_iter = iter(unlabeled_loader)
+                unlabeled_images = next(unlabeled_iter)
+
+            # Handle labeled data
             images = images.to(device)
             labels = labels.to(device)
             
-            # Forward pass
             outputs = model(images)
-
-            # Checking the dimension of the outputs and labels
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
             
-            # Only proceed once:
+            supervised_loss = criterion(outputs, labels)
+
+            # Handle unlabeled data in the same iteration
+            unlabeled_images = unlabeled_images.to(device)
+            
+            # Get model predictions with different augmentations
+            with torch.no_grad():
+                pred1 = model(unlabeled_images)
+            
+            # Convert tensor to numpy array with correct format (BHWC)
+            unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
+            
+            # Apply augmentation to each image in the batch
+            augmented_batch = []
+            for img in unlabeled_np:
+                augmented = transform_train(image=img)['image']
+                augmented_batch.append(augmented)
+            
+            # Stack and convert back to tensor in BCHW format
+            augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
+            pred2 = model(augmented_images)
+            
+            # Consistency loss
+            cons_loss = torch.mean((pred1 - pred2) ** 2)
+            weight = consistency_weight(epoch)
+            total_loss = supervised_loss + weight * cons_loss
+
+            # Optimize
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
+            
+            train_loss += supervised_loss.item() * images.size(0)
+            consistency_loss += cons_loss.item() * unlabeled_images.size(0)
+
+            # Print progress info once
             if proceed_once:
                 print(f'outputs.size(): {outputs.size()}, labels.size(): {labels.size()}')
                 print(f'outputs.min: {outputs.min()}, outputs.max: {outputs.max()}')
                 print(f'images.min: {images.min()}, images.max: {images.max()}')
                 print(f'labels.min: {labels.min()}, labels.max: {labels.max()}')
                 print(f'count of label 0: {(labels == 0).sum()}, count of label 1:{(labels == 1).sum()}')
+                print(f'consistency loss: {cons_loss.item()}, weight: {weight}')
                 print('')
-                proceed_once = False  # Set the flag to False after proceeding once
-            
-            loss = criterion(outputs, labels)
-            
-            # Backward and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            
-            train_loss += loss.item() * images.size(0)
-        
-        train_loss_mean = train_loss / len(train_loader.dataset)
+                proceed_once = False
 
+        train_loss_mean = train_loss / len(train_loader.dataset)
 
         model.eval()
         val_loss = 0

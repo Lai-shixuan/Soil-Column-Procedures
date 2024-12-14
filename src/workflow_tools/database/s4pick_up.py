@@ -96,14 +96,14 @@ if __name__ == "__main__":
     # Configuration dictionary
     config = {
         # Path configurations
-        'base_input': "f:/3.Experimental_Data/Soils/",
-        'output_folder': "g:/DL_Data_raw/version5-formal/",
+        'base_input': r"f:/3.Experimental_Data/Soils/",
+        'output_folder': r"g:\DL_Data_raw\version4-classes\6.unlabeled_set",
         'column_ids': [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
         
         # Extraction configurations
         'extraction_mode': 'random',    # 'random' or 'average'
         'continuous': False,
-        'images_per_section': 2,
+        'images_per_section': 5,
         'num_sections': 1,
 
         # Seed
