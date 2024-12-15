@@ -156,7 +156,7 @@ class InferencePipeline:
                 classes=1
             ),
             'Unet': lambda: smp.Unet(
-                encoder_name="efficientnet-b0",
+                encoder_name="efficientnet-b2",
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
@@ -348,14 +348,10 @@ class InferencePipeline:
         image_paths = fb.get_image_names(self.config.images_path, None, 'tif')
         images = fb.read_images(image_paths, 'gray', read_all=True)
         
-        for i in range(len(images)):
-            images[i] = pre_process.median(images[i], 3)
-            images[i] = pre_process.histogram_equalization_float32(images[i])
-
         if self.config.mode == 'evaluation':
             label_paths = fb.get_image_names(self.config.labels_path, None, 'tif')
             labels = fb.read_images(label_paths, 'gray', read_all=True)
-        else:
+        else:   # In inference mode, labels are not needed
             labels = [np.zeros_like(img) for img in images]
         
         dataset = load_data.my_Dataset(images, labels, transform=self.transform)
@@ -381,14 +377,14 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='Unet',
-        model_path='src/workflow_tools/pths/model_U-Net_30.semi_supervised.pth',
+        model_path='src/workflow_tools/model_U-Net_34.diceloss_weight_up.pth',
         device='cuda' if torch.cuda.is_available() else 'cpu',
 
         mode='evaluation',  # 'inference' or 'evaluation
 
-        images_path='g:/DL_Data_raw/version4-classes/5.precheck_test/image/',
-        labels_path='g:/DL_Data_raw/version4-classes/5.precheck_test/label/',
-        save_path='g:/DL_Data_raw/version4-classes/_inference/',
+        images_path=r'g:\DL_Data_raw\version4-classes\7.Final_dataset\test_image',
+        labels_path=r'g:\DL_Data_raw\version4-classes\7.Final_dataset\test_label',
+        save_path=r'g:/DL_Data_raw/version4-classes/_inference',
 
         batch_size=8,
         run_config={

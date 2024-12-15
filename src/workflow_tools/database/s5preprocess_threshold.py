@@ -57,20 +57,30 @@ def invert_image(image):
     return 1.0 - image
 
 
-def batch_images(path_in):
+def batch_images(path_in, path_out):
     image_lists = fb.get_image_names(path_in, None, 'tif')
+
+    if not os.path.exists(path_out):
+        os.makedirs(path_out)
     
     for image_path in tqdm(image_lists, desc="Inverting images"):
         # Read image
         image = cv.imread(image_path, cv.IMREAD_UNCHANGED)
         
         # Invert image
-        inverted = pre_process.histogram_equalization_float32(image)
+        image = pre_process.median(image, kernel_size=5)
+        image = pre_process.clahe_float32(image)
+        mean = np.mean(image)
+        image = image - mean
+
+        name = os.path.basename(image_path)
+        image_path = os.path.join(path_out, name)
         
         # Save with same name in same location
-        cv.imwrite(image_path, inverted)
+        cv.imwrite(image_path, image)
 
 # Example usage
-path_in = r'g:\DL_Data_raw\version4-classes\to_equlize'
-batch_images(path_in)
+path_in = r'g:\DL_Data_raw\version4-classes\3.Harmonized\image'
+path_out = r'g:\DL_Data_raw\version4-classes\5.Preprocess'
+batch_images(path_in, path_out)
 
