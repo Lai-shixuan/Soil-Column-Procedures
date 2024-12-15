@@ -18,7 +18,7 @@ class DiceBCELoss(nn.Module):
         dice_loss = 1 - soft_dice
         
         # Combine BCE + Dice
-        return 0.5 * bce_loss + 0.5 * dice_loss
+        return 0.2 * bce_loss + 0.8 * dice_loss
 
 
 def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, smooth=1e-6) -> torch.Tensor:
