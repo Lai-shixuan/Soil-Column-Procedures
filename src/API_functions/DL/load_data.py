@@ -1,13 +1,13 @@
 from torch.utils.data import Dataset
-import torch
 
 class my_Dataset(Dataset):
-    def __init__(self, imagelist, labels, transform=None):
+    def __init__(self, imagelist, labels, transform=None, preprocess=True):
         super(my_Dataset).__init__()
         self.transform = transform
         self.imagelist = imagelist
         self.labels = labels
         self.is_unlabeled = labels[0] is None if labels else False
+        self.preprocess = preprocess
 
     def __len__(self):
         return len(self.imagelist)
@@ -15,6 +15,15 @@ class my_Dataset(Dataset):
     def __getitem__(self, idx):
         img = self.imagelist[idx]
         label = self.labels[idx] if not self.is_unlabeled else None
+
+        if self.preprocess:
+            pass
+            # Apply median filter and histogram equalization
+            # Apply mean normalization
+            # img = pre_process.median(img, kernel_size=3)
+            # img = pre_process.clahe_float32(img)
+            # mean = np.mean(img)
+            # img = img - mean  # Subtract mean to center the data around zero
 
         if self.transform:
             if self.is_unlabeled:
@@ -27,15 +36,10 @@ class my_Dataset(Dataset):
                 img = augmented['image']
                 label = augmented['mask']
 
-        # Convert image to tensor
-        img = torch.tensor(img, dtype=torch.float32)
-        
         # For unlabeled data, return only the image
         if self.is_unlabeled:
             return img
         
-        # For labeled data, convert label to tensor and return both
-        label = torch.tensor(label, dtype=torch.float32)
         return img, label
 
 # to be continue
