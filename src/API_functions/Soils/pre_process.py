@@ -228,8 +228,7 @@ def equalized_hist(img):
 
 def clahe_float32(image: np.array, clip_limit: float = 2.0, tile_grid_size: tuple = (8, 8)) -> np.array:
     """
-    Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to a float32 image with values in [0, 1],
-    ignoring pixels with values exactly 0 or 1.
+    Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to a float32 image with values in [0, 1].
 
     Parameters:
         image (numpy.ndarray): Input float32 image with values in [0, 1].
@@ -241,24 +240,15 @@ def clahe_float32(image: np.array, clip_limit: float = 2.0, tile_grid_size: tupl
     """
     if not (image.dtype == np.float32 and image.min() >= 0.0 and image.max() <= 1.0):
         raise ValueError("Input image must be a float32 array with values in the range [0, 1].")
-
-    # Create a mask to exclude pixels with values 0 or 1
-    mask = (image > 0) & (image < 1)
     
-    # Convert to uint16 for CLAHE processing (more precision than uint8)
+    # Convert to uint16 for CLAHE
     img_uint16 = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint16')
     
-    # Create CLAHE object
+    # Create CLAHE object and apply
     clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
-    
-    # Apply CLAHE
     enhanced_uint16 = clahe.apply(img_uint16)
     
     # Convert back to float32 [0,1] range
     enhanced_float32 = fb.bitconverter.grayscale_to_binary_one_image(enhanced_uint16)
     
-    # Preserve original 0 and 1 values using the mask
-    result = image.copy()
-    result[mask] = enhanced_float32[mask]
-    
-    return result
+    return enhanced_float32
