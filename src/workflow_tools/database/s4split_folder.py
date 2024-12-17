@@ -113,8 +113,8 @@ def move_split_files(folder_path: Union[str, Path], split_results: List[List[Pat
 if __name__ == "__main__":
     # Default configuration
     config = {
-        "folder_path": r"g:\DL_Data_raw\version6-large\temp-net\label",
-        "ratios": [301, 120],     # Split ratio 7:2:1:1
+        "folder_path": r"g:\DL_Data_raw\version6-large\6.Precheck\label\120",
+        "ratios": [80, 40],     # Split ratio 7:2:1:1
         "mode": SplitMode.RANDOM,
         "move": True,
         "seed": 42                   # Default random seed

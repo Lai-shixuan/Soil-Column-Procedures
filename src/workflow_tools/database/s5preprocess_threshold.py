@@ -38,20 +38,20 @@ def batch_process_images(path_in, path_out, process_function, file_pattern: str=
 if __name__ == "__main__":
 
     def process_pipeline(image):
-        # image = pre_process.median(image, 5)
-        # image = pre_process.clahe(image)
-        # image = 1 - np.mean(image)
+        image = pre_process.median(image, 5)
+        image = pre_process.clahe_float32(image)
+        image = image - np.mean(image)
 
         # image = pre_process.median(image, 5)
         # image2 = image.copy()
         # _, threshold = tmi.kmeans_3d(image2, return_threshold=True)
         # image = tmi.user_threshold(image, threshold-0.15)
 
-        image = 1 - image
+        # image = 1 - image
         return image
 
-    path_in = Path(r'g:\DL_Data_raw\version6-large\4.Converted\label')
-    path_out = Path(r'g:\DL_Data_raw\version6-large\4.Converted\label')
+    path_in = Path(r'g:\DL_Data_raw\version6-large\8.Unlabeled\3.harmonizd')
+    path_out = Path(r'g:\DL_Data_raw\version6-large\8.Unlabeled\5.preprocess')
     extension = 'tif'
     
     batch_process_images(
