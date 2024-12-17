@@ -154,9 +154,9 @@ class GrayValueAnalyzer:
 def main():
     # Configuration
     config = {
-        'base_path': "f:/3.Experimental_Data/Soils/Dongying_normal/",
-        'output_dir': "f:/3.Experimental_Data/Soils/Dongying_normal/Analysis/",
-        'columns': [i for i in range(22, 28)],  # Specify exact columns to process
+        'base_path': r"f:\3.Experimental_Data\Soils\Online",
+        'output_dir': r"f:\3.Experimental_Data\Soils\Online\Analysis",
+        'columns': [i for i in range(35, 36)],  # Specify exact columns to process
         'column_pairs': None    # [(i, i+6) for i in range(10, 16)]
     }
     

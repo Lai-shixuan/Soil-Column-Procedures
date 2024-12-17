@@ -38,8 +38,7 @@ def batch_harmonize_and_save(image_paths: list, output_dir: str):
 
             # Create output path, change the suffix
             filename = os.path.basename(image_path)
-            filename = filename.replace("processed", "harmonized")
-            filename = filename.replace(".png", ".tif")
+            filename = filename.replace("cutted", "harmonized")
 
             # Change to tif
             output_path = os.path.join(output_dir, f"{filename}")
@@ -55,8 +54,8 @@ if __name__ == "__main__":
         # Example paths - modify these according to your data location
         # image_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/2.ROI/'
         # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/3.Harmonized/image'
-    image_dir = f'f:/3.Experimental_Data/Core_datasets/Batches/2.training-processed/label/'
-    output_dir = f'f:/3.Experimental_Data/Core_datasets/Batches/3.Harmonized/label/'
+    image_dir = r'f:\3.Experimental_Data\Soils\Online\Soil.column.0035\2.ROI\image'
+    output_dir = r'f:\3.Experimental_Data\Soils\Online\Soil.column.0035\3.Harmonized\image'
     
     # Get all image files
     image_paths = fb.get_image_names(image_dir, None, 'tif')
