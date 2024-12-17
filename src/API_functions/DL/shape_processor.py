@@ -164,7 +164,7 @@ def process_shape_detection(input_image: np.ndarray,
         # Cut image using shape parameters, fill outside pixels with 0, 1 if are not label
         if is_label == False:
             cut_image = origional_image.copy()
-            fill_value = 1
+            fill_value = 0
         else:
             cut_image = input_image.copy()
             fill_value = 0
