@@ -127,5 +127,7 @@ if __name__ == "__main__":
 
     # Special name rules are for online data soil column 35. Need to be adjusted for other datasets!!
 
+    # This will harmonized the images first! The cut-with-shape function belongs to the last step of the pipeline, so the images should be harmonized first.
+
     cutter = ShapeROICutter()
     cutter.process_folder(label_folder, image_folder, output_dir, draw_mask=True)
