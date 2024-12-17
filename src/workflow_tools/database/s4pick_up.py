@@ -8,7 +8,7 @@ from src.API_functions.Images import file_batch as fb
 from pathlib import Path
 
 def extract_images(column_id: str, config: dict):
-    """Extract specified images from the input folder based on configured rules.
+    """Extract specified images and optional labels from the input folder.
 
     Args:
         column_id (str): The ID of the column (e.g., '0028').
@@ -20,6 +20,8 @@ def extract_images(column_id: str, config: dict):
             - images_per_section (int): Number of images to extract per section
             - num_sections (int): Number of sections to divide the column into
             - random_seed (int): Random seed for reproducibility
+            - parallel_label (bool): Whether to extract labels in parallel
+            - label_folder (str): Name of the label subfolder (e.g., 'label')
 
     Returns:
         None
@@ -37,10 +39,11 @@ def extract_images(column_id: str, config: dict):
         return
     
     # Use the first matching folder (should be unique)
-    column_folder = matching_folders[0] / "3.Harmonized" / "image"
+    harmonized_folder = matching_folders[0] / "3.Harmonized"
+    image_folder = harmonized_folder / "image"
     
     # Get a list of image files
-    images = fb.get_image_names(column_folder, None, 'tif')
+    images = fb.get_image_names(image_folder, None, 'tif')
     images = [Path(image).name for image in images]
     
     column_length = len(images)
@@ -67,25 +70,46 @@ def extract_images(column_id: str, config: dict):
                 start_idx = section_start + (section_size - config['images_per_section']) // 2
                 indices.extend(range(start_idx, start_idx + config['images_per_section']))
             else:
-                # Take random images from each section
+                # Take images_per_section images from each section
                 section_indices = random.sample(
                     range(section_start, section_start + section_size),
-                    config['images_per_section']
+                    min(config['images_per_section'], section_size)  # Ensure we don't exceed section size
                 )
-                indices.extend(section_indices)
+                indices.extend(sorted(section_indices))
 
-    # Create output folder if it doesn't exist
-    output_folder = Path(config['output_folder'])
-    output_folder.mkdir(parents=True, exist_ok=True)
+    # Create output folders
+    image_output = output_folder / "image"
+    image_output.mkdir(parents=True, exist_ok=True)
 
-    # Copy selected images directly to output folder, keeping original names
+    if config.get('parallel_label', False):
+        label_folder = harmonized_folder / 'label'
+        label_output = output_folder / 'label'
+        label_output.mkdir(parents=True, exist_ok=True)
+        
+        # Verify that labels exist for all selected images
+        for img_name in images:
+            if not (label_folder / img_name).exists():
+                print(f"Warning: Label missing for {img_name} in column {column_id}")
+                return
+
+    # Copy selected files
     for idx in indices:
         if idx < column_length:
-            src_path = column_folder / images[idx]
-            dst_path = output_folder / images[idx]
+            img_name = images[idx]
+            # Copy image
+            src_path = image_folder / img_name
+            dst_path = image_output / img_name
             shutil.copyfile(src_path, dst_path)
 
-    print(f"Extracted {len(indices)} images from column {column_id} to {output_folder}")
+            # Copy corresponding label if enabled
+            if config.get('parallel_label', False):
+                label_src = label_folder / img_name
+                label_dst = label_output / img_name
+                shutil.copyfile(label_src, label_dst)
+
+    print(f"Extracted {len(indices)} images from column {column_id} to {image_output}")
+    if config.get('parallel_label', False):
+        print(f"Extracted {len(indices)} labels from column {column_id} to {label_output}")
 
 def process_all_columns(config: dict):
     """Process multiple soil columns according to the specified configuration."""
@@ -97,17 +121,21 @@ if __name__ == "__main__":
     config = {
         # Path configurations
         'base_input': r"f:/3.Experimental_Data/Soils/",
-        'output_folder': r"g:\DL_Data_raw\version5-formal\3.Harmonized",
-        'column_ids': [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
+        'output_folder': r"g:\DL_Data_raw\version6-large\3.Harmonized",
+        'column_ids': ['0003', '0005', '0007', '0009'] + [f"{i:04d}" for i in range(22, 28)],  # [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
         
         # Extraction configurations
-        'extraction_mode': 'random',    # 'random' or 'average'
+        'extraction_mode': 'average',    # 'random' or 'average'
         'continuous': False,
-        'images_per_section': 1,
-        'num_sections': 1,
+        'images_per_section': 6,
+        'num_sections': 3,
 
         # Seed
         'random_seed': 48,
+
+        # New parallel label configurations
+        'parallel_label': False,
+        'label_folder': 'label',  # subfolder name for labels
     }
     
     process_all_columns(config)
