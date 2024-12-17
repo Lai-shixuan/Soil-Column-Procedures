@@ -291,7 +291,7 @@ def _append_patches(img: np.ndarray, target_size: int, stride: int, is_label: bo
     patch_positions = []
     padding_info_list = []
     stats = {'is_split': False, 'is_padded': False, 'patch_count': 0}
-    padding_color = 0 if is_label else np.mean(img)  # Use mean value for padding color
+    padding_color = 0 # if is_label than black, else np.mean(img) should be 0. So always zero
     
     if h < target_size or w < target_size:
         # Case 1: Image smaller than target - pad it
