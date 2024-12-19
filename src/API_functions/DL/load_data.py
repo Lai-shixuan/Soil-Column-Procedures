@@ -31,12 +31,16 @@ class my_Dataset(Dataset):
             
             # Set padding areas to 0 in mask
             if pad_top > 0:
+                pad_top = int(pad_top)
                 mask[:pad_top, :] = 0
             if pad_bottom > 0:
+                pad_bottom = int(pad_bottom)
                 mask[-pad_bottom:, :] = 0
             if pad_left > 0:
+                pad_left = int(pad_left)
                 mask[:, :pad_left] = 0
             if pad_right > 0:
+                pad_right = int(pad_right)
                 mask[:, -pad_right:] = 0
 
         if self.preprocess:

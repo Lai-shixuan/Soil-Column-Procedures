@@ -33,7 +33,8 @@ def get_parameters():
         'label_batch_size': 16,
         'unlabel_batch_size': 64,
 
-        'wandb': '41.Unet-b0-half-halfLR',
+        'wandb': '42.Unet-b0-maskLoss',
+
         # Add semi-supervised parameters
         'consistency_weight': 0.1,
         'consistency_rampup': 100,
@@ -92,9 +93,9 @@ def load_and_preprocess_data():
     unlabeled_data_paths = fb.get_image_names(r'/mnt/unlabeled', None, 'tif')
     
     # Load padding information from separate CSV files
-    train_padding_info = pd.read_csv('/mnt/train_padding_info.csv')
-    val_padding_info = pd.read_csv('/mnt/val_padding_info.csv')
-    unlabeled_padding_info = pd.read_csv('/mnt/unlabeled_padding_info.csv')
+    train_padding_info = pd.read_csv('/mnt/image_patches.csv')
+    val_padding_info = pd.read_csv('/mnt/label_patches.csv')
+    unlabeled_padding_info = pd.read_csv('/mnt/unlabel_image_patches.csv')
     
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
