@@ -2,36 +2,49 @@ import numpy as np
 import torch
 from typing import Union
 import torch.nn as nn
+import torch.nn.functional as F
 
 class DiceBCELoss(nn.Module):
-    def __init__(self):
+    def __init__(self, smooth=1e-4):
         super(DiceBCELoss, self).__init__()
-        self.bce = nn.BCEWithLogitsLoss()  # Changed from BCELoss to BCEWithLogitsLoss
-
-    def forward(self, inputs, targets, smooth=1e-6):
-        # Calculate the BCE loss first (no need to apply sigmoid here)
-        bce_loss = self.bce(inputs, targets)
+        self.smooth = smooth
+        self.bce = nn.BCEWithLogitsLoss(reduction='none')
         
-        # Apply sigmoid for Dice calculation
-        inputs = torch.sigmoid(inputs)
+    def forward(self, pred, target, mask=None):
+        if mask is None:
+            mask = torch.ones_like(target)
         
-        # Calculate the Dice loss
-        soft_dice = soft_dice_coefficient(y_true=targets, y_pred=inputs, smooth=smooth)
-        dice_loss = 1 - soft_dice
+        # BCE Loss with mask (using BCEWithLogitsLoss)
+        bce = self.bce(pred, target)
+        bce = (bce * mask).sum() / mask.sum()
         
-        # Combine BCE + Dice
-        return 0.2 * bce_loss + 0.8 * dice_loss
+        # Dice Loss using soft_dice_coefficient
+        # Need sigmoid for dice calculation since we're using logits for BCE
+        pred_sigmoid = torch.sigmoid(pred)
+        dice = 1 - soft_dice_coefficient(target, pred_sigmoid, mask, self.smooth)
+        
+        return bce * 0.2 + dice * 0.8
 
 
-def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, smooth=1e-6) -> torch.Tensor:
+def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, mask: torch.Tensor = None, smooth=1e-6) -> torch.Tensor:
     """
     Calculate the soft Dice coefficient. The inputs are PyTorch tensors.
+    Args:
+        y_true: Ground truth tensor
+        y_pred: Prediction tensor
+        mask: Optional mask tensor (1 for valid regions, 0 for padding)
+        smooth: Smoothing factor to avoid division by zero
     """
-    y_true = y_true.view(-1)
-    y_pred = y_pred.view(-1)
+    if mask is None:
+        mask = torch.ones_like(y_true)
+        
+    y_true = (y_true * mask).view(-1)
+    y_pred = (y_pred * mask).view(-1)
+    mask = mask.view(-1)
     
-    intersection = (y_true * y_pred).sum()
-    dice = (2. * intersection + smooth) / ((y_true**2).sum() + (y_pred**2).sum() + smooth)
+    intersection = (y_true * y_pred * mask).sum()
+    total = ((y_true ** 2) * mask).sum() + ((y_pred ** 2) * mask).sum()
+    dice = (2. * intersection + smooth) / (total + smooth)
     
     return dice
 

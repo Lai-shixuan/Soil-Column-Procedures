@@ -74,59 +74,62 @@ def kapur_entropy_3d(image: np.ndarray):
     return threshold_image
 
 
-def kmeans_3d(numbers: np.ndarray, mask: np.ndarray = None):
+def kmeans_3d(numbers: np.ndarray, mask: np.ndarray = None, return_threshold=False):
     """
     K-means clustering for 3D image with consistent labeling.
     The brighter pixels will always be labeled as 1, darker as 0.
+    Returns the binary image and optionally the equivalent threshold value.
     """
     original_shape = numbers.shape
     
     if numbers.max() > 255:
         type = '16bit'
-        numbers = numbers / 65535
+        scale = 65535
+        numbers = numbers / scale
     elif numbers.max() > 1:
         type = '8bit'
-        numbers = numbers / 255
+        scale = 255
+        numbers = numbers / scale
     else:
         type = 'float'
+        scale = 1
         numbers = numbers
 
     if mask is not None:
-        # Only cluster masked pixels
         masked_values = numbers[mask].reshape(-1, 1)
         kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(masked_values)
-        
-        # Check if labels need to be flipped based on cluster centers
         centers = kmeans_filter.cluster_centers_.flatten()
         labels = kmeans_filter.labels_
         if centers[1] > centers[0]:
-            # Flip labels if cluster 0 is brighter than cluster 1
             labels = 1 - labels
-        
-        # Create output array filled with zeros
+            centers = centers[::-1]  # Reverse centers order
         classes = np.zeros_like(numbers)
-        # Assign clustered values back to masked positions
         classes[mask] = labels
     else:
         numbers_reshaped = numbers.reshape(-1, 1)
         kmeans_filter = KMeans(n_clusters=2, random_state=0, n_init=10).fit(numbers_reshaped)
-        
-        # Check if labels need to be flipped based on cluster centers
         centers = kmeans_filter.cluster_centers_.flatten()
         labels = kmeans_filter.labels_
-        if centers[1] > centers[0]:
-            # Flip labels if cluster 0 is brighter than cluster 1
+        if centers[1] < centers[0]:
             labels = 1 - labels
-            
+            centers = centers[::-1]  # Reverse centers order
         classes = labels.reshape(original_shape)
 
+    # Calculate equivalent threshold as the midpoint between cluster centers
+    threshold = (centers[0] + centers[1]) / 2
+
     if type == '16bit':
-        classes = classes * 65535
+        classes = classes * scale
+        threshold = threshold * scale
     elif type == '8bit':
-        classes = classes * 255
+        classes = classes * scale
+        threshold = threshold * scale
     else:
         classes = classes
+        threshold = threshold
 
+    if return_threshold:
+        return classes, threshold
     return classes
 
 
