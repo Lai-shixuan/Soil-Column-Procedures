@@ -58,6 +58,7 @@ class InferenceConfig:
     batch_size: int
     run_config: Dict[str, str]  # Only needs 'summary_filename'
     remove_prefix: bool = False  # Add this new parameter with default False
+    padding_info_path: Optional[str] = None  # Add this line for padding info path
 
     def validate(self) -> None:
         """Validates the configuration parameters.
@@ -67,6 +68,8 @@ class InferenceConfig:
             FileNotFoundError: If any required paths don't exist.
             RuntimeError: If CSV files are not accessible.
         """
+
+        # Model type validation
         valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet'}
         if self.model_type not in valid_model_types:
             raise ValueError(f"Model type must be one of {valid_model_types}")
@@ -79,12 +82,19 @@ class InferenceConfig:
         
         if not Path(self.save_path).exists():
             raise FileNotFoundError(f"Save path does not exist: {self.save_path}")
-        
+    
+        valid_backbones = {'efficientnet-b0', 'resnet34', 'resnet50', 'mobilenet_v2'}
+        if self.backbone not in valid_backbones:
+            raise ValueError(f"Backbone must be one of {valid_backbones}")
+
+        # Labels and record of results
         if self.mode == 'evaluation':
             if not self.labels_path or not Path(self.labels_path).exists():
                 raise ValueError("Labels path must be provided and exist in evaluation mode")
             
-            # Check CSV files accessibility
+            if self.padding_info_path and not Path(self.padding_info_path).exists():
+                raise FileNotFoundError(f"Padding info path does not exist: {self.padding_info_path}")
+            
             csv_files = [
                 Path(self.save_path) / "detailed_metrics.csv",
                 Path(self.save_path) / self.run_config['summary_filename']
@@ -98,10 +108,6 @@ class InferenceConfig:
                     except PermissionError:
                         raise RuntimeError(f"Cannot access {csv_file}. Please close any applications that might be using this file.")
         
-        valid_backbones = {'efficientnet-b0', 'resnet34', 'resnet50', 'mobilenet_v2'}
-        if self.backbone not in valid_backbones:
-            raise ValueError(f"Backbone must be one of {valid_backbones}")
-
 
 class InferencePipeline:
     """Main class for handling deep learning inference.
@@ -210,24 +216,27 @@ class InferencePipeline:
         parts = model_filename.split('_', 2)
         return parts[2].replace('.pth', '') if len(parts) > 2 else ''
 
-    def process_batch(self, batch: Tuple[torch.Tensor, torch.Tensor], 
+    def process_batch(self, batch: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], 
                     image_paths: List[str], 
                     batch_start_idx: int) -> List[Dict]:
         """Processes a batch of images through the model.
         
         Args:
-            batch: Tuple of (images, labels) tensors.
+            batch: Tuple of (images, labels, masks) tensors.
             image_paths: List of paths to the original images.
             batch_start_idx: Starting index of the current batch.
 
         Returns:
             List[Dict]: List of metrics dictionaries for each processed image.
         """
-        images, labels = [x.to(self.config.device) for x in batch]
+        images, labels, masks = [x.to(self.config.device) for x in batch]
         output = self.model(images)
         
         if output.dim() == 4 and output.size(1) == 1:
             output = output.squeeze(1)
+        
+        if masks.dim() == 4 and masks.size(1) == 1:
+            masks = masks.squeeze(1)
         
         output_prob = torch.sigmoid(output)
         
@@ -238,7 +247,7 @@ class InferencePipeline:
                 break
                 
             metrics.append(self._process_single_image(
-                output_prob[j], output[j], labels[j], 
+                output_prob[j], output[j], labels[j], masks[j],
                 image_paths[batch_idx]
             ))
             
@@ -247,7 +256,8 @@ class InferencePipeline:
     def _process_single_image(self, 
                             output_prob: torch.Tensor, 
                             output: torch.Tensor, 
-                            label: torch.Tensor, 
+                            label: torch.Tensor,
+                            mask: torch.Tensor, 
                             image_path: str) -> Dict:
         """Processes a single image and calculates its metrics.
         
@@ -255,6 +265,7 @@ class InferencePipeline:
             output_prob: Probability prediction tensor.
             output: Raw model output tensor.
             label: Ground truth label tensor.
+            mask: Mask tensor for valid regions.
             image_path: Path to the original image.
 
         Returns:
@@ -275,14 +286,18 @@ class InferencePipeline:
             'timestamp': pd.Timestamp.now()
         }
 
-        tp, fp, fn, tn = evaluate.get_confusion_matrix_elements(output_prob, label)
+        # Apply mask to confusion matrix calculation
+        masked_output_prob = output_prob * mask
+        masked_label = label * mask
+        tp, fp, fn, tn = evaluate.get_confusion_matrix_elements(masked_output_prob, masked_label)
         
         # Add evaluation metrics if in evaluation mode
         if self.config.mode == 'evaluation':
+            criterion = evaluate.DiceBCELoss()  # Use the same loss as training
             metrics.update({
-                'dice_score': evaluate.dice_coefficient(output_prob, label),
-                'iou_score': evaluate.iou(output_prob, label),
-                'bce_loss': torch.nn.BCEWithLogitsLoss()(output, label).item(), # Becase output is not sigmoid
+                'dice_score': evaluate.dice_coefficient(masked_output_prob, masked_label),
+                'iou_score': evaluate.iou(masked_output_prob, masked_label),
+                'bce_loss': criterion(output, label, mask).item(),
                 'f1_score': smp.metrics.functional.f1_score(tp, fp, fn, tn, reduction='micro').item(),
                 'precision': smp.metrics.functional.precision(tp, fp, fn, tn, reduction='micro').item(),
                 'recall': smp.metrics.functional.recall(tp, fp, fn, tn, reduction='micro').item(),
@@ -356,36 +371,56 @@ class InferencePipeline:
     def run(self) -> pd.DataFrame:
         """Executes the complete inference pipeline.
         
-        This method:
-        1. Loads and preprocesses images and labels
-        2. Runs inference through the model
-        3. Calculates metrics
-        4. Saves results and metrics
+        This method loads data, validates it, runs inference, and saves results.
+        All validation is done upfront before any processing begins.
 
         Returns:
             pd.DataFrame: DataFrame containing metrics for all processed images.
+        
+        Raises:
+            ValueError: If padding info is invalid or missing required columns
+            FileNotFoundError: If required files don't exist
+            RuntimeError: If number of images/labels/padding entries don't match
         """
         self.logger.info("Starting inference pipeline...")
         
+        # 1. Load and validate paths
         image_paths = fb.get_image_names(self.config.images_path, None, 'tif')
+        
+        # 2. Load and validate padding info
+        required_columns = {'padding_top', 'padding_bottom', 'padding_left', 'padding_right'}
+        padding_df = pd.read_csv(self.config.padding_info_path)
+        if not required_columns.issubset(padding_df.columns):
+            raise ValueError(f"Padding info must contain columns: {required_columns}")
+        
+        if len(padding_df) != len(image_paths):
+            raise RuntimeError(f"Number of padding entries ({len(padding_df)}) does not match number of images ({len(image_paths)})")
+        
+        # 3. Load images and validate
         images = fb.read_images(image_paths, 'gray', read_all=True)
         
+        # 4. Load and validate labels if in evaluation mode
         if self.config.mode == 'evaluation':
             label_paths = fb.get_image_names(self.config.labels_path, None, 'tif')
+            if not label_paths or len(label_paths) != len(image_paths):
+                raise ValueError(f"Number of labels ({len(label_paths)}) does not match images ({len(image_paths)})")
+            
             labels = fb.read_images(label_paths, 'gray', read_all=True)
-        else:   # In inference mode, labels are not needed
+        else:
             labels = [np.zeros_like(img) for img in images]
         
-        dataset = load_data.my_Dataset(images, labels, transform=self.transform)
+        # 5. Create dataset and dataloader
+        dataset = load_data.my_Dataset(images, labels, padding_df, transform=self.transform)
         dataloader = DataLoader(dataset, batch_size=self.config.batch_size, shuffle=False)
         
+        # 6. Run inference
         all_metrics = []
         with torch.no_grad():
             for i, batch in enumerate(tqdm(dataloader)):
                 batch_metrics = self.process_batch(batch, image_paths, i * self.config.batch_size)
                 all_metrics.extend(batch_metrics)
-                # self.logger.info(f"Processed batch {i+1}/{len(dataloader)}")
         
+        # 7. Save results
         metrics_df = pd.DataFrame(all_metrics)
         self._save_metrics(metrics_df)
         
@@ -409,11 +444,12 @@ if __name__ == "__main__":
         images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
         save_path=r'g:\DL_Data_raw\version6-large\_inference',
+        padding_info_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image_patches.csv',
 
         batch_size=16,
-        remove_prefix=True,  # Add this parameter
+        remove_prefix=True,
         run_config={
-            'summary_filename': 'inference_summary.csv'  # Simplified config
+            'summary_filename': 'inference_summary.csv'
         }
     )
     

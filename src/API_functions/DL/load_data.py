@@ -1,9 +1,10 @@
 import torch
 import numpy as np
 from torch.utils.data import Dataset
+import pandas as pd
 
 class my_Dataset(Dataset):
-    def __init__(self, imagelist, labels, padding_info=None, transform=None, preprocess=True):
+    def __init__(self, imagelist, labels, padding_info: pd.DataFrame=None, transform=None, preprocess=True):
         super(my_Dataset).__init__()
         self.transform = transform
         self.imagelist = imagelist
