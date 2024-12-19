@@ -13,6 +13,7 @@ import hashlib
 sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from pathlib import Path
+from tqdm import tqdm
 from typing import Dict, List, Optional, Union, Tuple
 from dataclasses import dataclass
 from albumentations.pytorch import ToTensorV2
@@ -35,6 +36,7 @@ class InferenceConfig:
     Attributes:
         model_type: Type of model to use (DeepLabV3Plus, Unet, or PSPNet).
         model_path: Path to the model weights file.
+        backbone: Backbone to use for the model.
         device: Device to run inference on ('cuda' or 'cpu').
         mode: Mode of operation ('evaluation' or 'inference').
         images_path: Directory containing input images.
@@ -43,9 +45,11 @@ class InferenceConfig:
         batch_size: Number of images to process in each batch.
         run_config: Dictionary containing configuration parameters:
             summary_filename: Name of the summary metrics file.
+        remove_prefix: Whether to remove '_orig_mod.' prefix from state_dict keys.
     """
     model_type: str
     model_path: str
+    backbone: str  # New parameter for model backbone
     device: str
     mode: str
     images_path: str
@@ -53,6 +57,7 @@ class InferenceConfig:
     save_path: str
     batch_size: int
     run_config: Dict[str, str]  # Only needs 'summary_filename'
+    remove_prefix: bool = False  # Add this new parameter with default False
 
     def validate(self) -> None:
         """Validates the configuration parameters.
@@ -92,6 +97,10 @@ class InferenceConfig:
                             pass
                     except PermissionError:
                         raise RuntimeError(f"Cannot access {csv_file}. Please close any applications that might be using this file.")
+        
+        valid_backbones = {'efficientnet-b0', 'resnet34', 'resnet50', 'mobilenet_v2'}
+        if self.backbone not in valid_backbones:
+            raise ValueError(f"Backbone must be one of {valid_backbones}")
 
 
 class InferencePipeline:
@@ -150,19 +159,19 @@ class InferencePipeline:
         """
         model_mapping = {
             'DeepLabV3Plus': lambda: smp.DeepLabV3Plus(
-                encoder_name="resnet34",
+                encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
             ),
             'Unet': lambda: smp.Unet(
-                encoder_name="efficientnet-b2",
+                encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
             ),
             'PSPNet': lambda: smp.PSPNet(
-                encoder_name="resnet34",
+                encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1
@@ -170,7 +179,19 @@ class InferencePipeline:
         }
         
         model = model_mapping[self.config.model_type]()
-        model.load_state_dict(torch.load(self.config.model_path, map_location=self.config.device, weights_only=True))
+
+        # Load the state dictionary and fix the keys
+        state_dict = torch.load(self.config.model_path, map_location=self.config.device)
+        
+        if self.config.remove_prefix:
+            # Remove '_orig_mod.' prefix from keys if requested
+            fixed_state_dict = {}
+            for key, value in state_dict.items():
+                new_key = key.replace('_orig_mod.', '')
+                fixed_state_dict[new_key] = value
+            state_dict = fixed_state_dict
+
+        model.load_state_dict(state_dict)
         return model.to(self.config.device).eval()
 
     @staticmethod
@@ -253,22 +274,19 @@ class InferencePipeline:
             'model_log': self._extract_model_log(),
             'timestamp': pd.Timestamp.now()
         }
+
+        tp, fp, fn, tn = evaluate.get_confusion_matrix_elements(output_prob, label)
         
         # Add evaluation metrics if in evaluation mode
         if self.config.mode == 'evaluation':
             metrics.update({
-                'dice_score': evaluate.dice_coefficient(
-                    output_prob.unsqueeze(0), 
-                    label.unsqueeze(0)
-                ),
-                'iou_score': evaluate.iou(
-                    output_prob.unsqueeze(0), 
-                    label.unsqueeze(0)
-                ),
-                'bce_loss': torch.nn.BCEWithLogitsLoss()(
-                    output.unsqueeze(0),    # Because output is not sigmoided
-                    label.unsqueeze(0)
-                ).item()
+                'dice_score': evaluate.dice_coefficient(output_prob, label),
+                'iou_score': evaluate.iou(output_prob, label),
+                'bce_loss': torch.nn.BCEWithLogitsLoss()(output, label).item(), # Becase output is not sigmoid
+                'f1_score': smp.metrics.functional.f1_score(tp, fp, fn, tn, reduction='micro').item(),
+                'precision': smp.metrics.functional.precision(tp, fp, fn, tn, reduction='micro').item(),
+                'recall': smp.metrics.functional.recall(tp, fp, fn, tn, reduction='micro').item(),
+                'accuracy': smp.metrics.functional.accuracy(tp, fp, fn, tn, reduction='micro').item()
             })
         
         return metrics
@@ -293,7 +311,7 @@ class InferencePipeline:
         # Ensure model_log is in the fourth column position for both DataFrames
         column_order = ['run_id', 'image_name', 'model_type', 'model_log', 'timestamp']
         if self.config.mode == 'evaluation':
-            column_order.extend(['dice_score', 'iou_score', 'bce_loss'])
+            column_order.extend(['dice_score', 'iou_score', 'bce_loss', 'f1_score', 'precision', 'recall', 'accuracy'])
         
         metrics_df = metrics_df.reindex(columns=column_order)
 
@@ -315,12 +333,16 @@ class InferencePipeline:
             'num_images': len(metrics_df),
             'avg_dice_score': metrics_df['dice_score'].mean(),
             'avg_iou_score': metrics_df['iou_score'].mean(),
-            'avg_bce_loss': metrics_df['bce_loss'].mean()
+            'avg_bce_loss': metrics_df['bce_loss'].mean(),
+            'avg_f1_score': metrics_df['f1_score'].mean(),
+            'avg_precision': metrics_df['precision'].mean(),
+            'avg_recall': metrics_df['recall'].mean(),
+            'avg_accuracy': metrics_df['accuracy'].mean()
         }
         
         summary_df = pd.DataFrame([summary])
         summary_column_order = ['run_id', 'timestamp', 'model_type', 'model_log', 
-                              'num_images', 'avg_dice_score', 'avg_iou_score', 'avg_bce_loss']
+                              'num_images', 'avg_dice_score', 'avg_iou_score', 'avg_bce_loss', 'avg_f1_score', 'avg_precision', 'avg_recall', 'avg_accuracy']
         summary_df = summary_df.reindex(columns=summary_column_order)
 
         if summary_file.exists():
@@ -359,10 +381,10 @@ class InferencePipeline:
         
         all_metrics = []
         with torch.no_grad():
-            for i, batch in enumerate(dataloader):
+            for i, batch in enumerate(tqdm(dataloader)):
                 batch_metrics = self.process_batch(batch, image_paths, i * self.config.batch_size)
                 all_metrics.extend(batch_metrics)
-                self.logger.info(f"Processed batch {i+1}/{len(dataloader)}")
+                # self.logger.info(f"Processed batch {i+1}/{len(dataloader)}")
         
         metrics_df = pd.DataFrame(all_metrics)
         self._save_metrics(metrics_df)
@@ -377,16 +399,19 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='Unet',
-        model_path='src/workflow_tools/model_U-Net_34.diceloss_weight_up.pth',
+        backbone='efficientnet-b0',
         device='cuda' if torch.cuda.is_available() else 'cpu',
-
         mode='evaluation',  # 'inference' or 'evaluation
+        
+        # _extract_model_log will use this filename, don't change it
+        model_path='src/workflow_tools/pths/model_U-Net_40.Unet-b0-halfLR.pth',
 
-        images_path=r'g:\DL_Data_raw\version4-classes\7.Final_dataset\test_image',
-        labels_path=r'g:\DL_Data_raw\version4-classes\7.Final_dataset\test_label',
-        save_path=r'g:/DL_Data_raw/version4-classes/_inference',
+        images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
+        labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
+        save_path=r'g:\DL_Data_raw\version6-large\_inference',
 
-        batch_size=8,
+        batch_size=16,
+        remove_prefix=True,  # Add this parameter
         run_config={
             'summary_filename': 'inference_summary.csv'  # Simplified config
         }
