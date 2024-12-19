@@ -135,6 +135,9 @@ try:
                 if outputs.dim() == 4 and outputs.size(1) == 1:
                     outputs = outputs.squeeze(1)
                 
+                if masks.dim() == 4 and masks.size(1) == 1:
+                    masks = masks.squeeze(1)
+                
                 # Apply mask to loss calculation
                 supervised_loss = criterion(outputs, labels, masks)
 
@@ -195,6 +198,9 @@ try:
                 outputs = model(images)
                 if outputs.dim() == 4 and outputs.size(1) == 1:
                     outputs = outputs.squeeze(1)
+                if masks.dim() == 4 and masks.size(1) == 1:
+                    masks = masks.squeeze(1)                
+
                 loss = criterion(outputs, labels, masks)
                 
                 val_loss += loss.item() * images.size(0)
