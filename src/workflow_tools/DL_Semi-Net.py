@@ -1,11 +1,15 @@
 import sys
 import torch
+from torch.amp import autocast, GradScaler  # Updated import
 import wandb
 import signal
 import numpy as np
+import os
 
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -22,7 +26,8 @@ mylogger = log.DataLogger('wandb')
 
 seed.stablize_seed(my_parameters['seed'])
 transform_train, transform_val = dl_config.get_transforms(my_parameters['seed'])
-model = dl_config.setup_model().to(device)
+model = dl_config.setup_model()
+model = torch.compile(model).to(device)
 optimizer, scheduler, criterion = dl_config.setup_training(
     model,
     my_parameters['learning_rate'],
@@ -30,6 +35,9 @@ optimizer, scheduler, criterion = dl_config.setup_training(
     my_parameters['scheduler_patience'],
     my_parameters['scheduler_min_lr']
 )
+
+# Add after device definition
+scaler = GradScaler('cuda')
 
 # Initialize wandb
 wandb.init(
@@ -82,8 +90,8 @@ val_dataset = load_data.my_Dataset(val_data, val_labels, transform=transform_val
 unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), transform=transform_train)
 
 # Create data loaders
-train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True, drop_last=True)
+val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False, drop_last=True)
 unlabeled_loader = DataLoader(unlabeled_dataset, batch_size=my_parameters['unlabel_batch_size'], shuffle=True)
 
 print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}, len of unlabeled_data: {len(unlabeled_data)}')
@@ -114,42 +122,43 @@ try:
             # Handle labeled data
             images = images.to(device)
             labels = labels.to(device)
-            
-            outputs = model(images)
-            if outputs.dim() == 4 and outputs.size(1) == 1:
-                outputs = outputs.squeeze(1)
-            
-            supervised_loss = criterion(outputs, labels)
-
-            # Handle unlabeled data in the same iteration
             unlabeled_images = unlabeled_images.to(device)
             
-            # Get model predictions with different augmentations
-            with torch.no_grad():
-                pred1 = model(unlabeled_images)
-            
-            # Convert tensor to numpy array with correct format (BHWC)
-            unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
-            
-            # Apply augmentation to each image in the batch
-            augmented_batch = []
-            for img in unlabeled_np:
-                augmented = transform_train(image=img)['image']
-                augmented_batch.append(augmented)
-            
-            # Stack and convert back to tensor in BCHW format
-            augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
-            pred2 = model(augmented_images)
-            
-            # Consistency loss
-            cons_loss = torch.mean((pred1 - pred2) ** 2)
-            weight = consistency_weight(epoch)
-            total_loss = supervised_loss + weight * cons_loss
+            # Enable autocasting for forward pass with device type
+            with autocast(device_type='cuda'):
+                outputs = model(images)
+                if outputs.dim() == 4 and outputs.size(1) == 1:
+                    outputs = outputs.squeeze(1)
+                
+                supervised_loss = criterion(outputs, labels)
 
-            # Optimize
+                # Handle unlabeled data
+                with torch.no_grad():
+                    pred1 = model(unlabeled_images)
+                
+                # Convert tensor to numpy array with correct format (BHWC)
+                unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
+                
+                # Apply augmentation to each image in the batch
+                augmented_batch = []
+                for img in unlabeled_np:
+                    augmented = transform_train(image=img)['image']
+                    augmented_batch.append(augmented)
+                
+                # Stack and convert back to tensor in BCHW format
+                augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
+                pred2 = model(augmented_images)
+                
+                # Consistency loss
+                cons_loss = torch.mean((pred1 - pred2) ** 2)
+                weight = consistency_weight(epoch)
+                total_loss = supervised_loss + weight * cons_loss
+
+            # Optimize with gradient scaling
             optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
+            scaler.scale(total_loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             
             train_loss += supervised_loss.item() * images.size(0)
             consistency_loss += cons_loss.item() * unlabeled_images.size(0)
@@ -170,7 +179,8 @@ try:
         model.eval()
         val_loss = 0
 
-        with torch.no_grad():
+        # Update validation loop autocast
+        with torch.no_grad(), autocast(device_type='cuda'):
             for images, labels in val_loader:
                 images = images.to(device)
                 labels = labels.to(device)

@@ -6,14 +6,16 @@ import torch.nn as nn
 class DiceBCELoss(nn.Module):
     def __init__(self):
         super(DiceBCELoss, self).__init__()
-        self.bce = nn.BCELoss()
+        self.bce = nn.BCEWithLogitsLoss()  # Changed from BCELoss to BCEWithLogitsLoss
 
     def forward(self, inputs, targets, smooth=1e-6):
-        # First, calculate the BCE loss
-        inputs = torch.sigmoid(inputs)
+        # Calculate the BCE loss first (no need to apply sigmoid here)
         bce_loss = self.bce(inputs, targets)
         
-        # Second, calculate the Dice loss
+        # Apply sigmoid for Dice calculation
+        inputs = torch.sigmoid(inputs)
+        
+        # Calculate the Dice loss
         soft_dice = soft_dice_coefficient(y_true=targets, y_pred=inputs, smooth=smooth)
         dice_loss = 1 - soft_dice
         
