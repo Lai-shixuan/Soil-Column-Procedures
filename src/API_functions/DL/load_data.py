@@ -1,13 +1,16 @@
+import torch
+import numpy as np
 from torch.utils.data import Dataset
 
 class my_Dataset(Dataset):
-    def __init__(self, imagelist, labels, transform=None, preprocess=True):
+    def __init__(self, imagelist, labels, padding_info=None, transform=None, preprocess=True):
         super(my_Dataset).__init__()
         self.transform = transform
         self.imagelist = imagelist
         self.labels = labels
         self.is_unlabeled = labels[0] is None if labels else False
         self.preprocess = preprocess
+        self.padding_info = padding_info
 
     def __len__(self):
         return len(self.imagelist)
@@ -15,6 +18,26 @@ class my_Dataset(Dataset):
     def __getitem__(self, idx):
         img = self.imagelist[idx]
         label = self.labels[idx] if not self.is_unlabeled else None
+
+        # Create padding mask if padding info is available
+        mask = None
+        if self.padding_info is not None:
+            h, w = img.shape[:2]
+            mask = np.ones((h, w), dtype=np.float32)
+            pad_top = self.padding_info.iloc[idx]['padding_top']
+            pad_bottom = self.padding_info.iloc[idx]['padding_bottom']
+            pad_left = self.padding_info.iloc[idx]['padding_left']
+            pad_right = self.padding_info.iloc[idx]['padding_right']
+            
+            # Set padding areas to 0 in mask
+            if pad_top > 0:
+                mask[:pad_top, :] = 0
+            if pad_bottom > 0:
+                mask[-pad_bottom:, :] = 0
+            if pad_left > 0:
+                mask[:, :pad_left] = 0
+            if pad_right > 0:
+                mask[:, -pad_right:] = 0
 
         if self.preprocess:
             pass
@@ -35,12 +58,15 @@ class my_Dataset(Dataset):
                 augmented = self.transform(image=img, mask=label)
                 img = augmented['image']
                 label = augmented['mask']
+            if mask is not None:
+                transformed_mask = self.transform(image=mask)
+                mask = transformed_mask['image']
 
         # For unlabeled data, return only the image
         if self.is_unlabeled:
             return img
         
-        return img, label
+        return img, label, mask if mask is not None else torch.ones_like(label)
 
 # to be continue
 

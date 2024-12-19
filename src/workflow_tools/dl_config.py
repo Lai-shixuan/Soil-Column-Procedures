@@ -3,6 +3,7 @@ import torch
 import albumentations as A
 import segmentation_models_pytorch as smp
 from albumentations.pytorch import ToTensorV2
+import pandas as pd
 
 sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
@@ -88,21 +89,15 @@ def load_and_preprocess_data():
     # Load labeled data
     labeled_data_paths = fb.get_image_names(r'/mnt/train_val/image', None, 'tif')
     labeled_labels_paths = fb.get_image_names(r'/mnt/train_val/label', None, 'tif')
-    
-    # Load unlabeled data
     unlabeled_data_paths = fb.get_image_names(r'/mnt/unlabeled', None, 'tif')
+    
+    # Load padding information from separate CSV files
+    train_padding_info = pd.read_csv('/mnt/train_padding_info.csv')
+    val_padding_info = pd.read_csv('/mnt/val_padding_info.csv')
+    unlabeled_padding_info = pd.read_csv('/mnt/unlabeled_padding_info.csv')
     
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
     unlabeled_data = fb.read_images(unlabeled_data_paths, 'gray', read_all=True)
     
-    # Preprocess all data
-    # for i in range(len(labeled_data)):
-    #     labeled_data[i] = pre_process.median(labeled_data[i], kernel_size=3)
-    #     labeled_data[i] = pre_process.histogram_equalization_float32(labeled_data[i])
-    
-    # for i in range(len(unlabeled_data)):
-    #     unlabeled_data[i] = pre_process.median(unlabeled_data[i], kernel_size=3)
-    #     unlabeled_data[i] = pre_process.histogram_equalization_float32(unlabeled_data[i])
-    
-    return labeled_data, labels, unlabeled_data
+    return labeled_data, labels, unlabeled_data, train_padding_info, val_padding_info, unlabeled_padding_info

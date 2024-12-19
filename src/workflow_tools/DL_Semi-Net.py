@@ -77,17 +77,17 @@ signal.signal(signal.SIGTERM, signal_handler)  # Termination request
 # ------------------- Data -------------------
 
 # Load both labeled and unlabeled data
-labeled_data, labels, unlabeled_data = dl_config.load_and_preprocess_data()
+labeled_data, labels, unlabeled_data, train_padding_info, val_padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data()
 
 # Split labeled data
 train_data, val_data, train_labels, val_labels = train_test_split(
     labeled_data, labels, test_size=my_parameters['ratio'], random_state=my_parameters['seed']
 )
 
-# Create datasets
-train_dataset = load_data.my_Dataset(train_data, train_labels, transform=transform_train)
-val_dataset = load_data.my_Dataset(val_data, val_labels, transform=transform_val)
-unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), transform=transform_train)
+# Create datasets with their respective padding info
+train_dataset = load_data.my_Dataset(train_data, train_labels, train_padding_info, transform=transform_train)
+val_dataset = load_data.my_Dataset(val_data, val_labels, val_padding_info, transform=transform_val)
+unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), unlabeled_padding_info, transform=transform_train)
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True, drop_last=True)
@@ -111,7 +111,7 @@ try:
         train_loss = 0.0
         consistency_loss = 0.0
 
-        for images, labels in tqdm(train_loader):
+        for images, labels, masks in tqdm(train_loader):
             # Get a batch of unlabeled data
             try:
                 unlabeled_images = next(unlabeled_iter)
@@ -122,6 +122,7 @@ try:
             # Handle labeled data
             images = images.to(device)
             labels = labels.to(device)
+            masks = masks.to(device)
             unlabeled_images = unlabeled_images.to(device)
             
             # Enable autocasting for forward pass with device type
@@ -130,7 +131,8 @@ try:
                 if outputs.dim() == 4 and outputs.size(1) == 1:
                     outputs = outputs.squeeze(1)
                 
-                supervised_loss = criterion(outputs, labels)
+                # Apply mask to loss calculation
+                supervised_loss = criterion(outputs, labels, masks)
 
                 # Handle unlabeled data
                 with torch.no_grad():
@@ -181,14 +183,15 @@ try:
 
         # Update validation loop autocast
         with torch.no_grad(), autocast(device_type='cuda'):
-            for images, labels in val_loader:
+            for images, labels, masks in val_loader:
                 images = images.to(device)
                 labels = labels.to(device)
+                masks = masks.to(device)
                 
                 outputs = model(images)
                 if outputs.dim() == 4 and outputs.size(1) == 1:
                     outputs = outputs.squeeze(1)
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels, masks)
                 
                 val_loss += loss.item() * images.size(0)
 
