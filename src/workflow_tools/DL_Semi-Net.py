@@ -76,15 +76,19 @@ signal.signal(signal.SIGTERM, signal_handler)  # Termination request
 
 # ------------------- Data -------------------
 
-# Load both labeled and unlabeled data
-labeled_data, labels, unlabeled_data, train_padding_info, val_padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data()
+# Load data
+labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data()
 
-# Split labeled data
-train_data, val_data, train_labels, val_labels = train_test_split(
-    labeled_data, labels, test_size=my_parameters['ratio'], random_state=my_parameters['seed']
+# Split data and padding info together
+train_data, val_data, train_labels, val_labels, train_padding_info, val_padding_info = train_test_split(
+    labeled_data, 
+    labels,
+    padding_info,
+    test_size=my_parameters['ratio'], 
+    random_state=my_parameters['seed']
 )
 
-# Create datasets with their respective padding info
+# Create datasets
 train_dataset = load_data.my_Dataset(train_data, train_labels, train_padding_info, transform=transform_train)
 val_dataset = load_data.my_Dataset(val_data, val_labels, val_padding_info, transform=transform_val)
 unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), unlabeled_padding_info, transform=transform_train)

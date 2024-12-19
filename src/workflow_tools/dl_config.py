@@ -92,13 +92,13 @@ def load_and_preprocess_data():
     labeled_labels_paths = fb.get_image_names(r'/mnt/train_val/label', None, 'tif')
     unlabeled_data_paths = fb.get_image_names(r'/mnt/unlabeled', None, 'tif')
     
-    # Load padding information from separate CSV files
-    train_padding_info = pd.read_csv('/mnt/image_patches.csv')
-    val_padding_info = pd.read_csv('/mnt/label_patches.csv')
+    # Load padding information
+    padding_info = pd.read_csv('/mnt/image_patches.csv')
     unlabeled_padding_info = pd.read_csv('/mnt/unlabel_image_patches.csv')
     
+    # Load images
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
     unlabeled_data = fb.read_images(unlabeled_data_paths, 'gray', read_all=True)
     
-    return labeled_data, labels, unlabeled_data, train_padding_info, val_padding_info, unlabeled_padding_info
+    return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info
