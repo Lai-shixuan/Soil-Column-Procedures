@@ -31,15 +31,24 @@ def batch_process_images(path_in, path_out, process_function, file_pattern: str=
         image = cv.imread(str(image_path), cv.IMREAD_UNCHANGED)
         processed_image = process_function(image)
 
-        output_path = path_out / Path(image_path).name.replace('harmonized', 'preprocessed')
+        output_path = path_out / Path(image_path).name.replace('harmonized', 'fastnlmeans')
         cv.imwrite(str(output_path), processed_image)
 
 
 if __name__ == "__main__":
 
     def process_pipeline(image):
-        image = pre_process.median(image, 5)
-        image = pre_process.clahe_float32(image)
+        # image = pre_process.reduce_poisson_noise(image)
+        # image = pre_process.median(image, kernel_size=5)
+        # image = pre_process.median(image, kernel_size=5)
+        # image = pre_process.median(image, kernel_size=5)
+        # image = pre_process.reduce_gaussian_noise(image, strength=1, use_gaussian=True)
+
+        # image = pre_process.bm3d_denoising(image, sigma_psd=0.5)
+
+        # image = pre_process.median(image, 5)
+        image = pre_process.reduce_poisson_noise(image, strength=10)
+        # image = pre_process.clahe_float32(image)
         image = image - np.mean(image)
 
         # image = pre_process.median(image, 5)
@@ -50,8 +59,8 @@ if __name__ == "__main__":
         # image = 1 - image
         return image
 
-    path_in = Path(r'g:\DL_Data_raw\version6-large\8.Unlabeled\3.harmonizd')
-    path_out = Path(r'g:\DL_Data_raw\version6-large\8.Unlabeled\5.preprocess')
+    path_in = Path(r'g:\DL_Data_raw\version6-large\3.Harmonized\image')
+    path_out = Path(r'g:\DL_Data_raw\version6-large\5.Preprocess\fastnlmeans')
     extension = 'tif'
     
     batch_process_images(
