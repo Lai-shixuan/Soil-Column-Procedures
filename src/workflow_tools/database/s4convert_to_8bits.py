@@ -19,15 +19,15 @@ def batch_images(path_in: Path, path_out: Path):
         # Invert image
         image_8bits = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')
 
-        newpath = path_out / Path(image_path).with_suffix('.png').name
+        newpath = path_out / Path(image_path).with_suffix('.png').name.replace('harmonized', '8bits')
         
         # Save with same name in same location
         cv2.imwrite(newpath, image_8bits)
 
 
 if __name__ == "__main__":
-    path_in = r'g:\DL_Data_raw\version5-formal\3.Harmonized'
-    path_out = r'g:\DL_Data_raw\version5-formal\4.Converted\image'
+    path_in = r'g:\DL_Data_raw\version6-large\3.Harmonized\image'
+    path_out = r'g:\DL_Data_raw\version6-large\4.Converted\image'
 
     path_in = Path(path_in)
     path_out = Path(path_out)

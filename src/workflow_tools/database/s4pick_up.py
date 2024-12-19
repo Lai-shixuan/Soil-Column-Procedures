@@ -50,15 +50,25 @@ def extract_images(column_id: str, config: dict):
     
     if config['extraction_mode'] == 'random':
         random.seed(config['random_seed'])
-        if config['continuous']:
-            # Random start point for continuous extraction
-            max_start = column_length - config['images_per_section']
-            start_idx = random.randint(0, max_start)
-            indices = list(range(start_idx, start_idx + config['images_per_section']))
-        else:
-            # Random indices for non-continuous extraction
-            indices = random.sample(range(column_length), config['images_per_section'])
-            indices.sort()
+        section_size = column_length // config['num_sections']
+        indices = []
+        
+        for section in range(config['num_sections']):
+            section_start = section * section_size
+            section_end = section_start + section_size
+            
+            if config['continuous']:
+                # Random start point for continuous extraction within section
+                max_start = section_end - config['images_per_section']
+                start_idx = random.randint(section_start, max_start)
+                section_indices = list(range(start_idx, start_idx + config['images_per_section']))
+            else:
+                # Random indices within this section
+                section_indices = random.sample(
+                    range(section_start, section_end),
+                    config['images_per_section']
+                )
+            indices.extend(sorted(section_indices))
     
     else:  # 'average' mode
         section_size = column_length // config['num_sections']
@@ -121,14 +131,14 @@ if __name__ == "__main__":
     config = {
         # Path configurations
         'base_input': r"f:/3.Experimental_Data/Soils/",
-        'output_folder': r"g:\DL_Data_raw\version6-large\3.Harmonized",
+        'output_folder': r"g:\DL_Data_raw\version6-large\8.Unlabeled\499 columns",
         'column_ids': ['0003', '0005', '0007', '0009'] + [f"{i:04d}" for i in range(22, 28)],  # [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
         
         # Extraction configurations
-        'extraction_mode': 'average',    # 'random' or 'average'
+        'extraction_mode': 'random',    # 'random' or 'average'
         'continuous': False,
-        'images_per_section': 6,
-        'num_sections': 3,
+        'images_per_section': 10,
+        'num_sections': 5,
 
         # Seed
         'random_seed': 48,
