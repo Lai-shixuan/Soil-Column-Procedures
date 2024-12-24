@@ -5,8 +5,8 @@ import segmentation_models_pytorch as smp
 from albumentations.pytorch import ToTensorV2
 import pandas as pd
 
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
@@ -21,8 +21,9 @@ def get_parameters():
         'patience': 50,
 
         'model': 'U-Net++',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++'
-        'encoder': 'efficientnet-b0',
-        'optimizer': 'adam',
+        'encoder': 'efficientnet-b2',
+        'optimizer': 'adamw',   # optimizer = 'adam', 'adamw', 'sgd'
+        'weight_decay': 0.01,   # weight_decay = 0.01
         'learning_rate': 5e-5,
         'loss_function': 'cross_entropy',
         'scheduler': 'reduce_on_plateau',
@@ -32,15 +33,15 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '49.low-unet++-supervised',
+        'wandb': '51.low-high-unet++-semi-supervised-adamw',
 
         # Add semi-supervised parameters
-        'unlabel_batch_size': 64,
-        'consistency_weight': 0.1,
-        'consistency_rampup': 100,
+        'unlabel_batch_size': 32,
+        'consistency_weight': 0.4,
+        'consistency_rampup': 8,
 
-        'mode': 'supervised',  # 'supervised' or 'semi'
-        'compile': False,
+        'mode': 'semi',  # 'supervised' or 'semi'
+        'compile': True,
     }
 
 def get_transforms(seed_value):
@@ -76,7 +77,7 @@ def setup_model():
     #     classes=1,                      # model output channels (number of classes in your dataset)
     # )
     model = smp.UnetPlusPlus(
-        encoder_name="efficientnet-b0",
+        encoder_name="efficientnet-b2",
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
@@ -85,7 +86,12 @@ def setup_model():
     return model
 
 def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr):
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    parameters = get_parameters()
+    optimizer = torch.optim.AdamW(
+        model.parameters(), 
+        lr=learning_rate,
+        weight_decay=parameters['weight_decay']
+    )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode='min',

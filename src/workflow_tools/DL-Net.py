@@ -7,8 +7,8 @@ import os
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -128,24 +128,29 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
     try:
         batch = next(unlabeled_iter)
     except StopIteration:
+        # 创建新的iterator而不是重置数据
+        unlabeled_loader.dataset.transform = transform_train  # 确保使用正确的transform
         unlabeled_iter = iter(unlabeled_loader)
         batch = next(unlabeled_iter)
-    return batch, unlabeled_iter
+    return batch, unlabeled_iter  # 只返回图像数据，因为我们不需要标签
 
 def compute_consistency_loss(model, device, transform_train, unlabeled_images, epoch, my_parameters):
     rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
     weight = my_parameters['consistency_weight'] * rampup
     
     with torch.no_grad():
-        pred1 = model(unlabeled_images)
+        pred1 = torch.sigmoid(model(unlabeled_images))  # As target
+        
     unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
     augmented_batch = []
     for img in unlabeled_np:
         augmented = transform_train(image=img)['image']
         augmented_batch.append(augmented)
     augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
+    
     pred2 = model(augmented_images)
-    cons_loss = torch.mean((pred1 - pred2) ** 2)
+    
+    cons_loss = criterion(pred2, pred1) # pred2 is the prediction, pred1 is the target
     return weight * cons_loss
 
 # ------------------- Training -------------------
@@ -165,7 +170,7 @@ try:
         if my_parameters['mode'] == 'semi':
             consistency_loss = 0.0
 
-        for images, labels, masks in tqdm(train_loader):
+        for batch_idx, (images, labels, masks) in enumerate(tqdm(train_loader)):
             images = images.to(device)
             labels = labels.to(device)
             masks = masks.to(device)
@@ -251,6 +256,10 @@ try:
         
         # Step the scheduler
         scheduler.step(val_loss_mean)
+
+        # 每个epoch结束后清理缓存
+        if device == 'cuda':
+            torch.cuda.empty_cache()
 
         # ------------------- Logging -------------------
 
