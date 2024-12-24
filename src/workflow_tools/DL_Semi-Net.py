@@ -7,9 +7,9 @@ import numpy as np
 import os
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -25,8 +25,13 @@ mylogger = log.DataLogger('wandb')
 
 seed.stablize_seed(my_parameters['seed'])
 transform_train, transform_val = dl_config.get_transforms(my_parameters['seed'])
+
 model = dl_config.setup_model()
-model = torch.compile(model).to(device)
+if my_parameters['compile']:
+    model = torch.compile(model).to(device)
+else:
+    model = model.to(device)
+
 optimizer, scheduler, criterion = dl_config.setup_training(
     model,
     my_parameters['learning_rate'],

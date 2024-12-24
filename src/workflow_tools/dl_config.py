@@ -5,8 +5,8 @@ import segmentation_models_pytorch as smp
 from albumentations.pytorch import ToTensorV2
 import pandas as pd
 
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
@@ -32,14 +32,15 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '49.test',
+        'wandb': '50.test',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 64,
         'consistency_weight': 0.1,
         'consistency_rampup': 100,
 
-        'mode': 'supervised',  # 'supervised' or 'semi'
+        'mode': 'semi',  # 'supervised' or 'semi'
+        'compile': False,
     }
 
 def get_transforms(seed_value):
@@ -101,8 +102,8 @@ def load_and_preprocess_data():
     # Check mode and load unlabeled data only if in semi-supervised mode
     params = get_parameters()
     if params['mode'] == 'semi':
-        unlabeled_data_paths = fb.get_image_names(r'/mnt/unlabeled', None, 'tif')
-        unlabeled_padding_info = pd.read_csv('/mnt/unlabel_image_patches.csv')
+        unlabeled_data_paths = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image', None, 'tif')
+        unlabeled_padding_info = pd.read_csv(r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv')
         unlabeled_data = fb.read_images(unlabeled_data_paths, 'gray', read_all=True)
     elif params['mode'] == 'supervised':
         unlabeled_data = None
