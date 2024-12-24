@@ -1,6 +1,5 @@
 import sys
 import torch
-from torch.amp import autocast, GradScaler  # Updated import
 import wandb
 import signal
 import numpy as np
@@ -13,6 +12,7 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
+from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
@@ -95,45 +95,87 @@ train_data, val_data, train_labels, val_labels, train_padding_info, val_padding_
 # Create datasets
 train_dataset = load_data.my_Dataset(train_data, train_labels, train_padding_info, transform=transform_train)
 val_dataset = load_data.my_Dataset(val_data, val_labels, val_padding_info, transform=transform_val)
-unlabeled_dataset = load_data.my_Dataset(unlabeled_data, [None]*len(unlabeled_data), unlabeled_padding_info, transform=transform_train)
+
+if my_parameters['mode'] == 'semi':
+    unlabeled_dataset = load_data.my_Dataset(
+        unlabeled_data, 
+        [None]*len(unlabeled_data), 
+        unlabeled_padding_info, 
+        transform=transform_train
+    )
 
 # Create data loaders
 train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True, drop_last=True)
 val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False, drop_last=True)
-unlabeled_loader = DataLoader(unlabeled_dataset, batch_size=my_parameters['unlabel_batch_size'], shuffle=True)
 
-print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}, len of unlabeled_data: {len(unlabeled_data)}')
+if my_parameters['mode'] == 'semi':
+    unlabeled_loader = DataLoader(
+        unlabeled_dataset, 
+        batch_size=my_parameters['unlabel_batch_size'], 
+        shuffle=True
+    )
+    unlabeled_iter = iter(unlabeled_loader)
 
-def consistency_weight(epoch):
-    return my_parameters['consistency_weight'] * np.clip(epoch/my_parameters['consistency_rampup'], 0, 1)
+if my_parameters['mode'] == 'semi':
+    print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}, len of unlabeled_data: {len(unlabeled_data)}')
+elif my_parameters['mode'] == 'supervised':
+    print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}')
+
+# ------------------- Consistency Loss -------------------
+
+# Helper functions for semi-supervised mode
+def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
+    try:
+        batch = next(unlabeled_iter)
+    except StopIteration:
+        unlabeled_iter = iter(unlabeled_loader)
+        batch = next(unlabeled_iter)
+    return batch, unlabeled_iter
+
+def compute_consistency_loss(model, device, transform_train, unlabeled_images, epoch, my_parameters):
+    rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
+    weight = my_parameters['consistency_weight'] * rampup
+    
+    with torch.no_grad():
+        pred1 = model(unlabeled_images)
+    unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
+    augmented_batch = []
+    for img in unlabeled_np:
+        augmented = transform_train(image=img)['image']
+        augmented_batch.append(augmented)
+    augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
+    pred2 = model(augmented_images)
+    cons_loss = torch.mean((pred1 - pred2) ** 2)
+    return weight * cons_loss
 
 # ------------------- Training -------------------
 
 val_loss_best = float('inf')
 proceed_once = True
-unlabeled_iter = iter(unlabeled_loader)
 
 try:
     for epoch in range(my_parameters['n_epochs']):
+
+        # ------------------- Training -------------------
+
         model.train()
+
+        # Initialize loss variables
         train_loss = 0.0
-        consistency_loss = 0.0
+        if my_parameters['mode'] == 'semi':
+            consistency_loss = 0.0
 
         for images, labels, masks in tqdm(train_loader):
-            # Get a batch of unlabeled data
-            try:
-                unlabeled_images = next(unlabeled_iter)
-            except StopIteration:
-                unlabeled_iter = iter(unlabeled_loader)
-                unlabeled_images = next(unlabeled_iter)
-
-            # Handle labeled data
             images = images.to(device)
             labels = labels.to(device)
             masks = masks.to(device)
-            unlabeled_images = unlabeled_images.to(device)
-            
-            # Enable autocasting for forward pass with device type
+
+            if my_parameters['mode'] == 'semi':
+                unlabeled_images, unlabeled_iter = fetch_unlabeled_batch(
+                    unlabeled_iter, unlabeled_loader
+                )
+                unlabeled_images = unlabeled_images.to(device)
+
             with autocast(device_type='cuda'):
                 outputs = model(images)
                 if outputs.dim() == 4 and outputs.size(1) == 1:
@@ -142,52 +184,47 @@ try:
                 if masks.dim() == 4 and masks.size(1) == 1:
                     masks = masks.squeeze(1)
                 
-                # Apply mask to loss calculation
                 supervised_loss = criterion(outputs, labels, masks)
 
-                # Handle unlabeled data
-                with torch.no_grad():
-                    pred1 = model(unlabeled_images)
-                
-                # Convert tensor to numpy array with correct format (BHWC)
-                unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
-                
-                # Apply augmentation to each image in the batch
-                augmented_batch = []
-                for img in unlabeled_np:
-                    augmented = transform_train(image=img)['image']
-                    augmented_batch.append(augmented)
-                
-                # Stack and convert back to tensor in BCHW format
-                augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
-                pred2 = model(augmented_images)
-                
-                # Consistency loss
-                cons_loss = torch.mean((pred1 - pred2) ** 2)
-                weight = consistency_weight(epoch)
-                total_loss = supervised_loss + weight * cons_loss
+                if my_parameters['mode'] == 'semi':
+                    cons_loss = compute_consistency_loss(
+                        model, device, transform_train,
+                        unlabeled_images, epoch, my_parameters
+                    )
+                    total_loss = supervised_loss + cons_loss
+                else:
+                    total_loss = supervised_loss
 
-            # Optimize with gradient scaling
             optimizer.zero_grad()
             scaler.scale(total_loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            
-            train_loss += supervised_loss.item() * images.size(0)
-            consistency_loss += cons_loss.item() * unlabeled_images.size(0)
 
-            # Print progress info once
+            train_loss += supervised_loss.item() * images.size(0)
+            if my_parameters['mode'] == 'semi':
+                consistency_loss += cons_loss.item() * unlabeled_images.size(0)
+
+            # In the first iteration, print some information
             if proceed_once:
                 print(f'outputs.size(): {outputs.size()}, labels.size(): {labels.size()}')
                 print(f'outputs.min: {outputs.min()}, outputs.max: {outputs.max()}')
                 print(f'images.min: {images.min()}, images.max: {images.max()}')
                 print(f'labels.min: {labels.min()}, labels.max: {labels.max()}')
                 print(f'count of label 0: {(labels == 0).sum()}, count of label 1:{(labels == 1).sum()}')
-                print(f'consistency loss: {cons_loss.item()}, weight: {weight}')
+                if my_parameters['mode'] == 'semi':
+                    print(f"consistency loss: {cons_loss.item()}, weight: {my_parameters['consistency_weight'] * np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)}")
                 print('')
                 proceed_once = False
 
+        # For each epoch, divide the total loss by the number of samples
         train_loss_mean = train_loss / len(train_loader.dataset)
+        if my_parameters['mode'] == 'semi':
+            consistency_loss_mean = consistency_loss / len(unlabeled_dataset)
+            total_loss_mean = train_loss_mean + consistency_loss_mean
+        else:
+            total_loss_mean = train_loss_mean
+
+        # ------------------- Validation -------------------
 
         model.eval()
         val_loss = 0
@@ -211,16 +248,30 @@ try:
 
         val_loss_mean = val_loss / len(val_loader.dataset)
         current_lr = optimizer.param_groups[0]['lr']
-        dict = {
-            'train_loss': train_loss_mean,
-            'epoch': epoch,
-            'val_loss': val_loss_mean,
-            'learning_rate': current_lr
-        }
-        mylogger.log(dict)
-
+        
         # Step the scheduler
         scheduler.step(val_loss_mean)
+
+        # ------------------- Logging -------------------
+
+        if my_parameters['mode'] == 'semi':
+            dict_to_log = {
+                'epoch': epoch,
+                'supervised_loss': train_loss_mean,
+                'cons_loss': consistency_loss_mean,
+                'total_loss': total_loss_mean,
+                'val_loss': val_loss_mean,
+                'learning_rate': current_lr
+            }
+        else:
+            dict_to_log = {
+                'epoch': epoch,
+                'total_loss': total_loss_mean,
+                'val_loss': val_loss_mean,
+                'learning_rate': current_lr
+            }
+
+        mylogger.log(dict_to_log)
 
         if val_loss_mean < val_loss_best:
             val_loss_best = val_loss_mean

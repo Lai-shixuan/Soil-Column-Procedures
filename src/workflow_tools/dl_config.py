@@ -32,14 +32,14 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '50.test',
+        'wandb': '52.test',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 64,
         'consistency_weight': 0.1,
         'consistency_rampup': 100,
 
-        'mode': 'semi',  # 'supervised' or 'semi'
+        'mode': 'supervised',  # 'supervised' or 'semi'
         'compile': False,
     }
 
