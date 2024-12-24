@@ -132,13 +132,14 @@ if __name__ == "__main__":
         # Path configurations
         'base_input': r"f:/3.Experimental_Data/Soils/",
         'output_folder': r"g:\DL_Data_raw\version7-large-lowRH\3.Harmonized",
-        'column_ids': [f"{i:04d}" for i in range(28, 35)] + [f"{i:04d}" for i in range(16, 22)],  # [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
+        # 'column_ids': [f"{i:04d}" for i in range(29, 35)] + [f"{i:04d}" for i in range(16, 22)],  # [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
+        'column_ids': ['0028'],
         
         # Extraction configurations
         'extraction_mode': 'random',    # 'random' or 'average'
         'continuous': False,
-        'images_per_section': 10,
-        'num_sections': 35,
+        'images_per_section': 30,
+        'num_sections': 10,
 
         # Seed
         'random_seed': 48,

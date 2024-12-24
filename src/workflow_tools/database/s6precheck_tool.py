@@ -82,10 +82,10 @@ if __name__ == "__main__":
     # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/5.Precheck'
     # csv_output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/'
 
-    image_dir = r'g:\DL_Data_raw\version6-large\8.Unlabeled\5.preprocess'
-    # label_dir = r'g:\DL_Data_raw\version6-large\6.Precheck\precheck-test-label'
-    output_dir = r'g:\DL_Data_raw\version6-large\8.Unlabeled\6.precheck'
-    csv_output_dir = r'g:\DL_Data_raw\version6-large\8.Unlabeled\6.precheck'
+    image_dir = r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\5.Preprocessed'
+    # label_dir = r'g:\DL_Data_raw\version7-large-lowRH\6.Precheck\precheck-test-label'
+    output_dir = r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck'
+    csv_output_dir = output_dir 
     
     # Get all image files
     image_paths = fb.get_image_names(image_dir, None, 'tif')
