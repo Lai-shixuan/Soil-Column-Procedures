@@ -20,7 +20,7 @@ def get_parameters():
         'n_epochs': 1000,
         'patience': 50,
 
-        'model': 'U-Net',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet'
+        'model': 'U-Net++',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++'
         'encoder': 'efficientnet-b0',
         'optimizer': 'adam',
         'learning_rate': 5e-5,
@@ -32,7 +32,7 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '52.test',
+        'wandb': '49.low-unet++-supervised',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 64,
@@ -69,11 +69,17 @@ def setup_model():
     #     in_channels=1,
     #     classes=1,
     # )
-    model = smp.Unet(
-        encoder_name="efficientnet-b0",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-        encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-        in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-        classes=1,                      # model output channels (number of classes in your dataset)
+    # model = smp.Unet(
+    #     encoder_name="efficientnet-b0",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+    #     encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
+    #     in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+    #     classes=1,                      # model output channels (number of classes in your dataset)
+    # )
+    model = smp.UnetPlusPlus(
+        encoder_name="efficientnet-b0",
+        encoder_weights="imagenet",
+        in_channels=1,
+        classes=1,
     )
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
