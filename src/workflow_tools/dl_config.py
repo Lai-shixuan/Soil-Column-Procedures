@@ -88,13 +88,26 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
 
 def load_and_preprocess_data():
     # Load labeled data
-    labeled_data_paths = fb.get_image_names(r'/mnt/train_val/image', None, 'tif')
-    labeled_labels_paths = fb.get_image_names(r'/mnt/train_val/label', None, 'tif')
-    unlabeled_data_paths = fb.get_image_names(r'/mnt/unlabeled', None, 'tif')
+    labeled_data_paths_low = fb.get_image_names(r'/mnt/version7/train_val/image', None, 'tif')
+    labeled_data_paths_high = fb.get_image_names(r'/mnt/version6/train_val/image', None, 'tif')
+    labeled_data_paths = labeled_data_paths_low + labeled_data_paths_high
+
+    labeled_labels_paths_low = fb.get_image_names(r'/mnt/version7/train_val/label', None, 'tif')
+    labeled_labels_paths_high = fb.get_image_names(r'/mnt/version6/train_val/label', None, 'tif')
+    labeled_labels_paths = labeled_labels_paths_low + labeled_labels_paths_high
+
+    unlabeled_data_paths_low = fb.get_image_names(r'/mnt/version7/unlabel/image', None, 'tif')
+    unlabeled_data_paths_high = fb.get_image_names(r'/mnt/version6/unlabeled', None, 'tif')
+    unlabeled_data_paths = unlabeled_data_paths_low + unlabeled_data_paths_high
     
     # Load padding information
-    padding_info = pd.read_csv('/mnt/image_patches.csv')
-    unlabeled_padding_info = pd.read_csv('/mnt/unlabel_image_patches.csv')
+    padding_info_low = pd.read_csv('/mnt/version7/train_val/image_patches.csv')
+    padding_info_high = pd.read_csv('/mnt/version6/train_val/image_patches.csv')
+    padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
+    
+    unlabeled_padding_info_low = pd.read_csv('/mnt/version6/unlabel_image_patches.csv')
+    unlabeled_padding_info_high = pd.read_csv('/mnt/version7/unlabel/image_patches.csv')
+    unlabeled_padding_info = pd.concat([unlabeled_padding_info_low, unlabeled_padding_info_high], ignore_index=True)
     
     # Load images
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
