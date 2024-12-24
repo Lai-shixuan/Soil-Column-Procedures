@@ -16,7 +16,6 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
-from src.workflow_tools.model_online import fr_unet
 
 # ------------------- Setup -------------------
 
