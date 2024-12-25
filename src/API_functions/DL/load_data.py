@@ -44,34 +44,21 @@ class my_Dataset(Dataset):
                 pad_right = int(pad_right)
                 mask[:, -pad_right:] = 0
 
-        if self.preprocess:
-            pass
-            # Apply median filter and histogram equalization
-            # Apply mean normalization
-            # img = pre_process.median(img, kernel_size=3)
-            # img = pre_process.clahe_float32(img)
-            # mean = np.mean(img)
-            # img = img - mean  # Subtract mean to center the data around zero
-
-        if self.transform:
-            if self.is_unlabeled:
-                # Transform only image for unlabeled data
-                augmented = self.transform(image=img)
-                img = augmented['image']
-            else:
-                # Transform both image and mask for labeled data
-                augmented = self.transform(image=img, mask=label)
-                img = augmented['image']
-                label = augmented['mask']
-            if mask is not None:
-                transformed_mask = self.transform(image=mask)
-                mask = transformed_mask['image']
-
-        # For unlabeled data, return only the image
         if self.is_unlabeled:
+            # Transform only image for unlabeled data
+            augmented = self.transform(image=img)
+            img = augmented['image']
+            img = np.expand_dims(img, axis=0)   # Add channel dimension
             return img
-        
-        return img, label, mask if mask is not None else torch.ones_like(label)
+        else:
+            # Transform both image and mask for labeled data
+            augmented = self.transform(image=img, mask=label)
+            img = augmented['image']
+            label = augmented['mask']
+            
+            transformed_mask = self.transform(image=mask)
+            mask = transformed_mask['image']
+            return img, label, mask
 
 # to be continue
 

@@ -101,7 +101,7 @@ if my_parameters['mode'] == 'semi':
         unlabeled_data, 
         [None]*len(unlabeled_data), 
         unlabeled_padding_info, 
-        transform=non_geometric_transform  # Use only non-geometric transforms for unlabeled data
+        transform=geometric_transform  # Use only geometric transforms for unlabeled data
     )
 
 # Create data loaders
@@ -129,27 +129,30 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
         batch = next(unlabeled_iter)
     except StopIteration:
         # 创建新的iterator而不是重置数据
-        unlabeled_loader.dataset.transform = transform_train  # 确保使用正确的transform
+        unlabeled_loader.dataset.transform = geometric_transform  # 确保使用正确的transform
         unlabeled_iter = iter(unlabeled_loader)
         batch = next(unlabeled_iter)
     return batch, unlabeled_iter  # 只返回图像数据，因为我们不需要标签
 
-def compute_consistency_loss(model, device, geometric_transform, unlabeled_images, epoch, my_parameters):
+def compute_consistency_loss(model, device, non_geometric_transform, unlabeled_images, epoch, my_parameters):
     rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
     weight = my_parameters['consistency_weight'] * rampup
     
-    # For pred1, use the images directly from dataloader (already has non-geometric transforms)
+    # For pred1, use the images directly from dataloader (already has geometric transforms)
     with torch.no_grad():
         pred1 = torch.sigmoid(model(unlabeled_images))  # As target
     
-    # For pred2, only apply geometric transforms
-    unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
-    geometric_batch = []
-    for img in unlabeled_np:
-        # Only apply geometric transforms
-        geometric = geometric_transform(image=img)['image']
-        geometric_batch.append(geometric)
-    augmented_images = torch.stack(geometric_batch).to(device)
+    # For pred2, only apply non-geometric transforms
+    non_geometric_batch = []
+    for img in unlabeled_images:
+        # Convert tensor to numpy array in the correct format (H,W,C)
+        img_np = img.cpu().permute(1, 2, 0).numpy()
+        # Apply non-geometric transforms
+        non_geometric = non_geometric_transform(image=img_np)['image']
+        # Convert back to the correct format (C,H,W)
+        non_geometric_batch.append(non_geometric)
+    
+    augmented_images = torch.stack(non_geometric_batch).to(device)
     
     pred2 = model(augmented_images)
     
@@ -196,7 +199,7 @@ try:
 
                 if my_parameters['mode'] == 'semi':
                     cons_loss = compute_consistency_loss(
-                        model, device, geometric_transform,
+                        model, device, non_geometric_transform,
                         unlabeled_images, epoch, my_parameters
                     )
                     total_loss = supervised_loss + cons_loss
@@ -225,9 +228,9 @@ try:
                 proceed_once = False
 
         # For each epoch, divide the total loss by the number of samples
-        train_loss_mean = train_loss / len(train_loader.dataset)
+        train_loss_mean = train_loss / (len(train_loader) * train_loader.batch_size)
         if my_parameters['mode'] == 'semi':
-            consistency_loss_mean = consistency_loss / len(unlabeled_dataset)
+            consistency_loss_mean = consistency_loss / (len(train_loader) * unlabeled_loader.batch_size)
             total_loss_mean = train_loss_mean + consistency_loss_mean
         else:
             total_loss_mean = train_loss_mean
