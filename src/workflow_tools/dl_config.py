@@ -33,11 +33,11 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '52.low-high-semi-cons0.8-augment-more',
+        'wandb': '53.low-high-semi-right-transform',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 32,
-        'consistency_weight': 0.8,
+        'consistency_weight': 1,
         'consistency_rampup': 8,
 
         'mode': 'semi',  # 'supervised' or 'semi'
@@ -45,6 +45,22 @@ def get_parameters():
     }
 
 def get_transforms(seed_value):
+    # Geometric transforms that affect structure
+    geometric_transform = A.Compose([
+        A.HorizontalFlip(p=0.8),
+        A.VerticalFlip(p=0.8),
+        A.Rotate(limit=90, p=0.8),
+    ], seed=seed_value)
+
+    # Non-geometric transforms that only affect appearance
+    non_geometric_transform = A.Compose([
+        A.GaussNoise(p=0.5),
+        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
+        ToTensorV2(),
+    ], seed=seed_value)
+
+    # Combined transform for supervised training
     transform_train = A.Compose([
         A.HorizontalFlip(p=0.8),
         A.VerticalFlip(p=0.8),
@@ -56,14 +72,10 @@ def get_transforms(seed_value):
     ], seed=seed_value)
 
     transform_val = A.Compose([
-        # A.HorizontalFlip(p=0.5),
-        # A.VerticalFlip(p=0.5),
-        # A.Rotate(limit=90, p=0.5),
-        # A.GaussNoise(p=0.5),
         ToTensorV2(),
     ], seed=seed_value)
     
-    return transform_train, transform_val
+    return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model():
     # model = smp.DeepLabV3Plus(

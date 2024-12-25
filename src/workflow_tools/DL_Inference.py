@@ -70,7 +70,7 @@ class InferenceConfig:
         """
 
         # Model type validation
-        valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet'}
+        valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet', 'U-Net++'}
         if self.model_type not in valid_model_types:
             raise ValueError(f"Model type must be one of {valid_model_types}")
         
@@ -83,10 +83,6 @@ class InferenceConfig:
         if not Path(self.save_path).exists():
             raise FileNotFoundError(f"Save path does not exist: {self.save_path}")
     
-        valid_backbones = {'efficientnet-b0', 'resnet34', 'resnet50', 'mobilenet_v2'}
-        if self.backbone not in valid_backbones:
-            raise ValueError(f"Backbone must be one of {valid_backbones}")
-
         # Labels and record of results
         if self.mode == 'evaluation':
             if not self.labels_path or not Path(self.labels_path).exists():
@@ -177,6 +173,12 @@ class InferencePipeline:
                 classes=1
             ),
             'PSPNet': lambda: smp.PSPNet(
+                encoder_name=self.config.backbone,
+                encoder_weights="imagenet",
+                in_channels=1,
+                classes=1
+            ),
+            'U-Net++': lambda: smp.UnetPlusPlus(
                 encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
@@ -433,13 +435,13 @@ if __name__ == "__main__":
     # Have using preprocess equalization, be attenetion!!!
 
     config = InferenceConfig(
-        model_type='Unet',
+        model_type='U-Net++',
         backbone='efficientnet-b0',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net_40.Unet-b0-halfLR.pth',
+        model_path='src/workflow_tools/pths/model_U-Net++_50.low-high-unet++-supervised.pth',
 
         images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',

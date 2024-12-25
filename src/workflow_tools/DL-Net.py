@@ -24,7 +24,7 @@ device = 'cuda'
 mylogger = log.DataLogger('wandb')
 
 seed.stablize_seed(my_parameters['seed'])
-transform_train, transform_val = dl_config.get_transforms(my_parameters['seed'])
+transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
 model = dl_config.setup_model()
 if my_parameters['compile']:
@@ -101,7 +101,7 @@ if my_parameters['mode'] == 'semi':
         unlabeled_data, 
         [None]*len(unlabeled_data), 
         unlabeled_padding_info, 
-        transform=transform_train
+        transform=non_geometric_transform  # Use only non-geometric transforms for unlabeled data
     )
 
 # Create data loaders
@@ -134,23 +134,26 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
         batch = next(unlabeled_iter)
     return batch, unlabeled_iter  # 只返回图像数据，因为我们不需要标签
 
-def compute_consistency_loss(model, device, transform_train, unlabeled_images, epoch, my_parameters):
+def compute_consistency_loss(model, device, geometric_transform, unlabeled_images, epoch, my_parameters):
     rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
     weight = my_parameters['consistency_weight'] * rampup
     
+    # For pred1, use the images directly from dataloader (already has non-geometric transforms)
     with torch.no_grad():
         pred1 = torch.sigmoid(model(unlabeled_images))  # As target
-        
+    
+    # For pred2, only apply geometric transforms
     unlabeled_np = unlabeled_images.cpu().permute(0, 2, 3, 1).numpy()
-    augmented_batch = []
+    geometric_batch = []
     for img in unlabeled_np:
-        augmented = transform_train(image=img)['image']
-        augmented_batch.append(augmented)
-    augmented_images = torch.from_numpy(np.stack(augmented_batch)).to(device)
+        # Only apply geometric transforms
+        geometric = geometric_transform(image=img)['image']
+        geometric_batch.append(geometric)
+    augmented_images = torch.stack(geometric_batch).to(device)
     
     pred2 = model(augmented_images)
     
-    cons_loss = criterion(pred2, pred1) # pred2 is the prediction, pred1 is the target
+    cons_loss = criterion(pred2, pred1) # pred1 is target
     return weight * cons_loss
 
 # ------------------- Training -------------------
@@ -193,7 +196,7 @@ try:
 
                 if my_parameters['mode'] == 'semi':
                     cons_loss = compute_consistency_loss(
-                        model, device, transform_train,
+                        model, device, geometric_transform,
                         unlabeled_images, epoch, my_parameters
                     )
                     total_loss = supervised_loss + cons_loss
