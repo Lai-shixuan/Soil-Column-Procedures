@@ -24,7 +24,7 @@ def get_parameters():
         'encoder': 'efficientnet-b2',
         'optimizer': 'adamw',   # optimizer = 'adam', 'adamw', 'sgd'
         'weight_decay': 0.01,   # weight_decay = 0.01
-        'learning_rate': 5e-5,
+        'learning_rate': 1e-4,
         'loss_function': 'cross_entropy',
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 10,
@@ -33,11 +33,11 @@ def get_parameters():
 
         'label_batch_size': 16,
 
-        'wandb': '51.low-high-unet++-semi-supervised-adamw',
+        'wandb': '52.low-high-semi-cons0.8-augment-more',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 32,
-        'consistency_weight': 0.4,
+        'consistency_weight': 0.8,
         'consistency_rampup': 8,
 
         'mode': 'semi',  # 'supervised' or 'semi'
@@ -46,10 +46,12 @@ def get_parameters():
 
 def get_transforms(seed_value):
     transform_train = A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.Rotate(limit=90, p=0.5),
+        A.HorizontalFlip(p=0.8),
+        A.VerticalFlip(p=0.8),
+        A.Rotate(limit=90, p=0.8),
         A.GaussNoise(p=0.5),
+        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
         ToTensorV2(),
     ], seed=seed_value)
 
