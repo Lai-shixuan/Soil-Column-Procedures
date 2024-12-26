@@ -441,15 +441,20 @@ if __name__ == "__main__":
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net++_50.low-high-unet++-supervised.pth',
+        model_path='src/workflow_tools/pths/model_U-Net++_49.low-unet++-supervised.pth',
 
-        images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
-        labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
-        save_path=r'g:\DL_Data_raw\version6-large\_inference',
-        padding_info_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image_patches.csv',
+        # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
+        # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
+        # save_path=r'g:\DL_Data_raw\version6-large\_inference',
+        # padding_info_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image_patches.csv',
+        
+        images_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image',
+        labels_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\label',
+        save_path=r'g:\DL_Data_raw\version7-large-lowRH\_inference',
+        padding_info_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image_patches.csv',
 
         batch_size=16,
-        remove_prefix=True,
+        remove_prefix=False,
         run_config={
             'summary_filename': 'inference_summary.csv'
         }

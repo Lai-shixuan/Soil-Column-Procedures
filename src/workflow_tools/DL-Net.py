@@ -7,15 +7,17 @@ import os
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
+from typing import List
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
+from src.workflow_tools.cvat_noisy import cvat_nosiy
 
 # ------------------- Setup -------------------
 
@@ -156,13 +158,14 @@ def compute_consistency_loss(model, device, non_geometric_transform, unlabeled_i
     
     pred2 = model(augmented_images)
     
-    cons_loss = criterion(pred2, pred1) # pred1 is target
+    cons_loss, _ = criterion(pred2, pred1) # pred1 is target
     return weight * cons_loss
 
-# ------------------- Training -------------------
+# ------------------- Epoch -------------------
 
 val_loss_best = float('inf')
 proceed_once = True
+soft_dice_list: List[float] = []
 
 try:
     for epoch in range(my_parameters['n_epochs']):
@@ -195,7 +198,7 @@ try:
                 if masks.dim() == 4 and masks.size(1) == 1:
                     masks = masks.squeeze(1)
                 
-                supervised_loss = criterion(outputs, labels, masks)
+                supervised_loss, soft_dice = criterion(outputs, labels, masks)
 
                 if my_parameters['mode'] == 'semi':
                     cons_loss = compute_consistency_loss(
@@ -229,11 +232,14 @@ try:
 
         # For each epoch, divide the total loss by the number of samples
         train_loss_mean = train_loss / (len(train_loader) * train_loader.batch_size)
+        soft_dice_mean = soft_dice / (len(train_loader) * train_loader.batch_size)
         if my_parameters['mode'] == 'semi':
             consistency_loss_mean = consistency_loss / (len(train_loader) * unlabeled_loader.batch_size)
             total_loss_mean = train_loss_mean + consistency_loss_mean
         else:
             total_loss_mean = train_loss_mean
+        
+        soft_dice_list.append(soft_dice_mean.cpu().item())
 
         # ------------------- Validation -------------------
 
@@ -242,7 +248,7 @@ try:
 
         # Update validation loop autocast
         with torch.no_grad(), autocast(device_type='cuda'):
-            for images, labels, masks in val_loader:
+            for images, labels, masks in tqdm(val_loader):
                 images = images.to(device)
                 labels = labels.to(device)
                 masks = masks.to(device)
@@ -253,7 +259,7 @@ try:
                 if masks.dim() == 4 and masks.size(1) == 1:
                     masks = masks.squeeze(1)                
 
-                loss = criterion(outputs, labels, masks)
+                loss, _ = criterion(outputs, labels, masks)
                 
                 val_loss += loss.item() * images.size(0)
 
@@ -266,6 +272,51 @@ try:
         # 每个epoch结束后清理缓存
         if device == 'cuda':
             torch.cuda.empty_cache()
+
+        # ------------------- Calculate Update -------------------
+
+        soft_dice_array = np.stack(soft_dice_list)
+        print(f"soft_dice_array: {soft_dice_array}")
+        update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.9)
+        if update_status:
+            print(f"Update at epoch {epoch}")
+
+            # ------------------- Label Refinement -------------------
+
+            if my_parameters['mode'] == 'supervised':
+                # Small-batch label refinement
+                train_eval_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+                for batch_idx, (imgs, lbls, msks) in enumerate(tqdm(train_eval_loader)):
+                    imgs = imgs.to(device)
+                    with torch.no_grad():
+                        preds = torch.sigmoid(model(imgs))
+                        preds = preds.squeeze(1)
+                    for i in range(len(preds)):
+                        dataset_idx = batch_idx * train_eval_loader.batch_size + i
+                        train_dataset.update_label_by_index(dataset_idx, preds[i], threshold=0.8)
+
+                val_eval_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+                for batch_idx, (imgs, lbls, msks) in enumerate(tqdm(val_eval_loader)):
+                    imgs = imgs.to(device)
+                    with torch.no_grad():
+                        preds = torch.sigmoid(model(imgs))
+                        preds = preds.squeeze(1)
+                    for i in range(len(preds)):
+                        dataset_idx = batch_idx * val_eval_loader.batch_size + i
+                        val_dataset.update_label_by_index(dataset_idx, preds[i], threshold=0.8)
+
+                # Print label stats for selected indices
+                sample_indices = range(0, 101, 10)
+                stats_train, stats_val = {}, {}
+                for idx in sample_indices:
+                    if idx < len(train_dataset.labels):
+                        label_array = train_dataset.labels[idx]
+                        stats_train[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
+                    if idx < len(val_dataset.labels):
+                        label_array = val_dataset.labels[idx]
+                        stats_val[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
+                print(f"Train label stats after update: {stats_train}")
+                print(f"Val label stats after update: {stats_val}")
 
         # ------------------- Logging -------------------
 

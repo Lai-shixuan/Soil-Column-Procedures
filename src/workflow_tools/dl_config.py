@@ -33,7 +33,7 @@ def get_parameters():
 
         'label_batch_size': 8,
 
-        'wandb': '57.low-high-supervised-batch8-middleLR',
+        'wandb': '58.test',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 8,
@@ -41,7 +41,7 @@ def get_parameters():
         'consistency_rampup': 1,
 
         'mode': 'supervised',  # 'supervised' or 'semi'
-        'compile': True,
+        'compile': False,
     }
 
 def get_transforms(seed_value):
@@ -120,18 +120,25 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
 
 def load_and_preprocess_data():
     # Load labeled data
-    labeled_data_paths_low = fb.get_image_names(r'/mnt/version7/train_val/image', None, 'tif')
-    labeled_data_paths_high = fb.get_image_names(r'/mnt/version6/train_val/image', None, 'tif')
-    labeled_data_paths = labeled_data_paths_low + labeled_data_paths_high
+    # labeled_data_paths_low = fb.get_image_names(r'/mnt/version7/train_val/image', None, 'tif')
+    # labeled_data_paths_high = fb.get_image_names(r'/mnt/version6/train_val/image', None, 'tif')
+    labeled_data_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image', None, 'tif')
+    labeled_data_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image', None, 'tif')
+    labeled_data_paths = labeled_data_paths_low     # labeled_data_paths_low
 
-    labeled_labels_paths_low = fb.get_image_names(r'/mnt/version7/train_val/label', None, 'tif')
-    labeled_labels_paths_high = fb.get_image_names(r'/mnt/version6/train_val/label', None, 'tif')
-    labeled_labels_paths = labeled_labels_paths_low + labeled_labels_paths_high
+    # labeled_labels_paths_low = fb.get_image_names(r'/mnt/version7/train_val/label', None, 'tif')
+    # labeled_labels_paths_high = fb.get_image_names(r'/mnt/version6/train_val/label', None, 'tif')
+    labeled_labels_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\label', None, 'tif')
+    labeled_labels_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label', None, 'tif')
+    labeled_labels_paths = labeled_labels_paths_low     # labeled_labels_paths_low
     
     # Load padding information
-    padding_info_low = pd.read_csv('/mnt/version7/train_val/image_patches.csv')
-    padding_info_high = pd.read_csv('/mnt/version6/train_val/image_patches.csv')
-    padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
+    # padding_info_low = pd.read_csv('/mnt/version7/train_val/image_patches.csv')
+    # padding_info_high = pd.read_csv('/mnt/version6/train_val/image_patches.csv')
+    padding_info_low = pd.read_csv(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image_patches.csv')
+    padding_info_high = pd.read_csv(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv')
+    padding_info = padding_info_low
+    # padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
     
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)

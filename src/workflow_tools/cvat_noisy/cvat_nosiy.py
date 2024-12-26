@@ -144,8 +144,8 @@ class UpdateStrategy:
     def label_update_epoch(cls, 
                         ydata_fit: np.ndarray, 
                         threshold: float = 0.9, 
-                        eval_interval: int = 100, 
-                        num_iter_per_epoch: float = 10581 / 10) -> int:
+                        eval_interval: int = 1, 
+                        num_iter_per_epoch: int = 1) -> int:
         """确定标签更新的轮次
         Args:
             ydata_fit: IoU历史数据
@@ -155,15 +155,15 @@ class UpdateStrategy:
         Returns:
             int: 建议的更新轮次
         """
-        xdata_fit = np.linspace(0, len(ydata_fit) * eval_interval / num_iter_per_epoch, len(ydata_fit))
+        xdata_fit = np.linspace(0, len(ydata_fit) * eval_interval / num_iter_per_epoch - 1, len(ydata_fit))
         a, b, c = cls.fit(xdata_fit, ydata_fit)
-        epoch = np.arange(1, 16)
+        epoch = np.arange(1, 32)
         
         d1 = abs(cls.derivation(epoch, a, b, c))
         d0 = abs(cls.derivation(1, a, b, c))
         relative_change = abs(d1 - d0) / d0
         relative_change[relative_change > 1] = 0
-        
+
         return np.sum(relative_change <= threshold) + 1
 
     @classmethod
@@ -177,6 +177,7 @@ class UpdateStrategy:
             bool: 是否应该更新
         """
         update_epoch = cls.label_update_epoch(iou_value, threshold=threshold)
+        print(f"当前轮次：{current_epoch}，建议更新轮次：{update_epoch}")
         return current_epoch >= update_epoch
 
     @classmethod

@@ -22,8 +22,8 @@ class DiceBCELoss(nn.Module):
         # Need sigmoid for dice calculation since we're using logits for BCE
         pred_sigmoid = torch.sigmoid(pred)
         dice = 1 - soft_dice_coefficient(target, pred_sigmoid, mask, self.smooth)
-        
-        return bce * 0.2 + dice * 0.8
+
+        return bce * 0.2 + dice * 0.8, 1 - dice
 
 
 def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, mask: torch.Tensor = None, smooth=1e-6) -> torch.Tensor:

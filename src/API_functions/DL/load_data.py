@@ -60,6 +60,26 @@ class my_Dataset(Dataset):
             mask = transformed_mask['image']
             return img, label, mask
 
+
+    def update_label_by_index(self, idx, pred, threshold=0.8):
+        original_label = torch.from_numpy(self.labels[idx]).to('cuda')
+        pred_confidence = pred
+        pred_bin = (pred_confidence > threshold)
+
+        # Only update pixels that are predicted foreground but differ from original
+        update_mask = (original_label != pred_bin) & (pred_bin == 1)
+
+        new_label = original_label.clone()
+        new_label[update_mask] = 1
+
+        # Prevent over-updates
+        h, w = original_label.shape
+        if (torch.sum(new_label != 0) < 0.5 * torch.sum(original_label != 0)
+            and torch.sum(new_label == 0) / (h * w) > 0.95):
+            return
+
+        self.labels[idx] = new_label.cpu().numpy()
+
 # to be continue
 
 # def dataset_prefold(path):
