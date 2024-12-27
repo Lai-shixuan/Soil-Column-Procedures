@@ -69,6 +69,9 @@ def get_image_names(folder_path: str, image_names: Union[ImageName, None], image
         search_path = os.path.join(folder_path, '*.' + image_format)
     image_files_names = glob.glob(search_path)
 
+    # sort
+    image_files_names.sort()
+
     # Test if there is any image in the folder:
     if not image_files_names:
         raise Exception('Error: No images found')
