@@ -177,7 +177,6 @@ class UpdateStrategy:
             bool: 是否应该更新
         """
         update_epoch = cls.label_update_epoch(iou_value, threshold=threshold)
-        print(f"当前轮次：{current_epoch}，建议更新轮次：{update_epoch}")
         return current_epoch >= update_epoch
 
     @classmethod

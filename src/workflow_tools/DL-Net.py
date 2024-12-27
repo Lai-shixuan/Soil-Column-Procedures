@@ -4,14 +4,16 @@ import wandb
 import signal
 import numpy as np
 import os
+import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from typing import List
+from pathlib import Path
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
@@ -91,7 +93,8 @@ train_data, val_data, train_labels, val_labels, train_padding_info, val_padding_
     labels,
     padding_info,
     test_size=my_parameters['ratio'], 
-    random_state=my_parameters['seed']
+    random_state=my_parameters['seed'],
+    shuffle=False
 )
 
 # Create datasets
@@ -167,8 +170,19 @@ val_loss_best = float('inf')
 proceed_once = True
 soft_dice_list: List[float] = []
 
+train_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1227-5/train')
+val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1227-5/val')
+
+if not train_sample.exists():
+    train_sample.mkdir(parents=True)
+if not val_sample.exists():
+    val_sample.mkdir(parents=True)
+
 try:
     for epoch in range(my_parameters['n_epochs']):
+
+        print('')
+        print(f"Epoch {epoch} of {my_parameters['n_epochs']}")
 
         # ------------------- Training -------------------
 
@@ -269,25 +283,25 @@ try:
         # Step the scheduler
         scheduler.step(val_loss_mean)
 
-        # 每个epoch结束后清理缓存
+        # Clear cache after each epoch
         if device == 'cuda':
             torch.cuda.empty_cache()
 
         # ------------------- Calculate Update -------------------
 
         soft_dice_array = np.stack(soft_dice_list)
-        print(f"soft_dice_array: {soft_dice_array}")
         update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.9)
         if update_status:
-            print(f"Update at epoch {epoch}")
 
             # ------------------- Label Refinement -------------------
 
             if my_parameters['mode'] == 'supervised':
                 # Small-batch label refinement
                 train_eval_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+                train_dataset.set_use_transform(False)
                 for batch_idx, (imgs, lbls, msks) in enumerate(tqdm(train_eval_loader)):
                     imgs = imgs.to(device)
+                    imgs = imgs.unsqueeze(1)
                     with torch.no_grad():
                         preds = torch.sigmoid(model(imgs))
                         preds = preds.squeeze(1)
@@ -296,8 +310,10 @@ try:
                         train_dataset.update_label_by_index(dataset_idx, preds[i], threshold=0.8)
 
                 val_eval_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False)
+                val_dataset.set_use_transform(False)
                 for batch_idx, (imgs, lbls, msks) in enumerate(tqdm(val_eval_loader)):
                     imgs = imgs.to(device)
+                    imgs = imgs.unsqueeze(1)
                     with torch.no_grad():
                         preds = torch.sigmoid(model(imgs))
                         preds = preds.squeeze(1)
@@ -307,16 +323,22 @@ try:
 
                 # Print label stats for selected indices
                 sample_indices = range(0, 101, 10)
-                stats_train, stats_val = {}, {}
+                # stats_train, stats_val = {}, {}
                 for idx in sample_indices:
                     if idx < len(train_dataset.labels):
                         label_array = train_dataset.labels[idx]
-                        stats_train[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
+                        cv2.imwrite(train_sample / f'{idx}-{epoch}.tif', label_array)
+                        # stats_train[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
                     if idx < len(val_dataset.labels):
                         label_array = val_dataset.labels[idx]
-                        stats_val[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
-                print(f"Train label stats after update: {stats_train}")
-                print(f"Val label stats after update: {stats_val}")
+                        cv2.imwrite(val_sample / f'{idx}-{epoch}.tif', label_array)
+                        # stats_val[idx] = (np.sum(label_array == 0), np.sum(label_array == 1))
+                # print(f"Train label stats after update: {stats_train}")
+                # print(f"Val label stats after update: {stats_val}")
+
+            train_dataset.set_use_transform(True) 
+            val_dataset.set_use_transform(True)
+            print(f"Update at epoch {epoch}")
 
         # ------------------- Logging -------------------
 
