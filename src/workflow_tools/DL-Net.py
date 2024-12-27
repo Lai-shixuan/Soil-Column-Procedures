@@ -171,7 +171,7 @@ proceed_once = True
 soft_dice_list: List[float] = []
 
 train_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1227-5/train')
-val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1227-5/val')
+val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-5/val')
 
 if not train_sample.exists():
     train_sample.mkdir(parents=True)
@@ -290,7 +290,7 @@ try:
         # ------------------- Calculate Update -------------------
 
         soft_dice_array = np.stack(soft_dice_list)
-        update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.9)
+        update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.8)
         if update_status:
 
             # ------------------- Label Refinement -------------------
