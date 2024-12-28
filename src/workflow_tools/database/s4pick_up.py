@@ -185,18 +185,22 @@ def process_all_columns(config: dict):
 if __name__ == "__main__":
     """
     Args:
-        base_input (str): Base input path. If 'column_id' mode, and 'parallel_label' mode is on, the images and labels are in 2 subfolders. Elif 'direct_folder' mode, there will be no label folder, the images are directly in the input folder, no subfolder.
-        output_folder (str): Output folder path, there will always be subfolder. 'image' and 'label' if 'parallel_label' mode is on.
-        mode (str): 'column_id' or 'direct_folder'
-        column_ids (list): List of column IDs
+        - base_input (str): Base input path. 
+            - If 'column_id' mode, and 'parallel_label' mode is on, the images and labels are in 2 subfolders
+            - Elif 'direct_folder' mode, there will be no label folder, the images are directly in the input folder, no subfolder.
+        - output_folder (str): Output folder path
+            - there will always be subfolder. 'image' and 'label' if 'parallel_label' mode is on.
+        - mode (str): 'column_id' or 'direct_folder'
+        - column_ids (list): List of column IDs
 
-        extraction_mode (str): 'random' or 'average'. 'Average' for example: choose 1, 3, 5, ignore 2, 4, 6
-        continuous (bool): True to extract continuous images
-        images_per_section (int): Number of images to extract per section
-        num_sections (int): Number of sections to extract
-        random_seed (int): Random seed for reproducibility
+        - extraction_mode (str): 'random' or 'average'.
+            - 'Average' for example: choose 1, 3, 5, ignore 2, 4, 6
+        - continuous (bool): True to extract continuous images
+        - images_per_section (int): Number of images to extract per section
+        - num_sections (int): Number of sections to extract
+        - random_seed (int): Random seed for reproducibility
 
-        parallel_label (bool): True to extract labels in parallel with.
+        - parallel_label (bool): True to extract labels in parallel with.
     """
     config = {
         'base_input': Path(r'g:\DL_Data_raw\version6-large\3.Harmonized\image'),
