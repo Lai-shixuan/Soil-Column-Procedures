@@ -7,46 +7,57 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
 from src.API_functions.Images import file_batch as fb
 from pathlib import Path
 
-def extract_images(column_id: str, config: dict):
-    """Extract specified images and optional labels from the input folder.
-
-    Args:
-        column_id (str): The ID of the column (e.g., '0028').
-        config (dict): Configuration dictionary containing:
-            - base_input (str): Base directory for input images
-            - output_folder (str): Base directory for output images
-            - extraction_mode (str): 'random' or 'average'
-            - continuous (bool): Whether to extract continuous images
-            - images_per_section (int): Number of images to extract per section
-            - num_sections (int): Number of sections to divide the column into
-            - random_seed (int): Random seed for reproducibility
-            - parallel_label (bool): Whether to extract labels in parallel
-            - label_folder (str): Name of the label subfolder (e.g., 'label')
-
-    Returns:
-        None
-    """
-    # Convert to Path objects from config
-    input_folder = Path(config['base_input'])
-    output_folder = Path(config['output_folder'])
+def get_folder(input_path: Path, column_id: str=None) -> Path:
+    """Get the folder based on the specified mode.
     
-    # Find the column folder by pattern matching
+    Args:
+        input_path (Path): Base input path
+        column_id (str): Column ID (required for column_id mode)
+    
+    Returns:
+        Path: Path to the harmonized folder
+    """
+
     pattern = f"*/Soil.column.{column_id}"
-    matching_folders = list(input_folder.glob(pattern))
+    matching_folders = list(input_path.glob(pattern))
     
     if not matching_folders:
         print(f"Warning: No folder found for column {column_id}")
-        return
+        return None
     
-    # Use the first matching folder (should be unique)
-    harmonized_folder = matching_folders[0] / "3.Harmonized"
-    image_folder = harmonized_folder / "image"
-    
+    return matching_folders[0] / "3.Harmonized"
+
+def extract_images(input_folder: Path, config: dict, column_id: str = None):
+    """Extract specified images and optional labels from the harmonized folder.
+
+    Args:
+        harmonized_folder (Path): Path to the harmonized folder
+        config (dict): Configuration dictionary
+        column_id (str, optional): Column ID for logging purposes
+    """
+
+    # ----------------- Input and output folders -----------------
+
+    if config['mode'] == 'column_id':
+        image_input = input_folder / "image"
+        if not image_input.exists():
+            raise FileNotFoundError(f"Image folder not found: {image_input}")
+    else:
+        image_input = input_folder
+
+    image_output = config['image_output']
+
+    if config.get('parallel_label', False):
+        label_input = config['label_input']
+        label_output = config['label_output']
+
     # Get a list of image files
-    images = fb.get_image_names(image_folder, None, 'tif')
-    images = [Path(image).name for image in images]
+    image_paths = fb.get_image_names(image_input, None, 'tif')
+    images = [Path(image).name for image in image_paths]
     
     column_length = len(images)
+
+    # ----------------- Image extraction -----------------
     
     if config['extraction_mode'] == 'random':
         random.seed(config['random_seed'])
@@ -87,66 +98,119 @@ def extract_images(column_id: str, config: dict):
                 )
                 indices.extend(sorted(section_indices))
 
-    # Create output folders
-    image_output = output_folder / "image"
-    image_output.mkdir(parents=True, exist_ok=True)
+    # ----------------- Copy images and labels -----------------
 
-    if config.get('parallel_label', False):
-        label_folder = harmonized_folder / 'label'
-        label_output = output_folder / 'label'
-        label_output.mkdir(parents=True, exist_ok=True)
-        
-        # Verify that labels exist for all selected images
-        for img_name in images:
-            if not (label_folder / img_name).exists():
-                print(f"Warning: Label missing for {img_name} in column {column_id}")
-                return
-
-    # Copy selected files
     for idx in indices:
         if idx < column_length:
             img_name = images[idx]
-            # Copy image
-            src_path = image_folder / img_name
-            dst_path = image_output / img_name
-            shutil.copyfile(src_path, dst_path)
-
-            # Copy corresponding label if enabled
+            shutil.copyfile(image_input / img_name, image_output / img_name)
             if config.get('parallel_label', False):
-                label_src = label_folder / img_name
-                label_dst = label_output / img_name
-                shutil.copyfile(label_src, label_dst)
+                shutil.copyfile(label_input / img_name, label_output / img_name)
 
-    print(f"Extracted {len(indices)} images from column {column_id} to {image_output}")
-    if config.get('parallel_label', False):
-        print(f"Extracted {len(indices)} labels from column {column_id} to {label_output}")
+    return len(indices)
+
+
+
+def validate_configuration(config: dict) -> bool:
+    """Validate all required folders exist and are accessible. Leave image input folders unchecked, only the parent folder is checked.
+    
+    Args:
+        config (dict): Configuration dictionary
+        
+    Returns:
+        bool: True if all validations pass, False otherwise
+    """
+    try:
+        # input path
+        input_path = config['base_input']
+        if not input_path.exists():
+            print(f"Error: Input path does not exist: {input_path}")
+            return False
+            
+        # image output path
+        output_path = config['output_folder']
+        image_output = output_path / "image"
+        image_output.mkdir(parents=True, exist_ok=True)
+        config['image_output'] = image_output
+        
+        if config.get('parallel_label', False):
+            # label input
+            if config['mode'] != 'column_id':
+                label_input = input_path / 'label'
+                if not label_input.exists():
+                    print(f"Error: Label folder not found: {label_input}")
+                    return False
+                else:
+                    config['label_input'] = label_input
+            
+            # label output
+            label_output = output_path / "label"
+            label_output.mkdir(parents=True, exist_ok=True)
+            config['label_output'] = label_output
+            
+        return True
+        
+    except Exception as e:
+        print(f"Error during configuration validation: {str(e)}")
+        return False
 
 def process_all_columns(config: dict):
-    """Process multiple soil columns according to the specified configuration."""
-    for column_id in config['column_ids']:
-        extract_images(column_id, config)
+    """Process multiple soil columns or a single folder according to the specified configuration."""
+    
+    if not validate_configuration(config):
+        print("Configuration validation failed. Exiting...")
+        return
+        
+    input_path = config['base_input']
+    log_dict = [] 
+
+    # Process each column or only 1 folder
+    if config['mode'] == 'column_id':
+        for column_id in config['column_ids']:
+            folder_to_be_proceed = get_folder(input_path, column_id=column_id)
+            indices_nums = extract_images(folder_to_be_proceed, config, column_id)
+            log_dict.append([indices_nums, column_id])
+    else:
+        folder_to_be_proceed = input_path
+        indices_nums = extract_images(folder_to_be_proceed, config)
+        log_dict.append([indices_nums, None])
+
+    # Log the number of images extracted
+    for indices_nums, column_id in log_dict:
+        print(f"Extracted {indices_nums} images from column {column_id}")
+        if config.get('parallel_label', False):
+            print(f"Extracted {indices_nums} labels from column {column_id}")
+
 
 if __name__ == "__main__":
-    # Configuration dictionary
+    """
+    Args:
+        base_input (str): Base input path. If 'column_id' mode, and 'parallel_label' mode is on, the images and labels are in 2 subfolders. Elif 'direct_folder' mode, there will be no label folder, the images are directly in the input folder, no subfolder.
+        output_folder (str): Output folder path, there will always be subfolder. 'image' and 'label' if 'parallel_label' mode is on.
+        mode (str): 'column_id' or 'direct_folder'
+        column_ids (list): List of column IDs
+
+        extraction_mode (str): 'random' or 'average'. 'Average' for example: choose 1, 3, 5, ignore 2, 4, 6
+        continuous (bool): True to extract continuous images
+        images_per_section (int): Number of images to extract per section
+        num_sections (int): Number of sections to extract
+        random_seed (int): Random seed for reproducibility
+
+        parallel_label (bool): True to extract labels in parallel with.
+    """
     config = {
-        # Path configurations
-        'base_input': r"f:/3.Experimental_Data/Soils/",
-        'output_folder': r"g:\DL_Data_raw\version7-large-lowRH\3.Harmonized",
-        # 'column_ids': [f"{i:04d}" for i in range(29, 35)] + [f"{i:04d}" for i in range(16, 22)],  # [f"{i:04d}" for i in range(9, 36)] + ['0003', '0005', '0007'],
-        'column_ids': ['0028'],
-        
-        # Extraction configurations
-        'extraction_mode': 'random',    # 'random' or 'average'
+        'base_input': Path(r'g:\DL_Data_raw\version6-large\3.Harmonized\image'),
+        'output_folder': Path(r'g:\DL_Data_raw\version6-large\4.Converted\image'),
+        'mode': 'direct_folder',  
+        'column_ids': None,
+
+        'extraction_mode': 'random',
         'continuous': False,
-        'images_per_section': 30,
-        'num_sections': 10,
+        'images_per_section': 20,
+        'num_sections': 1,
+        'random_seed': 408,
 
-        # Seed
-        'random_seed': 48,
-
-        # New parallel label configurations
         'parallel_label': False,
-        'label_folder': 'label',  # subfolder name for labels
     }
     
     process_all_columns(config)
