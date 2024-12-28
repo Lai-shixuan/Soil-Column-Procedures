@@ -299,7 +299,7 @@ class InferencePipeline:
             metrics.update({
                 'dice_score': evaluate.dice_coefficient(masked_output_prob, masked_label),
                 'iou_score': evaluate.iou(masked_output_prob, masked_label),
-                'bce_loss': criterion(output, label, mask).item(),
+                'bce_loss': criterion(output, label, mask)[0].item(),
                 'f1_score': smp.metrics.functional.f1_score(tp, fp, fn, tn, reduction='micro').item(),
                 'precision': smp.metrics.functional.precision(tp, fp, fn, tn, reduction='micro').item(),
                 'recall': smp.metrics.functional.recall(tp, fp, fn, tn, reduction='micro').item(),
@@ -436,12 +436,12 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='U-Net++',
-        backbone='efficientnet-b0',
+        backbone='efficientnet-b2',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net++_49.low-unet++-supervised.pth',
+        model_path='src/workflow_tools/pths/model_U-Net++_58.test.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -453,7 +453,7 @@ if __name__ == "__main__":
         save_path=r'g:\DL_Data_raw\version7-large-lowRH\_inference',
         padding_info_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image_patches.csv',
 
-        batch_size=16,
+        batch_size=8,
         remove_prefix=False,
         run_config={
             'summary_filename': 'inference_summary.csv'
