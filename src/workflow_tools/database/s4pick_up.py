@@ -203,14 +203,14 @@ if __name__ == "__main__":
         - parallel_label (bool): True to extract labels in parallel with.
     """
     config = {
-        'base_input': Path(r'g:\DL_Data_raw\version6-large\3.Harmonized\image'),
-        'output_folder': Path(r'g:\DL_Data_raw\version6-large\4.Converted\image'),
+        'base_input': Path(r'g:\DL_Data_raw\version7-large-lowRH\3.Harmonized\image'),
+        'output_folder': Path(r'g:\DL_Data_raw\version7-large-lowRH\4.Converted\8bit'),
         'mode': 'direct_folder',  
         'column_ids': None,
 
         'extraction_mode': 'random',
         'continuous': False,
-        'images_per_section': 20,
+        'images_per_section': 40,
         'num_sections': 1,
         'random_seed': 408,
 
