@@ -2,38 +2,39 @@ import sys
 import torch
 import albumentations as A
 import segmentation_models_pytorch as smp
-from albumentations.pytorch import ToTensorV2
 import pandas as pd
 
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
+from albumentations.pytorch import ToTensorV2
+from pathlib import Path
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
 
 def get_parameters():
-    return {
+    config_dict = {
         'seed': 3407,
 
         'Kfold': None,
-        'ratio': 0.25,
+        'ratio': 0.20,
         'n_epochs': 1000,
         'patience': 20,
 
-        'model': 'UPerNet',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b0',
+        'model': 'DeepLabv3+',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        'encoder': 'efficientnet-b2',
         'optimizer': 'adam',   # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,   # weight_decay = 0.01
-        'learning_rate': 5e-5,
+        'learning_rate': 5e-4,
         'loss_function': 'cross_entropy',
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 10,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
-        'label_batch_size': 16,
+        'label_batch_size': 4,
 
-        'wandb': '66.low-Upernet',
+        'wandb': '71.precise_annotation_v3+_lr5e-4',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 8,
@@ -41,8 +42,20 @@ def get_parameters():
         'consistency_rampup': 1,
 
         'mode': 'supervised',  # 'supervised' or 'semi'
-        'compile': True,
+        'compile': False,
+
+        # Address to store updated labels
+        'update': False,
+        'train_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/train'),
+        'val_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val')
     }
+
+    if not config_dict['train_sample'].exists():
+        config_dict['train_sample'].mkdir(parents=True, exist_ok=True)
+    if not config_dict['val_sample'].exists():
+        config_dict['val_sample'].mkdir(parents=True, exist_ok=True)
+
+    return config_dict
 
 def get_transforms(seed_value):
     # Geometric transforms that affect structure
@@ -67,7 +80,7 @@ def get_transforms(seed_value):
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
         A.GaussNoise(p=0.5),
-        # A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
+        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
         # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=1),
         # A.RandomShadow(p=0.5),
         ToTensorV2(),
@@ -80,14 +93,14 @@ def get_transforms(seed_value):
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model():
-    # model = smp.DeepLabV3Plus(
-    #     encoder_name="efficientnet-b0",
-    #     encoder_weights="imagenet",
-    #     in_channels=1,
-    #     classes=1,
-    # )
+    model = smp.DeepLabV3Plus(
+        encoder_name="efficientnet-b2",
+        encoder_weights="imagenet",
+        in_channels=1,
+        classes=1,
+    )
     # model = smp.Unet(
-    #     encoder_name="efficientnet-b0",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+    #     encoder_name="efficientnet-b2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
     #     encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
     #     in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
     #     classes=1,                      # model output channels (number of classes in your dataset)
@@ -100,12 +113,12 @@ def setup_model():
     #     classes=1,
     # )
 
-    model = smp.UPerNet(
-        encoder_name="efficientnet-b0",
-        encoder_weights="imagenet",
-        in_channels=1,
-        classes=1,
-    )
+    # model = smp.UPerNet(
+    #     encoder_name="efficientnet-b0",
+    #     encoder_weights="imagenet",
+    #     in_channels=1,
+    #     classes=1,
+    # )
 
     # model = smp.UnetPlusPlus(
     #     encoder_name="efficientnet-b0",
@@ -135,23 +148,17 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
 
 def load_and_preprocess_data():
     # Load labeled data
-    labeled_data_paths_low = fb.get_image_names(r'/mnt/version7/train_val/image', None, 'tif')
-    labeled_data_paths_high = fb.get_image_names(r'/mnt/version6/train_val/image', None, 'tif')
-    # labeled_data_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image', None, 'tif')
+    labeled_data_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image', None, 'tif')
     # labeled_data_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image', None, 'tif')
     labeled_data_paths = labeled_data_paths_low # labeled_data_paths_high
 
-    labeled_labels_paths_low = fb.get_image_names(r'/mnt/version7/train_val/label', None, 'tif')
-    labeled_labels_paths_high = fb.get_image_names(r'/mnt/version6/train_val/label', None, 'tif')
-    # labeled_labels_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\label', None, 'tif')
+    labeled_labels_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label', None, 'tif')
     # labeled_labels_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label', None, 'tif')
     labeled_labels_paths = labeled_labels_paths_low # + labeled_labels_paths_high
     
     # Load padding information
-    padding_info_low = pd.read_csv('/mnt/version7/train_val/image_patches.csv')
-    padding_info_high = pd.read_csv('/mnt/version6/train_val/image_patches.csv')
-    # padding_info_low = pd.read_csv(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image_patches.csv')
-    # padding_info_high = pd.read_csv(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv')
+    padding_info_low = pd.read_csv(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv')
+    # padding_info_high = pd.read_csv('')
     padding_info = padding_info_low
     # padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
     

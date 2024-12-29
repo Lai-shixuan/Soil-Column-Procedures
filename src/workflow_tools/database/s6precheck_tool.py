@@ -75,21 +75,19 @@ def batch_precheck_and_save(
 if __name__ == "__main__":
 
     # for i in range(25, 28):   # When using this loop, change the indentation
+        # image_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/3.Harmonized/image'
+        # label_dir = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan_Hospital/Soil.column.{i:04d}/3.Harmonized/label/'
+        # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/5.Precheck'
+        # csv_output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/'
 
-    # Example paths - modify these according to your data location
-    # image_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/3.Harmonized/image'
-    # label_dir = f'f:/3.Experimental_Data/Soils/Dongying_Tiantan_Hospital/Soil.column.{i:04d}/3.Harmonized/label/'
-    # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/5.Precheck'
-    # csv_output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/'
-
-    image_dir = r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\5.Preprocessed'
-    # label_dir = r'g:\DL_Data_raw\version7-large-lowRH\6.Precheck\precheck-test-label'
-    output_dir = r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck'
+    image_dir = r'g:\DL_Data_raw\version8-low-precise\6.Precheck\precheck-test'
+    label_dir = r'g:\DL_Data_raw\version8-low-precise\6.Precheck\precheck-test-label'
+    output_dir = r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test'
     csv_output_dir = output_dir 
     
     # Get all image files
     image_paths = fb.get_image_names(image_dir, None, 'tif')
-    # label_paths = fb.get_image_names(label_dir, None, 'tif')
+    label_paths = fb.get_image_names(label_dir, None, 'tif')
 
     # Split it into 2 parts, the first is DetctionMode.None, the second is DetctionMode ellipse
     # image_paths = [item for item in image_paths if not os.path.basename(item).startswith('0035')]
@@ -105,26 +103,26 @@ if __name__ == "__main__":
     )
     
     # Process label images
-    # print("Processing labels...")
-    # label_results = batch_precheck_and_save(
-    #     image_paths=label_paths,
-    #     output_dir=output_dir,
-    #     is_label=True,
-    #     detection_mode=DetectionMode.NONE
-    # )
+    print("Processing labels...")
+    label_results = batch_precheck_and_save(
+        image_paths=label_paths,
+        output_dir=output_dir,
+        is_label=True,
+        detection_mode=DetectionMode.NONE
+    )
     
     # Save results to CSV
     image_df = multi_input_adapter.results_to_dataframe(image_results)
-    # label_df = multi_input_adapter.results_to_dataframe(label_results)
+    label_df = multi_input_adapter.results_to_dataframe(label_results)
     
     # Save to CSV files
     Path(csv_output_dir).mkdir(parents=True, exist_ok=True)
     image_df.to_csv(os.path.join(csv_output_dir, 'image_patches.csv'), index=False)
-    # label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
+    label_df.to_csv(os.path.join(csv_output_dir, 'label_patches.csv'), index=False)
     
     print("Processing complete!")
     print(f"Images processed: {len(image_results['patches'])}")
-    # print(f"Labels processed: {len(label_results['patches'])}")
+    print(f"Labels processed: {len(label_results['patches'])}")
     print(f"Metadata saved to: {csv_output_dir}")
 
     # # save memory
