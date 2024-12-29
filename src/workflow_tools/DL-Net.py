@@ -7,7 +7,7 @@ import os
 import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
@@ -21,6 +21,7 @@ from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
 from src.workflow_tools.cvat_noisy import cvat_nosiy
 
+
 # ------------------- Setup -------------------
 
 my_parameters = dl_config.get_parameters()
@@ -28,6 +29,7 @@ device = 'cuda'
 mylogger = log.DataLogger('wandb')
 
 seed.stablize_seed(my_parameters['seed'])
+torch.use_deterministic_algorithms(False)
 transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
 model = dl_config.setup_model()
@@ -170,8 +172,8 @@ val_loss_best = float('inf')
 proceed_once = True
 soft_dice_list: List[float] = []
 
-train_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1227-5/train')
-val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-5/val')
+train_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/train')
+val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val')
 
 if not train_sample.exists():
     train_sample.mkdir(parents=True)
@@ -290,8 +292,8 @@ try:
         # ------------------- Calculate Update -------------------
 
         soft_dice_array = np.stack(soft_dice_list)
-        update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.8)
-        if update_status:
+        update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.9)
+        if False and update_status:
 
             # ------------------- Label Refinement -------------------
 

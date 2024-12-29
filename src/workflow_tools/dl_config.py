@@ -18,22 +18,22 @@ def get_parameters():
         'Kfold': None,
         'ratio': 0.25,
         'n_epochs': 1000,
-        'patience': 50,
+        'patience': 20,
 
-        'model': 'U-Net++',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++'
-        'encoder': 'efficientnet-b2',
-        'optimizer': 'adamw',   # optimizer = 'adam', 'adamw', 'sgd'
-        'weight_decay': 0.01,   # weight_decay = 0.01
-        'learning_rate': 3e-5,
+        'model': 'UPerNet',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        'encoder': 'efficientnet-b0',
+        'optimizer': 'adam',   # optimizer = 'adam', 'adamw', 'sgd'
+        # 'weight_decay': 0.01,   # weight_decay = 0.01
+        'learning_rate': 5e-5,
         'loss_function': 'cross_entropy',
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 10,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
-        'label_batch_size': 8,
+        'label_batch_size': 16,
 
-        'wandb': '59.test',
+        'wandb': '66.low-Upernet',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 8,
@@ -41,7 +41,7 @@ def get_parameters():
         'consistency_rampup': 1,
 
         'mode': 'supervised',  # 'supervised' or 'semi'
-        'compile': False,
+        'compile': True,
     }
 
 def get_transforms(seed_value):
@@ -63,13 +63,13 @@ def get_transforms(seed_value):
 
     # Combined transform for supervised training
     transform_train = A.Compose([
-        A.HorizontalFlip(p=0.8),
-        A.VerticalFlip(p=0.8),
-        A.RandomRotate90(p=0.8),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
         A.GaussNoise(p=0.5),
-        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
-        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
-        A.RandomShadow(p=0.5),
+        # A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
+        # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=1),
+        # A.RandomShadow(p=0.5),
         ToTensorV2(),
     ], seed=seed_value)
 
@@ -92,21 +92,36 @@ def setup_model():
     #     in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
     #     classes=1,                      # model output channels (number of classes in your dataset)
     # )
-    model = smp.UnetPlusPlus(
-        encoder_name="efficientnet-b2",
+
+    # model = smp.Segformer(
+    #     encoder_name="efficientnet-b2",
+    #     encoder_weights="imagenet",
+    #     in_channels=1,
+    #     classes=1,
+    # )
+
+    model = smp.UPerNet(
+        encoder_name="efficientnet-b0",
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
     )
+
+    # model = smp.UnetPlusPlus(
+    #     encoder_name="efficientnet-b0",
+    #     encoder_weights="imagenet",
+    #     in_channels=1,
+    #     classes=1,
+    # )
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
 
 def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr):
-    parameters = get_parameters()
-    optimizer = torch.optim.AdamW(
+    # parameters = get_parameters()
+    optimizer = torch.optim.Adam(
         model.parameters(), 
         lr=learning_rate,
-        weight_decay=parameters['weight_decay']
+        # weight_decay=parameters['weight_decay']
     )
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
@@ -124,21 +139,21 @@ def load_and_preprocess_data():
     labeled_data_paths_high = fb.get_image_names(r'/mnt/version6/train_val/image', None, 'tif')
     # labeled_data_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image', None, 'tif')
     # labeled_data_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image', None, 'tif')
-    labeled_data_paths = labeled_data_paths_low + labeled_data_paths_high
+    labeled_data_paths = labeled_data_paths_low # labeled_data_paths_high
 
     labeled_labels_paths_low = fb.get_image_names(r'/mnt/version7/train_val/label', None, 'tif')
     labeled_labels_paths_high = fb.get_image_names(r'/mnt/version6/train_val/label', None, 'tif')
     # labeled_labels_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\label', None, 'tif')
     # labeled_labels_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label', None, 'tif')
-    labeled_labels_paths = labeled_labels_paths_low + labeled_labels_paths_high
+    labeled_labels_paths = labeled_labels_paths_low # + labeled_labels_paths_high
     
     # Load padding information
     padding_info_low = pd.read_csv('/mnt/version7/train_val/image_patches.csv')
     padding_info_high = pd.read_csv('/mnt/version6/train_val/image_patches.csv')
     # padding_info_low = pd.read_csv(r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\train_val\image_patches.csv')
     # padding_info_high = pd.read_csv(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv')
-    # padding_info = padding_info_low
-    padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
+    padding_info = padding_info_low
+    # padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
     
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
