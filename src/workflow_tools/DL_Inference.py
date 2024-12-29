@@ -70,7 +70,7 @@ class InferenceConfig:
         """
 
         # Model type validation
-        valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet', 'U-Net++'}
+        valid_model_types = {'DeepLabV3Plus', 'Unet', 'PSPNet', 'U-Net++', 'UPerNet'}
         if self.model_type not in valid_model_types:
             raise ValueError(f"Model type must be one of {valid_model_types}")
         
@@ -179,6 +179,12 @@ class InferencePipeline:
                 classes=1
             ),
             'U-Net++': lambda: smp.UnetPlusPlus(
+                encoder_name=self.config.backbone,
+                encoder_weights="imagenet",
+                in_channels=1,
+                classes=1
+            ),
+            'UPerNet': lambda: smp.UPerNet(
                 encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
@@ -436,12 +442,12 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='U-Net++',
-        backbone='efficientnet-b2',
+        backbone='efficientnet-b0',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net++_58.test.pth',
+        model_path='src/workflow_tools/pths/model_U-Net++_65.low-repeat49.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -453,8 +459,8 @@ if __name__ == "__main__":
         save_path=r'g:\DL_Data_raw\version7-large-lowRH\_inference',
         padding_info_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image_patches.csv',
 
-        batch_size=8,
-        remove_prefix=False,
+        batch_size=16,
+        remove_prefix=True,
         run_config={
             'summary_filename': 'inference_summary.csv'
         }
