@@ -5,6 +5,7 @@ wandb/
 .pytest_cache/
 dist/
 build/
+lightly_outputs/
 
 *.pth
 *.pyc
