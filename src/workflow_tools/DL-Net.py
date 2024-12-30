@@ -264,8 +264,9 @@ def validate(model, device, val_loader, criterion):
 
 def calculate_update(
     soft_dice_list, epoch, device, model, train_dataset, val_dataset, my_parameters):
-
+    """Calculate update based on soft dice scores"""
     soft_dice_array = np.stack(soft_dice_list)
+    train_update_path, val_update_path = dl_config.get_image_output_paths()
     update_status = cvat_nosiy.UpdateStrategy.if_update(soft_dice_array, epoch, threshold=0.9)
 
     if update_status:
@@ -307,10 +308,10 @@ def calculate_update(
             for idx in sample_indices:
                 if idx < len(train_dataset.labels):
                     label_array = train_dataset.labels[idx]
-                    cv2.imwrite(my_parameters['train_sample'] / f'{idx}-{epoch}.tif', label_array)
+                    cv2.imwrite(train_update_path / f'{idx}-{epoch}.tif', label_array)
                 if idx < len(val_dataset.labels):
                     label_array = val_dataset.labels[idx]
-                    cv2.imwrite(my_parameters['val_sample'] / f'{idx}-{epoch}.tif', label_array)
+                    cv2.imwrite(val_update_path / f'{idx}-{epoch}.tif', label_array)
 
             train_dataset.set_use_transform(True)
             val_dataset.set_use_transform(True)

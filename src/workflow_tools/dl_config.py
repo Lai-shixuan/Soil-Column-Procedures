@@ -9,6 +9,7 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
+from typing import Tuple
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
 
@@ -19,7 +20,7 @@ def get_parameters():
         'ratio': 0.20,
 
         'model': 'UPerNet',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b0',
+        'encoder': 'efficientnet-b2',
         'optimizer': 'adam',   # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,   # weight_decay = 0.01
         'learning_rate': 5e-4,
@@ -31,7 +32,7 @@ def get_parameters():
 
         'label_batch_size': 8,
 
-        'wandb': '74.Semi',
+        'wandb': '75.Semi-b2',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 16,
@@ -44,8 +45,6 @@ def get_parameters():
 
         # Address to store updated labels
         'update': False,
-        'train_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/train'),
-        'val_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val'),
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 800,
@@ -53,10 +52,6 @@ def get_parameters():
         'batch_debug': False
     }
 
-    if not config_dict['train_sample'].exists():
-        config_dict['train_sample'].mkdir(parents=True, exist_ok=True)
-    if not config_dict['val_sample'].exists():
-        config_dict['val_sample'].mkdir(parents=True, exist_ok=True)
 
     return config_dict
 
@@ -174,6 +169,18 @@ def get_data_paths():
             'padding_info': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv',
         }
     }
+
+def get_image_output_paths() -> Tuple[Path, Path]:
+    """For updating labels in supervised mode"""
+    train_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/train')
+    val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val')
+    
+    if not train_sample.exists():
+        train_sample.mkdir(parents=True, exist_ok=True)
+    if not val_sample.exists():
+        val_sample.mkdir(parents=True, exist_ok=True)
+
+    return train_sample, val_sample
 
 def load_dataset(data_paths, mode='labeled'):
     """Load dataset based on provided paths"""
