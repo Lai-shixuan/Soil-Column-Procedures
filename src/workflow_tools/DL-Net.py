@@ -31,7 +31,6 @@ def setup_environment(my_parameters):
     mylogger = log.DataLogger('wandb')
 
     seed.stablize_seed(my_parameters['seed'])
-    torch.use_deterministic_algorithms(False)
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
     model = dl_config.setup_model()
@@ -39,6 +38,14 @@ def setup_environment(my_parameters):
         model = torch.compile(model).to(device)
     else:
         model = model.to(device)
+
+    # Create teacher model
+    teacher_model = dl_config.setup_model()
+    teacher_model.load_state_dict(model.state_dict())
+    teacher_model.to(device)
+    teacher_model.eval()
+    for param in teacher_model.parameters():
+        param.requires_grad = False
 
     optimizer, scheduler, criterion = dl_config.setup_training(
         model,
@@ -57,7 +64,7 @@ def setup_environment(my_parameters):
         name=my_parameters['wandb'],
         config=my_parameters,
     )
-    return model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
+    return model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
 
 # ------------------- Signal Handling -------------------
 
@@ -140,15 +147,18 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader, geometric_transform)
         batch = next(unlabeled_iter)
     return batch, unlabeled_iter
 
-def compute_consistency_loss(model, device, non_geometric_transform, unlabeled_images, epoch, my_parameters, criterion):
+def update_teacher_model(teacher_model, student_model, alpha=0.99):
+    """Update teacher model by exponential moving average of student weights."""
+    for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
+        t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
+
+def compute_consistency_loss(student_model, teacher_model, device, non_geometric_transform, unlabeled_images, epoch, my_parameters, criterion):
     rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
     weight = my_parameters['consistency_weight'] * rampup
-    
-    # For pred1, use the images directly from dataloader (already has geometric transforms)
+
     with torch.no_grad():
-        pred1 = torch.sigmoid(model(unlabeled_images))  # As target
-    
-    # For pred2, only apply non-geometric transforms
+        teacher_pred = torch.sigmoid(teacher_model(unlabeled_images))  # teacher's mask
+
     non_geometric_batch = []
     for img in unlabeled_images:
         # Convert tensor to numpy array in the correct format (H,W,C)
@@ -160,14 +170,13 @@ def compute_consistency_loss(model, device, non_geometric_transform, unlabeled_i
     
     augmented_images = torch.stack(non_geometric_batch).to(device)
     
-    pred2 = model(augmented_images)
-    
-    cons_loss, _ = criterion(pred2, pred1) # pred1 is target
+    student_pred = student_model(augmented_images)
+    cons_loss, _ = criterion(student_pred, teacher_pred)
     return weight * cons_loss
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch):
+def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch, teacher_model):
     model.train()
 
     # Initialize loss variables
@@ -199,10 +208,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
             if my_parameters['mode'] == 'semi':
                 cons_loss = compute_consistency_loss(
-                    model, device, non_geometric_transform,
+                    model, teacher_model, device, non_geometric_transform,
                     unlabeled_images, epoch, my_parameters, criterion
                 )
-                total_loss = supervised_loss + cons_loss
+                total_loss = (1 - my_parameters['consistency_weight']) * supervised_loss + cons_loss
             else:
                 total_loss = supervised_loss
 
@@ -210,6 +219,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         scaler.scale(total_loss).backward()
         scaler.step(optimizer)
         scaler.update()
+
+        # Update teacher model via EMA
+        if my_parameters['mode'] == 'semi':
+            update_teacher_model(teacher_model, model)
 
         supervised_total += supervised_loss.item()
         soft_dice_total += soft_dice.item()
@@ -330,7 +343,7 @@ def main():
         run_experiment(base_params)
 
 def run_experiment(my_parameters):
-    model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
+    model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
     register_signals()
 
     train_dataset, val_dataset, train_loader, val_loader, unlabeled_loader, unlabeled_iter = prepare_data(my_parameters, transform_train, transform_val, geometric_transform)
@@ -350,7 +363,8 @@ def run_experiment(my_parameters):
 
             train_loss_mean, consistency_loss_mean, total_loss_mean, soft_dice_mean = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
-                unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch
+                unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch,
+                teacher_model
             )
             proceed_once = False
             soft_dice_list.append(soft_dice_mean)
@@ -400,7 +414,7 @@ def run_experiment(my_parameters):
                 torch.save(model.state_dict(), f"src/workflow_tools/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth")
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
             else:
-                no_improvement_count += 1
+                no_improvement_count += 1                
                 if no_improvement_count >= my_parameters['patience']:
                     print(f"No improvement for {my_parameters['patience']} epochs, stopping early.")
                     break

@@ -16,7 +16,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters():
     config_dict = {
         # Title and seed
-        'wandb': '75.Semi-b2',
+        'wandb': '2-3.Semi-mean-teachers-update-weights0.2',
         'seed': 3407,
 
         # Data related parameters
@@ -43,8 +43,8 @@ def get_parameters():
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 16,
-        'consistency_weight': 1,
-        'consistency_rampup': 1,
+        'consistency_weight': 0.2,
+        'consistency_rampup': 20,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 800,
