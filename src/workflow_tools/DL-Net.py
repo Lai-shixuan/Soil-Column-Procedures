@@ -136,7 +136,6 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader, geometric_transform)
     try:
         batch = next(unlabeled_iter)
     except StopIteration:
-        unlabeled_loader.dataset.transform = geometric_transform
         unlabeled_iter = iter(unlabeled_loader)
         batch = next(unlabeled_iter)
     return batch, unlabeled_iter
@@ -348,7 +347,7 @@ def run_experiment(my_parameters):
 
             # ------------------- Training -------------------
 
-            train_loss_mean, consistency_loss_mean, soft_dice_mean, total_loss_mean = train_one_epoch(
+            train_loss_mean, consistency_loss_mean, total_loss_mean, soft_dice_mean = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch
             )
