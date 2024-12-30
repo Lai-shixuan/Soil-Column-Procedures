@@ -15,41 +15,47 @@ from src.API_functions.Images import file_batch as fb
 
 def get_parameters():
     config_dict = {
+        # Title and seed
+        'wandb': '75.Semi-b2',
         'seed': 3407,
-        'Kfold': None,
-        'ratio': 0.20,
 
-        'model': 'UPerNet',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        # Data related parameters
+        'data_resolution': 'low',   # 'low' or 'high' or 'both'
+        'label_batch_size': 8,
+        'ratio': 0.20,
+        'Kfold': None,
+
+        # Model related parameters
+        'model': 'U-Net',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
         'encoder': 'efficientnet-b2',
-        'optimizer': 'adam',   # optimizer = 'adam', 'adamw', 'sgd'
-        # 'weight_decay': 0.01,   # weight_decay = 0.01
-        'learning_rate': 5e-4,
+        'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
+        # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
+        'transform': 'basic',
+
+        # Learning related parameters
+        'learning_rate': 5e-4,
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 20,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
-        'label_batch_size': 8,
-
-        'wandb': '75.Semi-b2',
-
         # Add semi-supervised parameters
+        'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 16,
         'consistency_weight': 1,
         'consistency_rampup': 1,
 
-        'mode': 'semi',  # 'supervised' or 'semi'
-        'compile': False,
-        'data_resolution': 'low',  # 'low' or 'high' or 'both'
-
-        # Address to store updated labels
-        'update': False,
-
         # Batch debug mode and with earyly stopping
         'n_epochs': 800,
         'patience': 100,
-        'batch_debug': False
+        'batch_debug': False,
+
+        # Scenarios, linux can compile, windows can't
+        'compile': False,
+
+        # Try to update labels, failed before
+        'update': False
     }
 
 
@@ -98,39 +104,12 @@ def get_transforms(seed_value):
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model():
-    # model = smp.DeepLabV3Plus(
-    #     encoder_name="efficientnet-b2",
-    #     encoder_weights="imagenet",
-    #     in_channels=1,
-    #     classes=1,
-    # )
-    # model = smp.Unet(
-    #     encoder_name="efficientnet-b2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
-    #     encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
-    #     in_channels=1,                  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
-    #     classes=1,                      # model output channels (number of classes in your dataset)
-    # )
-
-    # model = smp.Segformer(
-    #     encoder_name="efficientnet-b2",
-    #     encoder_weights="imagenet",
-    #     in_channels=1,
-    #     classes=1,
-    # )
-
-    model = smp.UPerNet(
+    model = smp.Unet(
         encoder_name=get_parameters()['encoder'],
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
     )
-
-    # model = smp.UnetPlusPlus(
-    #     encoder_name="efficientnet-b0",
-    #     encoder_weights="imagenet",
-    #     in_channels=1,
-    #     classes=1,
-    # )
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
 

@@ -20,7 +20,6 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from src.API_functions.DL import load_data, evaluate
 from src.API_functions.Images import file_batch as fb
-from src.API_functions.Soils import pre_process
 
 
 # Configure logging
@@ -442,12 +441,12 @@ if __name__ == "__main__":
 
     config = InferenceConfig(
         model_type='Unet',
-        backbone='efficientnet-b0',
+        backbone='efficientnet-b2',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net_67.precise_annotation.pth',
+        model_path='src/workflow_tools/pths/model_U-Net_75.Semi-b2.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -464,7 +463,7 @@ if __name__ == "__main__":
         save_path=r'g:\DL_Data_raw\version8-low-precise\_inference',
         padding_info_path=r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test\image_patches.csv',
 
-        batch_size=4,
+        batch_size=8,
         remove_prefix=False,
         run_config={
             'summary_filename': 'inference_summary.csv'

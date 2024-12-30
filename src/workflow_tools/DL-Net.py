@@ -53,7 +53,7 @@ def setup_environment(my_parameters):
 
     # Initialize wandb
     wandb.init(
-        project="U-Net",
+        project="Precise-annotation",
         name=my_parameters['wandb'],
         config=my_parameters,
     )
@@ -407,9 +407,11 @@ def run_experiment(my_parameters):
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        print(f"Best validation loss: {val_loss_best}")
         wandb.finish()
         raise
     finally:
+        print(f"Best validation loss: {val_loss_best}")
         wandb.finish()
 
 if __name__ == "__main__":
