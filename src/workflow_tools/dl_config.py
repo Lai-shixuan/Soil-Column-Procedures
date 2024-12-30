@@ -31,15 +31,16 @@ def get_parameters():
 
         'label_batch_size': 8,
 
-        'wandb': '73.Large_batch_efficientnet-b0',
+        'wandb': '74.Semi',
 
         # Add semi-supervised parameters
-        'unlabel_batch_size': 8,
+        'unlabel_batch_size': 16,
         'consistency_weight': 1,
         'consistency_rampup': 1,
 
-        'mode': 'supervised',  # 'supervised' or 'semi'
+        'mode': 'semi',  # 'supervised' or 'semi'
         'compile': False,
+        'data_resolution': 'low',  # 'low' or 'high' or 'both'
 
         # Address to store updated labels
         'update': False,
@@ -78,8 +79,8 @@ def get_transforms(seed_value):
     non_geometric_transform = A.Compose([
         A.GaussNoise(p=0.5),
         A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
-        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
-        A.RandomShadow(p=0.5),
+        # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
+        # A.RandomShadow(p=0.5),
         ToTensorV2(),
     ], seed=seed_value)
 
@@ -155,40 +156,66 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     criterion = evaluate.DiceBCELoss()
     return optimizer, scheduler, criterion
 
-def load_and_preprocess_data():
-    # Load labeled data
-    labeled_data_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image', None, 'tif')
-    # labeled_data_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image', None, 'tif')
-    labeled_data_paths = labeled_data_paths_low # labeled_data_paths_high
+def get_data_paths():
+    """Define all data paths in a central location"""
+    return {
+        'low': {
+            'image_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image',
+            'label_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label',
+            'padding_info': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv',
+        },
+        'high': {
+            'image_dir': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image',
+            'label_dir': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label',
+            'padding_info': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv',
+        },
+        'unlabeled': {
+            'image_dir': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image',
+            'padding_info': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv',
+        }
+    }
 
-    labeled_labels_paths_low = fb.get_image_names(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label', None, 'tif')
-    # labeled_labels_paths_high = fb.get_image_names(r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label', None, 'tif')
-    labeled_labels_paths = labeled_labels_paths_low # + labeled_labels_paths_high
-    
-    # Load padding information
-    padding_info_low = pd.read_csv(r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv')
-    # padding_info_high = pd.read_csv('')
-    padding_info = padding_info_low
-    # padding_info = pd.concat([padding_info_low, padding_info_high], ignore_index=True)
-    
+def load_dataset(data_paths, mode='labeled'):
+    """Load dataset based on provided paths"""
+    if mode == 'labeled':
+        images = fb.get_image_names(data_paths['image_dir'], None, 'tif')
+        labels = fb.get_image_names(data_paths['label_dir'], None, 'tif')
+        padding_info = pd.read_csv(data_paths['padding_info'])
+        return images, labels, padding_info
+    else:
+        images = fb.get_image_names(data_paths['image_dir'], None, 'tif')
+        padding_info = pd.read_csv(data_paths['padding_info'])
+        return images, padding_info
+
+def load_and_preprocess_data():
+    params = get_parameters()
+    data_paths = get_data_paths()
+    labeled_data_paths, labeled_labels_paths = [], []
+    padding_info = pd.DataFrame()
+
+    # Load data based on resolution setting
+    resolutions = []
+    if params['data_resolution'] in ['low', 'both']:
+        resolutions.append('low')
+    if params['data_resolution'] in ['high', 'both']:
+        resolutions.append('high')
+
+    # Load labeled data for selected resolutions
+    for res in resolutions:
+        images, labels, res_padding_info = load_dataset(data_paths[res])
+        labeled_data_paths.extend(images)
+        labeled_labels_paths.extend(labels)
+        padding_info = pd.concat([padding_info, res_padding_info], ignore_index=True)
+
+    # Read all images at once
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
     labels = fb.read_images(labeled_labels_paths, 'gray', read_all=True)
-    
-    # Check mode and load unlabeled data only if in semi-supervised mode
-    params = get_parameters()
-    if params['mode'] == 'semi':
-        unlabeled_data_paths_low = fb.get_image_names(r'/mnt/version7/unlabel/image', None, 'tif')
-        unlabeled_data_paths_high = fb.get_image_names(r'/mnt/version6/unlabeled', None, 'tif')
-        unlabeled_data_paths = unlabeled_data_paths_low + unlabeled_data_paths_high
-        unlabeled_data = fb.read_images(unlabeled_data_paths, 'gray', read_all=True)
 
-        unlabeled_padding_info_low = pd.read_csv('/mnt/version6/unlabel_image_patches.csv')
-        unlabeled_padding_info_high = pd.read_csv('/mnt/version7/unlabel/image_patches.csv')
-        unlabeled_padding_info = pd.concat([unlabeled_padding_info_low, unlabeled_padding_info_high], ignore_index=True)
-    elif params['mode'] == 'supervised':
-        unlabeled_data = None
-        unlabeled_padding_info = None
-    else:
-        raise ValueError(f"Invalid mode: {params['mode']}")
-    
+    # Handle unlabeled data for semi-supervised mode
+    unlabeled_data = None
+    unlabeled_padding_info = None
+    if params['mode'] == 'semi':
+        unlabeled_images, unlabeled_padding_info = load_dataset(data_paths['unlabeled'], mode='unlabeled')
+        unlabeled_data = fb.read_images(unlabeled_images, 'gray', read_all=True)
+
     return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info

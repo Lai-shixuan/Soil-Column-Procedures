@@ -120,7 +120,8 @@ def prepare_data(my_parameters, transform_train, transform_val, geometric_transf
         unlabeled_loader = DataLoader(
             unlabeled_dataset, 
             batch_size=my_parameters['unlabel_batch_size'], 
-            shuffle=True
+            shuffle=True,
+            drop_last=True
         )
         unlabeled_iter = iter(unlabeled_loader)
         print(f'len of unlabeled_data: {len(unlabeled_data)}')
@@ -171,9 +172,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
     model.train()
 
     # Initialize loss variables
-    train_loss = 0.0
+    supervised_total = 0.0
+    soft_dice_total = 0.0
     if my_parameters['mode'] == 'semi':
-        consistency_loss = 0.0
+        consistency_loss_total = 0.0
 
     for batch_idx, (images, labels, masks) in enumerate(tqdm(train_loader)):
         images = images.to(device)
@@ -210,10 +212,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         scaler.step(optimizer)
         scaler.update()
 
-        train_loss += supervised_loss.item() * images.size(0)
-        soft_dice = soft_dice.item() * images.size(0)
+        supervised_total += supervised_loss.item()
+        soft_dice_total += soft_dice.item()
         if my_parameters['mode'] == 'semi':
-            consistency_loss += cons_loss.item() * unlabeled_images.size(0)
+            consistency_loss_total += cons_loss.item()
 
         # In the first iteration, print some information
         if proceed_once:
@@ -227,10 +229,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             print('')
 
     # For each epoch, divide the total loss by the number of samples
-    train_loss_mean = train_loss / (len(train_loader) * train_loader.batch_size)
-    soft_dice_mean = soft_dice / (len(train_loader) * train_loader.batch_size)
+    train_loss_mean = supervised_total / len(train_loader)
+    soft_dice_mean = soft_dice_total / len(train_loader)
     if my_parameters['mode'] == 'semi':
-        consistency_loss_mean = consistency_loss / (len(train_loader) * unlabeled_loader.batch_size)
+        consistency_loss_mean = consistency_loss_total / len(train_loader)
         total_loss_mean = train_loss_mean + consistency_loss_mean
     else:
         total_loss_mean = train_loss_mean
@@ -256,9 +258,9 @@ def validate(model, device, val_loader, criterion):
 
             loss, _ = criterion(outputs, labels, masks)
             
-            val_loss += loss.item() * images.size(0)
+            val_loss += loss.item()
 
-    val_loss_mean = val_loss / len(val_loader.dataset)
+    val_loss_mean = val_loss / len(val_loader)
     return val_loss_mean
 
 def calculate_update(
