@@ -16,7 +16,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters():
     config_dict = {
         # Title and seed
-        'wandb': '2-3.Semi-mean-teachers-update-weights0.2',
+        'wandb': '2-4.Semi-mean-teachers-labeled-consistencyloss',
         'seed': 3407,
 
         # Data related parameters
@@ -48,7 +48,7 @@ def get_parameters():
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 800,
-        'patience': 100,
+        'patience': 75,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't

@@ -138,41 +138,62 @@ def prepare_data(my_parameters, transform_train, transform_val, geometric_transf
 # ------------------- Consistency Loss -------------------
 
 # Helper functions for semi-supervised mode
-def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader, geometric_transform):
+def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
     """Fetches a batch from the unlabeled data loader. If the iterator is exhausted, it resets the iterator and changes the transform to geometric."""
     try:
-        batch = next(unlabeled_iter)
+        batch, mask = next(unlabeled_iter)
     except StopIteration:
         unlabeled_iter = iter(unlabeled_loader)
-        batch = next(unlabeled_iter)
-    return batch, unlabeled_iter
+        batch, mask = next(unlabeled_iter)
+    return batch, mask, unlabeled_iter
 
 def update_teacher_model(teacher_model, student_model, alpha=0.99):
     """Update teacher model by exponential moving average of student weights."""
     for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
         t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
 
-def compute_consistency_loss(student_model, teacher_model, device, non_geometric_transform, unlabeled_images, epoch, my_parameters, criterion):
+def compute_consistency_loss(student_model, teacher_model, device, non_geometric_transform,
+                            labeled_images, unlabeled_images, labeled_masks, unlabeled_masks,
+                            epoch, my_parameters, criterion):
     rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
     weight = my_parameters['consistency_weight'] * rampup
 
     with torch.no_grad():
-        teacher_pred = torch.sigmoid(teacher_model(unlabeled_images))  # teacher's mask
+        teacher_pred_unlabeled = torch.sigmoid(teacher_model(unlabeled_images))  # teacher's mask
+        teacher_pred_labeled = torch.sigmoid(teacher_model(labeled_images))  # teacher's mask
 
-    non_geometric_batch = []
+    teacher_pred_labeled = teacher_pred_labeled.squeeze(1)
+    teacher_pred_unlabeled = teacher_pred_unlabeled.squeeze(1)
+
+    # Unlabeled images
+    non_geometric_batch_un = []
     for img in unlabeled_images:
         # Convert tensor to numpy array in the correct format (H,W,C)
         img_np = img.cpu().permute(1, 2, 0).numpy()
         # Apply non-geometric transforms
         non_geometric = non_geometric_transform(image=img_np)['image']
         # Convert back to the correct format (C,H,W)
-        non_geometric_batch.append(non_geometric)
+        non_geometric_batch_un.append(non_geometric)
     
-    augmented_images = torch.stack(non_geometric_batch).to(device)
+    augmented_images = torch.stack(non_geometric_batch_un).to(device)
+    student_pred_unlabeled = student_model(augmented_images).squeeze(1)
+    cons_loss_un, _ = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
+
+    # Labeled images
+    non_geometric_batch_labeled = []
+    for img in labeled_images:
+        # Convert tensor to numpy array in the correct format (H,W,C)
+        img_np = img.cpu().permute(1, 2, 0).numpy()
+        # Apply non-geometric transforms
+        non_geometric = non_geometric_transform(image=img_np)['image']
+        # Convert back to the correct format (C,H,W)
+        non_geometric_batch_labeled.append(non_geometric)
     
-    student_pred = student_model(augmented_images)
-    cons_loss, _ = criterion(student_pred, teacher_pred)
-    return weight * cons_loss
+    augmented_label_images = torch.stack(non_geometric_batch_labeled).to(device)
+    student_pred_labeled = student_model(augmented_label_images).squeeze(1)
+    cons_loss_labeled, _ = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
+
+    return weight * (cons_loss_un + cons_loss_labeled)
 
 # ------------------- Epoch -------------------
 
@@ -185,31 +206,30 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
     if my_parameters['mode'] == 'semi':
         consistency_loss_total = 0.0
 
-    for batch_idx, (images, labels, masks) in enumerate(tqdm(train_loader)):
+    for images, labels, masks in tqdm(train_loader):
         images = images.to(device)
         labels = labels.to(device)
         masks = masks.to(device)
 
         if my_parameters['mode'] == 'semi':
-            unlabeled_images, unlabeled_iter = fetch_unlabeled_batch(
-                unlabeled_iter, unlabeled_loader, non_geometric_transform
-            )
+            unlabeled_images, unlabeled_masks, unlabeled_iter = fetch_unlabeled_batch(
+                unlabeled_iter, unlabeled_loader)
             unlabeled_images = unlabeled_images.to(device)
+            unlabeled_masks = unlabeled_masks.to(device)
 
         with autocast(device_type='cuda'):
             outputs = model(images)
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
             
-            if masks.dim() == 4 and masks.size(1) == 1:
-                masks = masks.squeeze(1)
-            
             supervised_loss, soft_dice = criterion(outputs, labels, masks)
 
             if my_parameters['mode'] == 'semi':
                 cons_loss = compute_consistency_loss(
                     model, teacher_model, device, non_geometric_transform,
-                    unlabeled_images, epoch, my_parameters, criterion
+                    images, unlabeled_images,
+                    masks, unlabeled_masks,
+                    epoch, my_parameters, criterion
                 )
                 total_loss = (1 - my_parameters['consistency_weight']) * supervised_loss + cons_loss
             else:
@@ -265,9 +285,7 @@ def validate(model, device, val_loader, criterion):
             outputs = model(images)
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
-            if masks.dim() == 4 and masks.size(1) == 1:
-                masks = masks.squeeze(1)                
-
+            
             loss, _ = criterion(outputs, labels, masks)
             
             val_loss += loss.item()

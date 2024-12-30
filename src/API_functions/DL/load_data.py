@@ -48,24 +48,22 @@ class my_Dataset(Dataset):
         
         if self.use_transform:
             if self.is_unlabeled:
-                # Transform only image for unlabeled data
-                augmented = self.transform(image=img)
+                augmented = self.transform(image=img, mask=mask)    # Only geometric transformation
                 img = augmented['image']
                 img = np.expand_dims(img, axis=0)   # Add channel dimension
-                return img
+                mask = augmented['mask']
+                return img, mask
             else:
-                # Transform both image and mask for labeled data
-                augmented = self.transform(image=img, mask=label)
+                augmented = self.transform(image=img, masks=[label, mask])
                 img = augmented['image']
-                label = augmented['mask']
+                label = augmented['masks'][0]
+                mask = augmented['masks'][1]
                 
-                transformed_mask = self.transform(image=mask)
-                mask = transformed_mask['image']
                 return img, label, mask
         else:
             if self.is_unlabeled:
                 img = np.expand_dims(img, axis=0)
-                return img
+                return img, mask
             else:
                 return img, label, mask
 
