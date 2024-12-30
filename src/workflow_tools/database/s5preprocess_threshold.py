@@ -12,7 +12,9 @@ from src.API_functions.Soils import pre_process
 from src.API_functions.Soils import threshold_position_independent as tmi
 
 
-def batch_process_images(path_in, path_out, process_function, file_pattern: str=None, extension: str='tif', pattern_include: bool=False):
+def batch_process_images(path_in, path_out, process_function,
+                        original_suffix: str, new_suffix: str, file_pattern: str=None,
+                        extension: str='tif', pattern_include: bool=False):
     """
     Batch process images with a sequence of processing steps
     """
@@ -28,17 +30,28 @@ def batch_process_images(path_in, path_out, process_function, file_pattern: str=
 
     path_out.mkdir(parents=True, exist_ok=True)
 
-    csv_path = path_out / "threshold_offsets.csv"
-    with open(csv_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["filename", "offset"])
-        for image_path in tqdm(image_lists):
-            image = cv.imread(str(image_path), cv.IMREAD_UNCHANGED)
-            processed_image, offset = process_function(image)
+    for image_path in tqdm(image_lists):
+        image = cv.imread(str(image_path), cv.IMREAD_UNCHANGED)
+        processed_image = process_function(image)
 
-            output_path = path_out / Path(image_path).name.replace('harmonized', 'preprocessed')
-            cv.imwrite(str(output_path), processed_image)
-            writer.writerow([Path(image_path).name, offset])
+        output_path = path_out / Path(image_path).name.replace(original_suffix, new_suffix)
+        cv.imwrite(str(output_path), processed_image)
+
+    offset = False
+
+    # Todo: using offset in main function configuration
+    if offset:
+        csv_path = path_out / "threshold_offsets.csv"
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["filename", "offset"])
+            for image_path in tqdm(image_lists):
+                image = cv.imread(str(image_path), cv.IMREAD_UNCHANGED)
+                processed_image, offset = process_function(image)
+
+                output_path = path_out / Path(image_path).name.replace(original_suffix, new_suffix)
+                cv.imwrite(str(output_path), processed_image)
+                writer.writerow([Path(image_path).name, offset])
 
 
 def evaluate_threshold_offset(image, threshold):
@@ -62,27 +75,28 @@ def evaluate_threshold_offset(image, threshold):
 if __name__ == "__main__":
 
     def process_pipeline(image):
+        """User defined processing pipeline"""
         # image = pre_process.reduce_gaussian_noise(image, strength=1, use_gaussian=True)
 
         # image = pre_process.bm3d_denoising(image, sigma_psd=0.5)
 
-        # image = pre_process.median(image, 5)
-        # image = pre_process.reduce_poisson_noise(image, strength=3)
-        # image = pre_process.clahe_float32(image)
-        # image = image - np.mean(image)
+        image = pre_process.median(image, 5)
+        image = pre_process.reduce_poisson_noise(image, strength=3)
+        image = pre_process.clahe_float32(image)
+        image = image - np.mean(image)
 
         # image = pre_process.median(image, 5)
-        image2 = image.copy()
-        _, threshold = tmi.kmeans_3d(image2, return_threshold=True)
-        offset = evaluate_threshold_offset(image2, threshold)
-        image = tmi.user_threshold(image, threshold - offset)
-        image = 1 - image
+        # image2 = image.copy()
+        # _, threshold = tmi.kmeans_3d(image2, return_threshold=True)
+        # offset = evaluate_threshold_offset(image2, threshold)
+        # image = tmi.user_threshold(image, threshold - offset)
+        # image = 1 - image
 
-        return image, offset
+        return image 
 
-    path_in = Path(r'g:\DL_Data_raw\version7-large-lowRH\5.Preprocessed')
-    path_out = Path(r'g:\DL_Data_raw\version7-large-lowRH\4.Converted\label')
-    extension = 'tif'
+    path_in = Path(r'g:\DL_Data_raw\version8-low-precise\3.Harmonized\image')
+    path_out = Path(r'g:\DL_Data_raw\version8-low-precise\5.Preprocessed')
+    read_img_extension = 'tif'
     
     batch_process_images(
         path_in=path_in,
@@ -93,5 +107,8 @@ if __name__ == "__main__":
         file_pattern=None,
         pattern_include=True,
 
-        extension=extension
+        # Name replaces
+        extension=read_img_extension,
+        original_suffix='harmonized',
+        new_suffix='preprocessed'
     )
