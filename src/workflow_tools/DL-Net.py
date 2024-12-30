@@ -7,16 +7,16 @@ import os
 import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
-# os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
 from typing import List
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
-from src.API_functions.DL import load_data, log, seed
+from src.API_functions.DL import load_data, log, seed, evaluate
 from src.workflow_tools import dl_config
 from src.workflow_tools.cvat_noisy import cvat_nosiy
 
@@ -31,6 +31,7 @@ def setup_environment(my_parameters):
     mylogger = log.DataLogger('wandb')
 
     seed.stablize_seed(my_parameters['seed'])
+    torch.use_deterministic_algorithms(False)    # to ensure reproducibility
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
     model = dl_config.setup_model()
@@ -41,13 +42,16 @@ def setup_environment(my_parameters):
 
     # Create teacher model
     teacher_model = dl_config.setup_model()
+    if my_parameters['compile']:
+        teacher_model = torch.compile(teacher_model)
     teacher_model.load_state_dict(model.state_dict())
+
     teacher_model.to(device)
     teacher_model.eval()
     for param in teacher_model.parameters():
         param.requires_grad = False
 
-    optimizer, scheduler, criterion = dl_config.setup_training(
+    optimizer, scheduler, criterion, mse_criterion = dl_config.setup_training(
         model,
         my_parameters['learning_rate'],
         my_parameters['scheduler_factor'],
@@ -64,7 +68,7 @@ def setup_environment(my_parameters):
         name=my_parameters['wandb'],
         config=my_parameters,
     )
-    return model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
+    return model, teacher_model, device, optimizer, scheduler, criterion, mse_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
 
 # ------------------- Signal Handling -------------------
 
@@ -137,6 +141,19 @@ def prepare_data(my_parameters, transform_train, transform_val, geometric_transf
 
 # ------------------- Consistency Loss -------------------
 
+def deal_with_nan(epoch, model_output):
+    """Deal with NaN values in model output."""
+    if torch.isnan(model_output).any():
+    
+        model_output_no_nan = torch.nan_to_num(model_output, nan=0.0)
+        mean_value = model_output_no_nan.mean()
+        model_output = torch.where(torch.isnan(model_output), mean_value, model_output)
+
+        nan_count = torch.sum(torch.isnan(model_output))
+        print(f"In {epoch}, Warning: {nan_count} NaN values in model_output.")
+
+    return model_output
+
 # Helper functions for semi-supervised mode
 def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
     """Fetches a batch from the unlabeled data loader. If the iterator is exhausted, it resets the iterator and changes the transform to geometric."""
@@ -159,8 +176,13 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     weight = my_parameters['consistency_weight'] * rampup
 
     with torch.no_grad():
-        teacher_pred_unlabeled = torch.sigmoid(teacher_model(unlabeled_images))  # teacher's mask
-        teacher_pred_labeled = torch.sigmoid(teacher_model(labeled_images))  # teacher's mask
+        output_unlabeled = teacher_model(unlabeled_images)
+        output_labeled = teacher_model(labeled_images)
+
+    output_unlabeled = deal_with_nan(epoch, output_unlabeled)
+    teacher_pred_unlabeled = torch.sigmoid(output_unlabeled)
+    output_labeled = deal_with_nan(epoch, output_labeled)
+    teacher_pred_labeled = torch.sigmoid(output_labeled)
 
     teacher_pred_labeled = teacher_pred_labeled.squeeze(1)
     teacher_pred_unlabeled = teacher_pred_unlabeled.squeeze(1)
@@ -177,7 +199,7 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     
     augmented_images = torch.stack(non_geometric_batch_un).to(device)
     student_pred_unlabeled = student_model(augmented_images).squeeze(1)
-    cons_loss_un, _ = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
+    cons_loss_un = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
 
     # Labeled images
     non_geometric_batch_labeled = []
@@ -191,13 +213,13 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     
     augmented_label_images = torch.stack(non_geometric_batch_labeled).to(device)
     student_pred_labeled = student_model(augmented_label_images).squeeze(1)
-    cons_loss_labeled, _ = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
+    cons_loss_labeled = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
 
     return weight * (cons_loss_un + cons_loss_labeled)
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch, teacher_model):
+def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch, teacher_model):
     model.train()
 
     # Initialize loss variables
@@ -229,9 +251,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                     model, teacher_model, device, non_geometric_transform,
                     images, unlabeled_images,
                     masks, unlabeled_masks,
-                    epoch, my_parameters, criterion
+                    epoch, my_parameters, mse_criterion
                 )
-                total_loss = (1 - my_parameters['consistency_weight']) * supervised_loss + cons_loss
+                supervised_loss = (1 - my_parameters['consistency_weight']) * supervised_loss
+                total_loss = supervised_loss + cons_loss
             else:
                 total_loss = supervised_loss
 
@@ -361,7 +384,7 @@ def main():
         run_experiment(base_params)
 
 def run_experiment(my_parameters):
-    model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
+    model, teacher_model, device, optimizer, scheduler, criterion, mse_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
     register_signals()
 
     train_dataset, val_dataset, train_loader, val_loader, unlabeled_loader, unlabeled_iter = prepare_data(my_parameters, transform_train, transform_val, geometric_transform)
@@ -381,7 +404,7 @@ def run_experiment(my_parameters):
 
             train_loss_mean, consistency_loss_mean, total_loss_mean, soft_dice_mean = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
-                unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch,
+                unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model
             )
             proceed_once = False

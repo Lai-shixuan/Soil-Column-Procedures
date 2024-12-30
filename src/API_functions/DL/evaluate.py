@@ -26,6 +26,22 @@ class DiceBCELoss(nn.Module):
         return bce * 0.2 + dice * 0.8, 1 - dice
 
 
+class MaskedMSELoss(nn.Module):
+    def __init__(self):
+        super(MaskedMSELoss, self).__init__()
+        self.mse = nn.MSELoss(reduction='none')
+        
+    def forward(self, pred, target, mask=None):
+        if mask is None:
+            mask = torch.ones_like(target)
+        
+        # Calculate MSE with mask (removed sigmoid)
+        mse = self.mse(pred, target)
+        masked_mse = (mse * mask).sum() / mask.sum()
+        
+        return masked_mse
+
+
 def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, mask: torch.Tensor = None, smooth=1e-6) -> torch.Tensor:
     """
     Calculate the soft Dice coefficient. The inputs are PyTorch tensors.

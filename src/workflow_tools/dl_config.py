@@ -1,5 +1,6 @@
 import sys
 import torch
+import os
 import albumentations as A
 import segmentation_models_pytorch as smp
 import pandas as pd
@@ -16,7 +17,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters():
     config_dict = {
         # Title and seed
-        'wandb': '2-4.Semi-mean-teachers-labeled-consistencyloss',
+        'wandb': '5.7 unet++eff-b0-mse0.5',
         'seed': 3407,
 
         # Data related parameters
@@ -26,15 +27,15 @@ def get_parameters():
         'Kfold': None,
 
         # Model related parameters
-        'model': 'U-Net',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b2',
+        'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        'encoder': 'efficientnet-b0',
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic',
 
         # Learning related parameters
-        'learning_rate': 5e-4,
+        'learning_rate': 1e-4,
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 20,
         'scheduler_factor': 0.5,
@@ -43,16 +44,16 @@ def get_parameters():
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 16,
-        'consistency_weight': 0.2,
-        'consistency_rampup': 20,
+        'consistency_weight': 0.5,
+        'consistency_rampup': 30,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 800,
+        'n_epochs': 400,
         'patience': 75,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
-        'compile': False,
+        'compile': True,
 
         # Try to update labels, failed before
         'update': False
@@ -63,9 +64,9 @@ def get_parameters():
 
 def get_debug_param_sets():
     return [
-        {**get_parameters(), 'learning_rate': 1e-5, 'wandb': 'debug_lr_1e-5'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': 'debug_lr_1e-4'},
-        {**get_parameters(), 'learning_rate': 5e-5, 'wandb': 'debug_lr_5e-5'},
+        {**get_parameters(), 'learning_rate': 3e-5, 'wandb': '4-4-v3_lr_3e-5'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '4-5-v3_lr_1e-4'},
+        {**get_parameters(), 'learning_rate': 6e-5, 'wandb': '4-6-v3_lr_6e-5'},
     ]
 
 def get_transforms(seed_value):
@@ -104,7 +105,7 @@ def get_transforms(seed_value):
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model():
-    model = smp.Unet(
+    model = smp.UnetPlusPlus(
         encoder_name=get_parameters()['encoder'],
         encoder_weights="imagenet",
         in_channels=1,
@@ -128,15 +129,19 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
         min_lr=scheduler_min_lr
     )
     criterion = evaluate.DiceBCELoss()
-    return optimizer, scheduler, criterion
+    mse_criterion = evaluate.MaskedMSELoss()
+    return optimizer, scheduler, criterion, mse_criterion
 
 def get_data_paths():
     """Define all data paths in a central location"""
     return {
         'low': {
-            'image_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image',
-            'label_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label',
-            'padding_info': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv',
+            # 'image_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image',
+            # 'label_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label',
+            # 'padding_info': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv',
+            'image_dir': r'/mnt/version8/image',
+            'label_dir': r'/mnt/version8/label',
+            'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image',
@@ -144,8 +149,10 @@ def get_data_paths():
             'padding_info': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv',
         },
         'unlabeled': {
-            'image_dir': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image',
-            'padding_info': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv',
+            # 'image_dir': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image',
+            # 'padding_info': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv',
+            'image_dir': r'/mnt/version7/unlabel/image',
+            'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
         }
     }
 
@@ -155,9 +162,11 @@ def get_image_output_paths() -> Tuple[Path, Path]:
     val_sample = Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val')
     
     if not train_sample.exists():
-        train_sample.mkdir(parents=True, exist_ok=True)
+        if sys.platform == 'win64':
+            train_sample.mkdir(parents=True, exist_ok=True)
     if not val_sample.exists():
-        val_sample.mkdir(parents=True, exist_ok=True)
+        if sys.platform == 'win64':
+            val_sample.mkdir(parents=True, exist_ok=True)
 
     return train_sample, val_sample
 
