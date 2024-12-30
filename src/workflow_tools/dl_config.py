@@ -15,26 +15,23 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters():
     config_dict = {
         'seed': 3407,
-
         'Kfold': None,
         'ratio': 0.20,
-        'n_epochs': 1000,
-        'patience': 20,
 
-        'model': 'DeepLabv3+',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b2',
+        'model': 'UPerNet',       # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        'encoder': 'efficientnet-b0',
         'optimizer': 'adam',   # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,   # weight_decay = 0.01
         'learning_rate': 5e-4,
         'loss_function': 'cross_entropy',
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 10,
+        'scheduler_patience': 20,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
-        'label_batch_size': 4,
+        'label_batch_size': 8,
 
-        'wandb': '71.precise_annotation_v3+_lr5e-4',
+        'wandb': '73.Large_batch_efficientnet-b0',
 
         # Add semi-supervised parameters
         'unlabel_batch_size': 8,
@@ -47,7 +44,12 @@ def get_parameters():
         # Address to store updated labels
         'update': False,
         'train_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/train'),
-        'val_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val')
+        'val_sample': Path('/root/Soil-Column-Procedures/data/noisy_reduction/1228-1/val'),
+
+        # Batch debug mode and with earyly stopping
+        'n_epochs': 800,
+        'patience': 100,
+        'batch_debug': False
     }
 
     if not config_dict['train_sample'].exists():
@@ -56,6 +58,13 @@ def get_parameters():
         config_dict['val_sample'].mkdir(parents=True, exist_ok=True)
 
     return config_dict
+
+def get_debug_param_sets():
+    return [
+        {**get_parameters(), 'learning_rate': 1e-5, 'wandb': 'debug_lr_1e-5'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': 'debug_lr_1e-4'},
+        {**get_parameters(), 'learning_rate': 5e-5, 'wandb': 'debug_lr_5e-5'},
+    ]
 
 def get_transforms(seed_value):
     # Geometric transforms that affect structure
@@ -93,12 +102,12 @@ def get_transforms(seed_value):
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model():
-    model = smp.DeepLabV3Plus(
-        encoder_name="efficientnet-b2",
-        encoder_weights="imagenet",
-        in_channels=1,
-        classes=1,
-    )
+    # model = smp.DeepLabV3Plus(
+    #     encoder_name="efficientnet-b2",
+    #     encoder_weights="imagenet",
+    #     in_channels=1,
+    #     classes=1,
+    # )
     # model = smp.Unet(
     #     encoder_name="efficientnet-b2",        # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
     #     encoder_weights="imagenet",     # use `imagenet` pre-trained weights for encoder initialization
@@ -113,12 +122,12 @@ def setup_model():
     #     classes=1,
     # )
 
-    # model = smp.UPerNet(
-    #     encoder_name="efficientnet-b0",
-    #     encoder_weights="imagenet",
-    #     in_channels=1,
-    #     classes=1,
-    # )
+    model = smp.UPerNet(
+        encoder_name=get_parameters()['encoder'],
+        encoder_weights="imagenet",
+        in_channels=1,
+        classes=1,
+    )
 
     # model = smp.UnetPlusPlus(
     #     encoder_name="efficientnet-b0",

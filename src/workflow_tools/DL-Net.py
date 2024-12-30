@@ -105,8 +105,8 @@ def prepare_data(my_parameters, transform_train, transform_val, geometric_transf
     val_dataset = load_data.my_Dataset(val_data, val_labels, val_padding_info, transform=transform_val)
 
     # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False, drop_last=True)
+    train_loader = DataLoader(train_dataset, batch_size=my_parameters['label_batch_size'], shuffle=True, drop_last=False)
+    val_loader = DataLoader(val_dataset, batch_size=my_parameters['label_batch_size'], shuffle=False, drop_last=False)
 
     print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}')
 
@@ -225,7 +225,6 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             if my_parameters['mode'] == 'semi':
                 print(f"consistency loss: {cons_loss.item()}, weight: {my_parameters['consistency_weight'] * np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)}")
             print('')
-            proceed_once = False
 
     # For each epoch, divide the total loss by the number of samples
     train_loss_mean = train_loss / (len(train_loader) * train_loader.batch_size)
@@ -318,17 +317,26 @@ def calculate_update(
     return update_status
 
 def main():
-    my_parameters = dl_config.get_parameters()
-    seed.stablize_seed(my_parameters['seed'])
+    base_params = dl_config.get_parameters()
+    seed.stablize_seed(base_params['seed'])
+    if base_params['batch_debug']:
+        debug_sets = dl_config.get_debug_param_sets()
+        for debug_params in debug_sets:
+            print(f"\nRunning with params: {debug_params}")
+            run_experiment(debug_params)
+    else:
+        run_experiment(base_params)
+
+def run_experiment(my_parameters):
     model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
     register_signals()
 
     train_dataset, val_dataset, train_loader, val_loader, unlabeled_loader, unlabeled_iter = prepare_data(my_parameters, transform_train, transform_val, geometric_transform)
 
     val_loss_best = float('inf')
-    proceed_once = True     # TODO:
+    no_improvement_count = 0
+    proceed_once = True
     soft_dice_list: List[float] = []
-
 
     try:
         for epoch in range(my_parameters['n_epochs']):
@@ -342,6 +350,7 @@ def main():
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, non_geometric_transform, criterion, optimizer, scaler, proceed_once, epoch
             )
+            proceed_once = False
             soft_dice_list.append(soft_dice_mean)
 
             # ------------------- Validation -------------------
@@ -385,8 +394,14 @@ def main():
 
             if val_loss_mean < val_loss_best:
                 val_loss_best = val_loss_mean
+                no_improvement_count = 0
                 torch.save(model.state_dict(), f"src/workflow_tools/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth")
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
+            else:
+                no_improvement_count += 1
+                if no_improvement_count >= my_parameters['patience']:
+                    print(f"No improvement for {my_parameters['patience']} epochs, stopping early.")
+                    break
 
     except Exception as e:
         print(f"An error occurred: {e}")
