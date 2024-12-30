@@ -17,7 +17,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters():
     config_dict = {
         # Title and seed
-        'wandb': '5.7 unet++eff-b0-mse0.5',
+        'wandb': '5.15 unet++repeate5.4',
         'seed': 3407,
 
         # Data related parameters
@@ -28,14 +28,14 @@ def get_parameters():
 
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b0',
+        'encoder': 'efficientnet-b0',   # mobileone_s0
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic',
 
         # Learning related parameters
-        'learning_rate': 1e-4,
+        'learning_rate': 12e-5,
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 20,
         'scheduler_factor': 0.5,
@@ -43,9 +43,9 @@ def get_parameters():
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
-        'unlabel_batch_size': 16,
-        'consistency_weight': 0.5,
-        'consistency_rampup': 30,
+        'unlabel_batch_size': 24,
+        'consistency_weight': 0.3,
+        'consistency_rampup': 20,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 400,

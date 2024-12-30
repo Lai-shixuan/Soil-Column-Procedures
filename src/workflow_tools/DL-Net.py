@@ -199,7 +199,7 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     
     augmented_images = torch.stack(non_geometric_batch_un).to(device)
     student_pred_unlabeled = student_model(augmented_images).squeeze(1)
-    cons_loss_un = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
+    cons_loss_un, _ = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
 
     # Labeled images
     non_geometric_batch_labeled = []
@@ -213,9 +213,12 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     
     augmented_label_images = torch.stack(non_geometric_batch_labeled).to(device)
     student_pred_labeled = student_model(augmented_label_images).squeeze(1)
-    cons_loss_labeled = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
+    cons_loss_labeled, _ = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
 
-    return weight * (cons_loss_un + cons_loss_labeled)
+    un_weight = my_parameters['unlabel_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
+    labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
+
+    return weight * (cons_loss_un * un_weight + cons_loss_labeled * labeled_weight)
 
 # ------------------- Epoch -------------------
 
@@ -251,7 +254,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                     model, teacher_model, device, non_geometric_transform,
                     images, unlabeled_images,
                     masks, unlabeled_masks,
-                    epoch, my_parameters, mse_criterion
+                    epoch, my_parameters, criterion
                 )
                 supervised_loss = (1 - my_parameters['consistency_weight']) * supervised_loss
                 total_loss = supervised_loss + cons_loss
@@ -281,7 +284,6 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             print(f'count of label 0: {(labels == 0).sum()}, count of label 1:{(labels == 1).sum()}')
             if my_parameters['mode'] == 'semi':
                 print(f"consistency loss: {cons_loss.item()}, weight: {my_parameters['consistency_weight'] * np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)}")
-            print('')
 
     # For each epoch, divide the total loss by the number of samples
     train_loss_mean = supervised_total / len(train_loader)
@@ -397,7 +399,6 @@ def run_experiment(my_parameters):
     try:
         for epoch in range(my_parameters['n_epochs']):
 
-            print('')
             print(f"Epoch {epoch} of {my_parameters['n_epochs']}")
 
             # ------------------- Training -------------------
