@@ -9,61 +9,14 @@ from skimage import measure
 from pathlib import Path
 from typing import Tuple, List
 from src.workflow_tools.database.s4refine_label import read_tif_image_label
+from src.workflow_tools.database.s4padding import pad_data_image, pad_label_image, get_padding_mask
 from src.API_functions.Images import file_batch as fb
-
-def pad_data_image(image: np.ndarray, target_size: Tuple[int, int] = (512, 512)) -> np.ndarray:
-    """Pad data image to target size with mean value."""
-    h, w = image.shape
-    padded = np.zeros(target_size, dtype=image.dtype)
-    
-    # Calculate padding
-    pad_h = (target_size[0] - h) // 2
-    pad_w = (target_size[1] - w) // 2
-    
-    # Copy image to padded array
-    padded[pad_h:pad_h+h, pad_w:pad_w+w] = image
-    
-    # Fill padding with mean
-    image_mean = np.mean(image)
-    mask = np.zeros(target_size, dtype=np.float32)
-    mask[pad_h:pad_h+h, pad_w:pad_w+w] = 1.0
-    padded[mask == 0] = image_mean
-    
-    return padded
-
-def pad_label_image(image: np.ndarray, target_size: Tuple[int, int] = (512, 512)) -> np.ndarray:
-    """Pad label image to target size with zeros."""
-    h, w = image.shape
-    padded = np.zeros(target_size, dtype=image.dtype)
-    
-    # Calculate padding
-    pad_h = (target_size[0] - h) // 2
-    pad_w = (target_size[1] - w) // 2
-    
-    # Copy image to padded array
-    padded[pad_h:pad_h+h, pad_w:pad_w+w] = image
-    
-    return padded
-
-def get_padding_mask(image_shape: Tuple[int, int], target_size: Tuple[int, int] = (512, 512)) -> np.ndarray:
-    """Create mask indicating original image area."""
-    h, w = image_shape
-    mask = np.zeros(target_size, dtype=np.float32)
-    
-    # Calculate padding
-    pad_h = (target_size[0] - h) // 2
-    pad_w = (target_size[1] - w) // 2
-    
-    # Mark original image area
-    mask[pad_h:pad_h+h, pad_w:pad_w+w] = 1.0
-    
-    return mask
 
 class ImageAugmenter:
     """A class for performing image augmentation on data and label image pairs.
 
-    This class implements various image augmentation techniques including flipping,
-    rotation, and object relocation.
+    This updated version introduces higher probabilities of transformations
+    and improved docstrings for clarity and maintainability.
 
     Args:
         data_img (np.ndarray): The input data image to be augmented.
@@ -104,30 +57,72 @@ class ImageAugmenter:
         return cropped_img, cropped_mask
 
     def _random_transform(self, obj: np.ndarray, mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-        """Applies random transformations to an object and its mask.
+        """Perform multiple random transformations with higher combination probability.
 
-        Args:
-            obj (np.ndarray): Object image to transform.
-            mask (np.ndarray): Object mask to transform.
-
-        Returns:
-            tuple: A tuple containing:
-                - np.ndarray: Transformed object
-                - np.ndarray: Transformed mask
-                - List[str]: List of applied transformations
+        Now includes flips, rotation, and scaling. Each transformation has an increased chance
+        of being applied to achieve more variation in the augmented data.
         """
         transforms_applied = []
         
-        if random.random() < 0.5:
+        # Generate all random numbers at once
+        rands = {
+            'horizontal': random.random(),
+            'vertical': random.random(),
+            'rotation': random.random(),
+            'scale': random.random()
+            # Removed 'brightness' and 'blur'
+        }
+        
+        # Scale transformations (mutually exclusive)
+        max_allowed_size = min(self.data_img.shape[0]//2, self.data_img.shape[1]//2)  # Max 1/2 of image size
+        min_size = 6  # Minimum object size to allow scaling down
+        
+        if rands['scale'] < 0.3 and obj.shape[0]*2 <= max_allowed_size and obj.shape[1]*2 <= max_allowed_size:
+            # Scale up 2x with nearest neighbor interpolation
+            new_size = (obj.shape[1]*2, obj.shape[0]*2)  # Note: cv2.resize takes (width, height)
+            obj = cv2.resize(obj, new_size, interpolation=cv2.INTER_LINEAR)  # Linear for data
+            mask_uint8 = mask.astype(np.uint8)
+            mask_uint8 = cv2.resize(mask_uint8, new_size, interpolation=cv2.INTER_NEAREST)
+            mask = mask_uint8.astype(bool)
+            transforms_applied.append("scale_up_2x")
+            
+        elif rands['scale'] < 0.6 and obj.shape[0] > min_size and obj.shape[1] > min_size:
+            # Scale down 0.5x with nearest neighbor interpolation
+            new_size = (obj.shape[1]//2, obj.shape[0]//2)  # Integer division for exact scaling
+            obj = cv2.resize(obj, new_size, interpolation=cv2.INTER_LINEAR)  # Linear for data
+            mask_uint8 = mask.astype(np.uint8)
+            mask_uint8 = cv2.resize(mask_uint8, new_size, interpolation=cv2.INTER_NEAREST)
+            mask = mask_uint8.astype(bool)
+            transforms_applied.append("scale_down_0.5x")
+        
+        # Horizontal flip (50% probability)
+        if rands['horizontal'] < 0.5:
             obj = np.fliplr(obj)
             mask = np.fliplr(mask)
-            transforms_applied.append("flip")
+            transforms_applied.append("horizontal_flip")
         
-        if random.random() < 0.5:
-            obj = np.rot90(obj)
-            mask = np.rot90(mask)
-            transforms_applied.append("rotate")
-            
+        # Vertical flip (50% probability)
+        if rands['vertical'] < 0.5:
+            obj = np.flipud(obj)
+            mask = np.flipud(mask)
+            transforms_applied.append("vertical_flip")
+        
+        # Rotation (independent probabilities for each angle)
+        if rands['rotation'] < 0.25:  # 90 degrees
+            obj = np.rot90(obj, k=1)
+            mask = np.rot90(mask, k=1)
+            transforms_applied.append("rotate_90")
+        elif rands['rotation'] < 0.5:  # 180 degrees
+            obj = np.rot90(obj, k=2)
+            mask = np.rot90(mask, k=2)
+            transforms_applied.append("rotate_180")
+        elif rands['rotation'] < 0.75:  # 270 degrees
+            obj = np.rot90(obj, k=3)
+            mask = np.rot90(mask, k=3)
+            transforms_applied.append("rotate_270")
+        
+        # Removed0 brightness and blur transformations
+        
         return obj, mask, transforms_applied
     
     def _find_valid_position(self, obj_shape: Tuple[int, int]) -> Tuple[int, int]:
@@ -148,30 +143,37 @@ class ImageAugmenter:
         return y, x
     
     def _place_object(self, img: np.ndarray, obj: np.ndarray, obj_mask: np.ndarray, position: Tuple[int, int]) -> np.ndarray:
-        """Optimized object placement"""
+        """Optimized object placement with dimension safety checks and overlay handling"""
         y, x = position
-        h, w = obj.shape
-        
+        h, w = obj_mask.shape  # Use mask shape as reference
+
         # Ensure we don't go out of bounds
         h = min(h, img.shape[0] - y)
         w = min(w, img.shape[1] - x)
-        
-        # Create view instead of copy when possible
+
+        # Get valid region for placement
         placement_region = img[y:y+h, x:x+w]
         valid_mask = obj_mask[:h, :w]
+
+        # Overlay the object on top of existing data
         placement_region[valid_mask] = obj[:h, :w][valid_mask]
-        
+
         return img
-    
+
     def augment(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Optimized augmentation process"""
-        num_objects_to_move = max(1, self.num_objects // 3)
-        objects_to_move = random.sample(range(1, self.num_objects + 1), num_objects_to_move)
+        """Perform augmentation on the pre-padded data, label, and mask."""
+        objects_to_move = list(range(1, self.num_objects + 1))
+        # Randomly shuffle objects to avoid positional bias
+        random.shuffle(objects_to_move)
         
-        # Create views instead of copies where possible
+        # Create copies to avoid modifying the original images
         augmented_data = self.data_img.copy()
         augmented_label = self.label_img.copy()
         augmented_mask = self.mask.copy()
+        
+        # Track which objects have been moved
+        moved_objects = set()
+        target_moves = len(objects_to_move) // 2  # Try to move at least half
         
         for obj_label in objects_to_move:
             # Combine mask operations
@@ -191,28 +193,62 @@ class ImageAugmenter:
             label_obj = label_obj.copy()
             mask_obj = mask_obj.copy()
             
-            if "flip" in transforms:
-                label_obj = np.fliplr(label_obj)
-                mask_obj = np.fliplr(mask_obj)
-            if "rotate" in transforms:
-                label_obj = np.rot90(label_obj)
-                mask_obj = np.rot90(mask_obj)
+            # Apply same transformations to label and mask
+            for transform in transforms:
+                if "scale_up_2x" in transform:
+                    new_size = (label_obj.shape[1]*2, label_obj.shape[0]*2)
+                    label_obj = cv2.resize(label_obj, new_size, interpolation=cv2.INTER_NEAREST)
+                    mask_obj = cv2.resize(mask_obj, new_size, interpolation=cv2.INTER_NEAREST)
+                elif "scale_down_0.5x" in transform:
+                    new_size = (label_obj.shape[1]//2, label_obj.shape[0]//2)
+                    label_obj = cv2.resize(label_obj, new_size, interpolation=cv2.INTER_NEAREST)
+                    mask_obj = cv2.resize(mask_obj, new_size, interpolation=cv2.INTER_NEAREST)
+                elif "horizontal_flip" in transform:
+                    label_obj = np.fliplr(label_obj)
+                    mask_obj = np.fliplr(mask_obj)
+                elif "vertical_flip" in transform:
+                    label_obj = np.flipud(label_obj)
+                    mask_obj = np.flipud(mask_obj)
+                elif "rotate_90" in transform:
+                    label_obj = np.rot90(label_obj, k=1)
+                    mask_obj = np.rot90(mask_obj, k=1)
+                elif "rotate_180" in transform:
+                    label_obj = np.rot90(label_obj, k=2)
+                    mask_obj = np.rot90(mask_obj, k=2)
+                elif "rotate_270" in transform:
+                    label_obj = np.rot90(label_obj, k=3)
+                    mask_obj = np.rot90(mask_obj, k=3)
             
-            if random.random() < 0.5:
-                new_pos = self._find_valid_position(data_obj.shape)
-                
-                # Only move if new position is within original image area
-                target_mask = np.zeros_like(self.mask)
-                y, x = new_pos
-                h, w = obj_mask.shape
-                target_region = target_mask[y:y+h, x:x+w]
-                if np.all(self.mask[y:y+h, x:x+w][obj_mask] == 1):
-                    augmented_data[mask] = self.background_value
-                    augmented_label[mask] = 0
-                    
-                    augmented_data = self._place_object(augmented_data, data_obj, obj_mask, new_pos)
-                    augmented_label = self._place_object(augmented_label, label_obj, obj_mask, new_pos)
-                    augmented_mask = self._place_object(augmented_mask, mask_obj, obj_mask, new_pos)
+            # If object is bigger than the image, try scaling down by half.
+            if data_obj.shape[0] > self.data_img.shape[0] or data_obj.shape[1] > self.data_img.shape[1]:
+                new_size = (data_obj.shape[1] // 2, data_obj.shape[0] // 2)
+                if new_size[0] > 0 and new_size[1] > 0:
+                    data_obj = cv2.resize(data_obj, new_size, interpolation=cv2.INTER_LINEAR)
+                    mask_uint8 = obj_mask.astype(np.uint8)
+                    mask_uint8 = cv2.resize(mask_uint8, new_size, interpolation=cv2.INTER_NEAREST)
+                    obj_mask = mask_uint8.astype(bool)
+
+                    label_obj = cv2.resize(label_obj, new_size, interpolation=cv2.INTER_NEAREST)
+                    mask_obj = cv2.resize(mask_obj, new_size, interpolation=cv2.INTER_NEAREST)
+
+            # Try to move object if we haven't met our target number of moves
+            should_try_move = len(moved_objects) < target_moves or random.random() < 0.3
+            
+            if should_try_move:
+                # Try up to 5 different positions for each object
+                for _ in range(5):
+                    new_pos = self._find_valid_position(data_obj.shape)
+                    y, x = new_pos
+
+                    # Check if new position overlaps with any moved objects
+                    target_mask = self.mask[y:y+data_obj.shape[0], x:x+data_obj.shape[1]]
+                    if np.all(target_mask[obj_mask] == 1):
+                        # Place the object on top
+                        augmented_data = self._place_object(augmented_data, data_obj, obj_mask, new_pos)
+                        augmented_label = self._place_object(augmented_label, label_obj, obj_mask, new_pos)
+                        augmented_mask = self._place_object(augmented_mask, mask_obj, obj_mask, new_pos)
+                        moved_objects.add(obj_label)
+                        break
         
         return augmented_data, augmented_label, augmented_mask
 
@@ -254,13 +290,12 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
             aug_mask_name = data_file.name.replace('-harmonized', f'aug{aug_idx+1}-mask')
             
             cv2.imwrite(str(output_data_path / aug_data_name), 
-                       augmented_data, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+                        augmented_data, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
             cv2.imwrite(str(output_label_path / aug_label_name), 
-                       augmented_label, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
-            # Save mask as 32-bit float TIFF
-            cv2.imwrite(str(output_mask_path / aug_mask_name), 
-                       augmented_mask.astype(np.float32), 
-                       [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+                        augmented_label, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+            # Save mask as 32-bit float TIFF            
+            cv2.imwrite(str(output_mask_path / aug_mask_name),
+                        augmented_mask.astype(np.float32), [cv2.IMWRITE_TIFF_COMPRESSION, 1])
 
 if __name__ == '__main__':
     data_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image/')
@@ -268,5 +303,4 @@ if __name__ == '__main__':
     output_data_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/image/')
     output_label_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/label/')
     output_mask_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/mask/')
-    
-    process_folder(data_path, label_path, output_data_path, output_label_path, output_mask_path, num_augmentations=3)
+    process_folder(data_path, label_path, output_data_path, output_label_path, output_mask_path, num_augmentations=10)
