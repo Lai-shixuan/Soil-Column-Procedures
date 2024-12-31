@@ -3,7 +3,8 @@ import cv2 as cv
 import sys
 import csv
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -94,8 +95,8 @@ if __name__ == "__main__":
 
         return image 
 
-    path_in = Path(r'g:\DL_Data_raw\version8-low-precise\3.Harmonized\image')
-    path_out = Path(r'g:\DL_Data_raw\version8-low-precise\5.Preprocessed')
+    path_in = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/image')
+    path_out = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/5.2.Preprocessed')
     read_img_extension = 'tif'
     
     batch_process_images(
@@ -109,6 +110,6 @@ if __name__ == "__main__":
 
         # Name replaces
         extension=read_img_extension,
-        original_suffix='harmonized',
+        original_suffix='augmented',
         new_suffix='preprocessed'
     )

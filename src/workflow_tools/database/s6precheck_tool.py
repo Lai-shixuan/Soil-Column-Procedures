@@ -3,7 +3,8 @@ import logging
 import os
 import sys
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from pathlib import Path
 from typing import List
@@ -80,9 +81,9 @@ if __name__ == "__main__":
         # output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/5.Precheck'
         # csv_output_dir = f'f:/3.Experimental_Data/Soils/Dongying_normal/Soil.column.{i:04d}/'
 
-    image_dir = r'g:\DL_Data_raw\version8-low-precise\6.Precheck\precheck-test'
-    label_dir = r'g:\DL_Data_raw\version8-low-precise\6.Precheck\precheck-test-label'
-    output_dir = r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test'
+    image_dir = r'/mnt/g/DL_Data_raw/version8-low-precise/6.Precheck/precheck-test'
+    label_dir = r'/mnt/g/DL_Data_raw/version8-low-precise/6.Precheck/precheck-test-label'
+    output_dir = r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test'
     csv_output_dir = output_dir 
     
     # Get all image files
