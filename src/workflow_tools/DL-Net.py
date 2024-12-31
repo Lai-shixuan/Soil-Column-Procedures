@@ -12,11 +12,11 @@ sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from tqdm import tqdm
-from typing import List
+from typing import List, Dict, Any
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
-from src.API_functions.DL import load_data, log, seed, evaluate
+from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
 from src.workflow_tools.cvat_noisy import cvat_nosiy
 
@@ -453,7 +453,7 @@ def run_experiment(my_parameters):
             if val_loss_mean < val_loss_best:
                 val_loss_best = val_loss_mean
                 no_improvement_count = 0
-                torch.save(model.state_dict(), f"src/workflow_tools/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth")
+                torch.save(model.state_dict(), f"data/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth")
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
             else:
                 no_improvement_count += 1                

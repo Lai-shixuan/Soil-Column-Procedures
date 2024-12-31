@@ -10,11 +10,11 @@ sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Dict, Any
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
 
-def get_parameters():
+def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
         'wandb': '5.15 unet++repeate5.4',
@@ -69,7 +69,7 @@ def get_debug_param_sets():
         {**get_parameters(), 'learning_rate': 6e-5, 'wandb': '4-6-v3_lr_6e-5'},
     ]
 
-def get_transforms(seed_value):
+def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
     # Geometric transforms that affect structure
     geometric_transform = A.Compose([
         A.HorizontalFlip(p=0.8),
@@ -104,7 +104,7 @@ def get_transforms(seed_value):
     
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
-def setup_model():
+def setup_model() -> torch.nn.Module:
     model = smp.UnetPlusPlus(
         encoder_name=get_parameters()['encoder'],
         encoder_weights="imagenet",
@@ -132,7 +132,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     mse_criterion = evaluate.MaskedMSELoss()
     return optimizer, scheduler, criterion, mse_criterion
 
-def get_data_paths():
+def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
