@@ -8,10 +8,12 @@ import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
+from pathlib import Path
 from typing import List, Dict, Any
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
@@ -154,7 +156,6 @@ def deal_with_nan(epoch, model_output):
 
     return model_output
 
-# Helper functions for semi-supervised mode
 def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
     """Fetches a batch from the unlabeled data loader. If the iterator is exhausted, it resets the iterator and changes the transform to geometric."""
     try:
@@ -164,61 +165,33 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
         batch, mask = next(unlabeled_iter)
     return batch, mask, unlabeled_iter
 
-def update_teacher_model(teacher_model, student_model, alpha=0.99):
+def update_teacher_model(teacher_model, student_model, alpha=0.96):
     """Update teacher model by exponential moving average of student weights."""
     for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
         t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
 
 def compute_consistency_loss(student_model, teacher_model, device, non_geometric_transform,
-                            labeled_images, unlabeled_images, labeled_masks, unlabeled_masks,
-                            epoch, my_parameters, criterion):
-    rampup = np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)
-    weight = my_parameters['consistency_weight'] * rampup
+                            images, masks,
+                            epoch, ramup, criterion):
+    rampup = np.clip(epoch / ramup, 0, 1)
 
     with torch.no_grad():
-        output_unlabeled = teacher_model(unlabeled_images)
-        output_labeled = teacher_model(labeled_images)
+        output = teacher_model(images)
 
-    output_unlabeled = deal_with_nan(epoch, output_unlabeled)
-    teacher_pred_unlabeled = torch.sigmoid(output_unlabeled)
-    output_labeled = deal_with_nan(epoch, output_labeled)
-    teacher_pred_labeled = torch.sigmoid(output_labeled)
+    output = deal_with_nan(epoch, output)
+    teacher_pred = torch.sigmoid(output).squeeze(1)
 
-    teacher_pred_labeled = teacher_pred_labeled.squeeze(1)
-    teacher_pred_unlabeled = teacher_pred_unlabeled.squeeze(1)
-
-    # Unlabeled images
-    non_geometric_batch_un = []
-    for img in unlabeled_images:
-        # Convert tensor to numpy array in the correct format (H,W,C)
-        img_np = img.cpu().permute(1, 2, 0).numpy()
-        # Apply non-geometric transforms
+    non_geometric_batch = []
+    for img in images:
+        img_np = img.cpu().permute(1, 2, 0).numpy() # convert to numpy and H,W,C
         non_geometric = non_geometric_transform(image=img_np)['image']
-        # Convert back to the correct format (C,H,W)
-        non_geometric_batch_un.append(non_geometric)
-    
-    augmented_images = torch.stack(non_geometric_batch_un).to(device)
-    student_pred_unlabeled = student_model(augmented_images).squeeze(1)
-    cons_loss_un, _ = criterion(student_pred_unlabeled, teacher_pred_unlabeled, unlabeled_masks)
+        non_geometric_batch.append(non_geometric)
+    augmented_images = torch.stack(non_geometric_batch).to(device)
 
-    # Labeled images
-    non_geometric_batch_labeled = []
-    for img in labeled_images:
-        # Convert tensor to numpy array in the correct format (H,W,C)
-        img_np = img.cpu().permute(1, 2, 0).numpy()
-        # Apply non-geometric transforms
-        non_geometric = non_geometric_transform(image=img_np)['image']
-        # Convert back to the correct format (C,H,W)
-        non_geometric_batch_labeled.append(non_geometric)
-    
-    augmented_label_images = torch.stack(non_geometric_batch_labeled).to(device)
-    student_pred_labeled = student_model(augmented_label_images).squeeze(1)
-    cons_loss_labeled, _ = criterion(student_pred_labeled, teacher_pred_labeled, labeled_masks)
+    student_pred = student_model(augmented_images).squeeze(1)
+    loss, _ = criterion(student_pred, teacher_pred, masks)
 
-    un_weight = my_parameters['unlabel_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
-    labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
-
-    return weight * (cons_loss_un * un_weight + cons_loss_labeled * labeled_weight)
+    return rampup * loss
 
 # ------------------- Epoch -------------------
 
@@ -229,7 +202,9 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
     supervised_total = 0.0
     soft_dice_total = 0.0
     if my_parameters['mode'] == 'semi':
-        consistency_loss_total = 0.0
+        total_cons_loss_un = 0.0
+        total_cons_loss_labeled = 0.0
+        total_loss_total = 0.0
 
     for images, labels, masks in tqdm(train_loader):
         images = images.to(device)
@@ -250,16 +225,22 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             supervised_loss, soft_dice = criterion(outputs, labels, masks)
 
             if my_parameters['mode'] == 'semi':
-                cons_loss = compute_consistency_loss(
+                rampup = my_parameters['consistency_rampup']
+                cons_loss_un = compute_consistency_loss(
                     model, teacher_model, device, non_geometric_transform,
-                    images, unlabeled_images,
-                    masks, unlabeled_masks,
-                    epoch, my_parameters, criterion
+                    unlabeled_images, unlabeled_masks,
+                    epoch, rampup, criterion
                 )
-                supervised_loss = (1 - my_parameters['consistency_weight']) * supervised_loss
-                total_loss = supervised_loss + cons_loss
-            else:
-                total_loss = supervised_loss
+                cons_loss_labeled = compute_consistency_loss(
+                    model, teacher_model, device, non_geometric_transform,
+                    images, masks,
+                    epoch, rampup, criterion
+                )
+                un_weight = my_parameters['unlabel_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
+                labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
+                cons_loss = cons_loss_un * un_weight + cons_loss_labeled * labeled_weight
+
+            total_loss = supervised_loss * (1 - my_parameters['consistency_weight']) + cons_loss * my_parameters['consistency_weight'] if my_parameters['mode'] == 'semi' else supervised_loss
 
         optimizer.zero_grad()
         scaler.scale(total_loss).backward()
@@ -273,7 +254,9 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         supervised_total += supervised_loss.item()
         soft_dice_total += soft_dice.item()
         if my_parameters['mode'] == 'semi':
-            consistency_loss_total += cons_loss.item()
+            total_cons_loss_un += cons_loss_un.item()
+            total_cons_loss_labeled += cons_loss_labeled.item()
+            total_loss_total += total_loss.item()
 
         # In the first iteration, print some information
         if proceed_once:
@@ -289,12 +272,16 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
     train_loss_mean = supervised_total / len(train_loader)
     soft_dice_mean = soft_dice_total / len(train_loader)
     if my_parameters['mode'] == 'semi':
-        consistency_loss_mean = consistency_loss_total / len(train_loader)
-        total_loss_mean = train_loss_mean + consistency_loss_mean
+        total_cons_loss_un_m = total_cons_loss_un / len(train_loader)
+        total_cons_loss_labeled_m = total_cons_loss_labeled / len(train_loader)
+        total_loss_mean = total_loss_total / len(train_loader)
     else:
         total_loss_mean = train_loss_mean
-    
-    return train_loss_mean, consistency_loss_mean if my_parameters['mode'] == 'semi' else None, total_loss_mean if my_parameters['mode'] == 'semi' else train_loss_mean, soft_dice_mean
+
+    if my_parameters['mode'] == 'semi':
+        return train_loss_mean, total_cons_loss_un_m, total_cons_loss_labeled_m, total_loss_mean, soft_dice_mean
+    else:
+        return train_loss_mean, None, None, train_loss_mean, soft_dice_mean 
 
 def validate(model, device, val_loader, criterion):
     model.eval()
@@ -403,13 +390,13 @@ def run_experiment(my_parameters):
 
             # ------------------- Training -------------------
 
-            train_loss_mean, consistency_loss_mean, total_loss_mean, soft_dice_mean = train_one_epoch(
+            train_loss_m, cons_loss_un_m, cons_loss_labled_m, total_loss_m, soft_dice_m = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model
             )
             proceed_once = False
-            soft_dice_list.append(soft_dice_mean)
+            soft_dice_list.append(soft_dice_m)
 
             # ------------------- Validation -------------------
 
@@ -434,16 +421,17 @@ def run_experiment(my_parameters):
             if my_parameters['mode'] == 'semi':
                 dict_to_log = {
                     'epoch': epoch,
-                    'supervised_loss': train_loss_mean,
-                    'cons_loss': consistency_loss_mean,
-                    'total_loss': total_loss_mean,
+                    'supervised_loss': train_loss_m,
+                    'cons_loss_un': cons_loss_un_m,
+                    'cons_loss_labeled': cons_loss_labled_m,
+                    'total_loss': total_loss_m,
                     'val_loss': val_loss_mean,
                     'learning_rate': current_lr
                 }
             else:
                 dict_to_log = {
                     'epoch': epoch,
-                    'total_loss': total_loss_mean,
+                    'total_loss': total_loss_m,
                     'val_loss': val_loss_mean,
                     'learning_rate': current_lr
                 }
@@ -453,7 +441,12 @@ def run_experiment(my_parameters):
             if val_loss_mean < val_loss_best:
                 val_loss_best = val_loss_mean
                 no_improvement_count = 0
-                torch.save(model.state_dict(), f"data/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth")
+
+                path = f"data/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth"
+                if not Path(path).parent.exists():
+                    Path(path).parent.mkdir(parents=True, exist_ok=True)
+                torch.save(model.state_dict(), path)
+
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
             else:
                 no_improvement_count += 1                
