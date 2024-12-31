@@ -70,6 +70,18 @@ def setup_environment(my_parameters):
         name=my_parameters['wandb'],
         config=my_parameters,
     )
+    if my_parameters['mode'] == 'semi':
+        wandb.define_metric('epoch', summary='max')
+        wandb.define_metric('supervised_loss', summary='min')
+        wandb.define_metric('cons_loss_un', summary='min')
+        wandb.define_metric('cons_loss_labeled', summary='min')
+        wandb.define_metric('total_loss', summary='min')
+        wandb.define_metric('val_loss', summary='min')
+    else:
+        wandb.define_metric('epoch', summary='max')
+        wandb.define_metric('total_loss', summary='min')
+        wandb.define_metric('val_loss', summary='min')
+
     return model, teacher_model, device, optimizer, scheduler, criterion, mse_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
 
 # ------------------- Signal Handling -------------------
@@ -442,7 +454,7 @@ def run_experiment(my_parameters):
                 val_loss_best = val_loss_mean
                 no_improvement_count = 0
 
-                path = f"data/pths/model_{my_parameters['model']}_{my_parameters['wandb']}.pth"
+                path = f"data/pths/precise/model_{my_parameters['model']}_{my_parameters['wandb']}.pth"
                 if not Path(path).parent.exists():
                     Path(path).parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), path)
@@ -456,11 +468,11 @@ def run_experiment(my_parameters):
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        print(f"Best validation loss: {val_loss_best}")
+        print(f"The best validation loss was: {val_loss_best}")
         wandb.finish()
         raise
     finally:
-        print(f"Best validation loss: {val_loss_best}")
+        print(f"The best validation loss was: {val_loss_best}")
         wandb.finish()
 
 if __name__ == "__main__":
