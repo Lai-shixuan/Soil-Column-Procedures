@@ -4,6 +4,10 @@ from torch.utils.data import Dataset
 import pandas as pd
 from typing import List
 
+import sys
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+from src.workflow_tools.database import s4augmented_labels
+
 class my_Dataset(Dataset):
     def __init__(self, imagelist, labels, padding_info: pd.DataFrame=None, transform=None, preprocess=True):
         super(my_Dataset).__init__()
@@ -54,7 +58,10 @@ class my_Dataset(Dataset):
                 mask = augmented['mask']
                 return img, mask
             else:
-                augmented = self.transform(image=img, masks=[label, mask])
+                augmenter = s4augmented_labels.ImageAugmenter(img, label, mask)
+                augmented_img, augmented_label, augmented_mask = augmenter.augment()
+
+                augmented = self.transform(image=augmented_img, masks=[augmented_label, augmented_mask])
                 img = augmented['image']
                 label = augmented['masks'][0]
                 mask = augmented['masks'][1]
