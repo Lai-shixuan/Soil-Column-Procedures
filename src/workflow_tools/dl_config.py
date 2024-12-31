@@ -6,7 +6,8 @@ import segmentation_models_pytorch as smp
 import pandas as pd
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
@@ -17,7 +18,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '5.15 unet++repeate5.4',
+        'wandb': '9.1-Unet++supervised-s0-0.4bce',
         'seed': 3407,
 
         # Data related parameters
@@ -28,28 +29,28 @@ def get_parameters() -> Dict[str, Any]:
 
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'efficientnet-b0',   # mobileone_s0
+        'encoder': 'mobileone_s0',   # mobileone_s0
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
-        'transform': 'basic',
+        'transform': 'basic+object_aug',
 
         # Learning related parameters
-        'learning_rate': 12e-5,
+        'learning_rate': 1e-4,
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 20,
+        'scheduler_patience': 30,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
         # Add semi-supervised parameters
-        'mode': 'semi',             # 'supervised' or 'semi'
-        'unlabel_batch_size': 24,
+        'mode': 'supervised',             # 'supervised' or 'semi'
+        'unlabel_batch_size': 8,
         'consistency_weight': 0.3,
-        'consistency_rampup': 20,
+        'consistency_rampup': 35,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 400,
-        'patience': 75,
+        'n_epochs': 800,
+        'patience': 200,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
@@ -136,23 +137,23 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image',
-            # 'label_dir': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\label',
-            # 'padding_info': r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\train_val\image_patches.csv',
-            'image_dir': r'/mnt/version8/image',
-            'label_dir': r'/mnt/version8/label',
-            'padding_info': r'/mnt/version8/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/version8/image',
+            # 'label_dir': r'/mnt/version8/label',
+            # 'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
-            'image_dir': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image',
-            'label_dir': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\label',
-            'padding_info': r'g:\DL_Data_raw\version6-large\7.Final_dataset\train_val\image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            # 'image_dir': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image',
-            # 'padding_info': r'g:\DL_Data_raw\version7-large-lowRH\8.Unlabeled\6.Precheck\image_patches.csv',
-            'image_dir': r'/mnt/version7/unlabel/image',
-            'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/unlabel/image',
+            # 'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
         }
     }
 
