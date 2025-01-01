@@ -1,7 +1,7 @@
 import sys
 import torch
-import os
 import albumentations as A
+import cv2
 import segmentation_models_pytorch as smp
 import pandas as pd
 
@@ -18,7 +18,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '9.1-Unet++supervised-s0-0.4bce',
+        'wandb': '14.1-unet++mccloss',
         'seed': 3407,
 
         # Data related parameters
@@ -29,16 +29,16 @@ def get_parameters() -> Dict[str, Any]:
 
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'mobileone_s0',   # mobileone_s0
+        'encoder': 'resnext50_32x4d',   # mobileone_s0
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
-        'transform': 'basic+object_aug',
+        'transform': 'basic-aug+++-(oneof)',
 
         # Learning related parameters
-        'learning_rate': 1e-4,
+        'learning_rate': 5e-5,
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 30,
+        'scheduler_patience': 40,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
@@ -49,8 +49,8 @@ def get_parameters() -> Dict[str, Any]:
         'consistency_rampup': 35,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 800,
-        'patience': 200,
+        'n_epochs': 900,
+        'patience': 280,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
@@ -65,9 +65,13 @@ def get_parameters() -> Dict[str, Any]:
 
 def get_debug_param_sets():
     return [
-        {**get_parameters(), 'learning_rate': 3e-5, 'wandb': '4-4-v3_lr_3e-5'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '4-5-v3_lr_1e-4'},
-        {**get_parameters(), 'learning_rate': 6e-5, 'wandb': '4-6-v3_lr_6e-5'},
+        {**get_parameters(), 'encoder': 'timm-resnest101e', 'wandb': '13.9-timm-resnest101e'},
+        {**get_parameters(), 'encoder': 'timm-regnetx_040', 'wandb': '13.10-timm-regnetx_040'},
+        {**get_parameters(), 'encoder': 'timm-regnetx_080', 'wandb': '13.11-timm-regnetx_080'},
+        {**get_parameters(), 'encoder': 'timm-regnetx_120', 'wandb': '13.12-timm-regnetx_120'},
+        {**get_parameters(), 'encoder': 'timm-regnety_064', 'wandb': '13.13-timm-regnety_064'},
+        {**get_parameters(), 'encoder': 'dpn68', 'wandb': '13.14-dpn68'},
+        {**get_parameters(), 'encoder': 'dpn98', 'wandb': '13.15-dpn98'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
@@ -89,13 +93,16 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
 
     # Combined transform for supervised training
     transform_train = A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomRotate90(p=0.5),
-        A.GaussNoise(p=0.5),
-        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
-        # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=1),
-        # A.RandomShadow(p=0.5),
+        A.HorizontalFlip(p=0.8),
+        A.VerticalFlip(p=0.8),
+        A.RandomGridShuffle(grid=(3, 3), p=0.5),
+        A.RandomRotate90(p=0.6),
+        A.Rotate(limit=90, p=0.8),
+        A.Erasing(p=0.5),
+        A.MultiplicativeNoise(elementwise=True, p=0.5),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.5),
+        A.RandomShadow(p=0.5),
+        A.GaussianBlur(p=0.5, blur_limit=(3, 5)),
         ToTensorV2(),
     ], seed=seed_value)
 
@@ -105,9 +112,9 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
     
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
-def setup_model() -> torch.nn.Module:
+def setup_model(encoder_name: str) -> torch.nn.Module:
     model = smp.UnetPlusPlus(
-        encoder_name=get_parameters()['encoder'],
+        encoder_name=encoder_name,
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
@@ -131,7 +138,9 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
     criterion = evaluate.DiceBCELoss()
     mse_criterion = evaluate.MaskedMSELoss()
-    return optimizer, scheduler, criterion, mse_criterion
+    mcc_criterion = smp.losses.MCCLoss()
+    
+    return optimizer, scheduler, mcc_criterion, criterion
 
 def get_data_paths() -> dict:
     """Define all data paths in a central location"""
