@@ -1,24 +1,24 @@
 import sys
 import torch
 import albumentations as A
-import cv2
 import segmentation_models_pytorch as smp
 import pandas as pd
 
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
 from typing import Tuple, Dict, Any
 from src.API_functions.DL import evaluate
 from src.API_functions.Images import file_batch as fb
+from src.workflow_tools.model_online import mcc
 
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '15.1-unet++mcc-semi',
+        'wandb': '15.6-unet++mcc-semi-lr',
         'seed': 3407,
 
         # Data related parameters
@@ -38,19 +38,20 @@ def get_parameters() -> Dict[str, Any]:
         # Learning related parameters
         'learning_rate': 1e-4,
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 40,
+        'scheduler_patience': 200,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
-        'consistency_weight': 0.3,
-        'consistency_rampup': 35,
+        'consistency_weight': 0.4,
+        'consistency_rampup': 220,
+        'teacher_alpha': 0.95,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 900,
-        'patience': 200,
+        'n_epochs': 1300,
+        'patience': 1200,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
@@ -65,11 +66,6 @@ def get_parameters() -> Dict[str, Any]:
 
 def get_debug_param_sets():
     return [
-        {**get_parameters(), 'encoder': 'timm-resnest101e', 'wandb': '13.9-timm-resnest101e'},
-        {**get_parameters(), 'encoder': 'timm-regnetx_040', 'wandb': '13.10-timm-regnetx_040'},
-        {**get_parameters(), 'encoder': 'timm-regnetx_080', 'wandb': '13.11-timm-regnetx_080'},
-        {**get_parameters(), 'encoder': 'timm-regnetx_120', 'wandb': '13.12-timm-regnetx_120'},
-        {**get_parameters(), 'encoder': 'timm-regnety_064', 'wandb': '13.13-timm-regnety_064'},
         {**get_parameters(), 'encoder': 'dpn68', 'wandb': '13.14-dpn68'},
         {**get_parameters(), 'encoder': 'dpn98', 'wandb': '13.15-dpn98'},
     ]
@@ -79,15 +75,17 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
     geometric_transform = A.Compose([
         A.HorizontalFlip(p=0.8),
         A.VerticalFlip(p=0.8),
-        A.RandomRotate90(p=0.8),
+        A.RandomRotate90(p=0.6),
+        A.Rotate(limit=90, p=0.8),
+        A.Erasing(p=0.5),
     ], seed=seed_value)
 
     # Non-geometric transforms that only affect appearance
     non_geometric_transform = A.Compose([
-        A.GaussNoise(p=0.5),
-        A.GaussianBlur(p=0.8, blur_limit=(3, 5)),
-        # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.8),
-        # A.RandomShadow(p=0.5),
+        A.MultiplicativeNoise(elementwise=True, p=0.3),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.3),
+        A.RandomShadow(p=0.3),
+        A.GaussianBlur(p=0.3, blur_limit=(3, 5)),
         ToTensorV2(),
     ], seed=seed_value)
 
@@ -138,7 +136,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
     criterion = evaluate.DiceBCELoss()
     mse_criterion = evaluate.MaskedMSELoss()
-    mcc_criterion = smp.losses.MCCLoss()
+    mcc_criterion = mcc.MCCLoss()
     
     return optimizer, scheduler, mcc_criterion, criterion
 
@@ -146,12 +144,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            # 'image_dir': r'/mnt/version8/image',
-            # 'label_dir': r'/mnt/version8/label',
-            # 'padding_info': r'/mnt/version8/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/version8/image',
+            'label_dir': r'/mnt/version8/label',
+            'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -159,10 +157,10 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            # 'image_dir': r'/mnt/version7/unlabel/image',
-            # 'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            'image_dir': r'/mnt/version7/unlabel/image',
+            'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
         }
     }
 

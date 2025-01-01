@@ -8,9 +8,9 @@ import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -177,7 +177,7 @@ def fetch_unlabeled_batch(unlabeled_iter, unlabeled_loader):
         batch, mask = next(unlabeled_iter)
     return batch, mask, unlabeled_iter
 
-def update_teacher_model(teacher_model, student_model, alpha=0.96):
+def update_teacher_model(teacher_model, student_model, alpha=0.95):
     """Update teacher model by exponential moving average of student weights."""
     for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
         t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
@@ -207,7 +207,7 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch, teacher_model):
+def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch, teacher_model, model_good_epoch):
     model.train()
 
     # Initialize loss variables
@@ -260,8 +260,13 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         scaler.update()
 
         # Update teacher model via EMA
-        if my_parameters['mode'] == 'semi':
-            update_teacher_model(teacher_model, model)
+        if my_parameters['mode'] == 'semi' and epoch < model_good_epoch + 1:
+            teacher_model.load_state_dict(model.state_dict())
+        if my_parameters['mode'] == 'semi' and epoch == model_good_epoch + 1:
+            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+            print(f"Teacher model equal student model at epoch {epoch}")
+        if my_parameters['mode'] == 'semi' and epoch > model_good_epoch + 1:
+            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
 
         supervised_total += supervised_loss.item()
         # soft_dice_total += soft_dice.item()
@@ -390,10 +395,12 @@ def run_experiment(my_parameters):
 
     train_dataset, val_dataset, train_loader, val_loader, unlabeled_loader, unlabeled_iter = prepare_data(my_parameters, transform_train, transform_val, geometric_transform)
 
+    train_loss_best = float('inf')
     val_loss_best = float('inf')
     no_improvement_count = 0
     proceed_once = True
     soft_dice_list: List[float] = []
+    model_good_epoch = 100000
 
     try:
         for epoch in range(my_parameters['n_epochs']):
@@ -405,7 +412,7 @@ def run_experiment(my_parameters):
             train_loss_m, cons_loss_un_m, cons_loss_labled_m, total_loss_m, soft_dice_m = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch,
-                teacher_model
+                teacher_model, model_good_epoch 
             )
             proceed_once = False
             soft_dice_list.append(soft_dice_m)
@@ -449,6 +456,14 @@ def run_experiment(my_parameters):
                 }
 
             mylogger.log(dict_to_log)
+
+            # Log the best training and validation loss, save the model if it is the best
+            if train_loss_m < train_loss_best:
+                train_loss_best = train_loss_m
+                if train_loss_best < 0.26 and model_good_epoch == 100000:
+                    model_good_epoch = epoch
+                    print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
+                print(f'New best training loss: {train_loss_best:.3f}')
 
             if val_loss_mean < val_loss_best:
                 val_loss_best = val_loss_mean
