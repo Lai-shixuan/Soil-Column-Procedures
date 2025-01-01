@@ -36,14 +36,14 @@ def setup_environment(my_parameters):
     torch.use_deterministic_algorithms(False)    # to ensure reproducibility
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
-    model = dl_config.setup_model()
+    model = dl_config.setup_model(my_parameters['encoder'])
     if my_parameters['compile']:
         model = torch.compile(model).to(device)
     else:
         model = model.to(device)
 
     # Create teacher model
-    teacher_model = dl_config.setup_model()
+    teacher_model = dl_config.setup_model(my_parameters['encoder'])
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
     teacher_model.load_state_dict(model.state_dict())
@@ -201,7 +201,7 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     augmented_images = torch.stack(non_geometric_batch).to(device)
 
     student_pred = student_model(augmented_images).squeeze(1)
-    loss, _ = criterion(student_pred, teacher_pred, masks)
+    loss = criterion(student_pred, teacher_pred, masks)
 
     return rampup * loss
 
@@ -234,7 +234,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
             
-            supervised_loss, soft_dice = criterion(outputs, labels, masks)
+            supervised_loss = criterion(outputs, labels, masks)
 
             if my_parameters['mode'] == 'semi':
                 rampup = my_parameters['consistency_rampup']
@@ -264,7 +264,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             update_teacher_model(teacher_model, model)
 
         supervised_total += supervised_loss.item()
-        soft_dice_total += soft_dice.item()
+        # soft_dice_total += soft_dice.item()
         if my_parameters['mode'] == 'semi':
             total_cons_loss_un += cons_loss_un.item()
             total_cons_loss_labeled += cons_loss_labeled.item()
@@ -310,7 +310,7 @@ def validate(model, device, val_loader, criterion):
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
             
-            loss, _ = criterion(outputs, labels, masks)
+            loss = criterion(outputs, labels, masks)
             
             val_loss += loss.item()
 
