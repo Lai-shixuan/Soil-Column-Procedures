@@ -10,7 +10,8 @@ import cv2
 import hashlib
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from pathlib import Path
 from tqdm import tqdm
@@ -440,13 +441,13 @@ if __name__ == "__main__":
     # Have using preprocess equalization, be attenetion!!!
 
     config = InferenceConfig(
-        model_type='Unet',
-        backbone='efficientnet-b2',
+        model_type='U-Net++',
+        backbone='resnext50_32x4d',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='src/workflow_tools/pths/model_U-Net_75.Semi-b2.pth',
+        model_path='data/pths/precise/model_U-Net++_14.1-unet++mccloss.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -458,13 +459,13 @@ if __name__ == "__main__":
         # save_path=r'g:\DL_Data_raw\version7-large-lowRH\_inference',
         # padding_info_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image_patches.csv',
 
-        images_path=r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test\image',
-        labels_path=r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test\label',
-        save_path=r'g:\DL_Data_raw\version8-low-precise\_inference',
-        padding_info_path=r'g:\DL_Data_raw\version8-low-precise\7.Final_dataset\test\image_patches.csv',
+        images_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image',
+        labels_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/label',
+        save_path=r'/mnt/g/DL_Data_raw/version8-low-precise/_inference',
+        padding_info_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image_patches.csv',
 
         batch_size=8,
-        remove_prefix=False,
+        remove_prefix=True,
         run_config={
             'summary_filename': 'inference_summary.csv'
         }

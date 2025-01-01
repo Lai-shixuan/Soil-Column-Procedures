@@ -18,7 +18,7 @@ from src.API_functions.Images import file_batch as fb
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '14.1-unet++mccloss',
+        'wandb': '15.1-unet++mcc-semi',
         'seed': 3407,
 
         # Data related parameters
@@ -36,21 +36,21 @@ def get_parameters() -> Dict[str, Any]:
         'transform': 'basic-aug+++-(oneof)',
 
         # Learning related parameters
-        'learning_rate': 5e-5,
+        'learning_rate': 1e-4,
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 40,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
         # Add semi-supervised parameters
-        'mode': 'supervised',             # 'supervised' or 'semi'
+        'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
         'consistency_weight': 0.3,
         'consistency_rampup': 35,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 900,
-        'patience': 280,
+        'patience': 200,
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
