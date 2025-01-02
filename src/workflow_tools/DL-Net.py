@@ -8,9 +8,9 @@ import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -229,6 +229,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             unlabeled_images = unlabeled_images.to(device)
             unlabeled_masks = unlabeled_masks.to(device)
 
+        optimizer.zero_grad()
         with autocast(device_type='cuda'):
             outputs = model(images)
             if outputs.dim() == 4 and outputs.size(1) == 1:
@@ -255,7 +256,6 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
             total_loss = supervised_loss * (1 - my_parameters['consistency_weight']) + cons_loss * my_parameters['consistency_weight'] if my_parameters['mode'] == 'semi' else supervised_loss
 
-        optimizer.zero_grad()
         scaler.scale(total_loss).backward()
         scaler.step(optimizer)
         scaler.update()
