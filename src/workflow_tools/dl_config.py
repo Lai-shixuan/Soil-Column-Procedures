@@ -4,9 +4,9 @@ import albumentations as A
 import segmentation_models_pytorch as smp
 import pandas as pd
 
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
@@ -18,12 +18,12 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '15.6-unet++mcc-semi-lr',
+        'wandb': '15.7-unet++mcc-kl-local-batch4',
         'seed': 3407,
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 8,
+        'label_batch_size': 4,
         'ratio': 0.20,
         'Kfold': None,
 
@@ -44,7 +44,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
-        'unlabel_batch_size': 8,
+        'unlabel_batch_size': 4,
         'consistency_weight': 0.4,
         'consistency_rampup': 220,
         'teacher_alpha': 0.95,
@@ -137,19 +137,20 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     criterion = evaluate.DiceBCELoss()
     mse_criterion = evaluate.MaskedMSELoss()
     mcc_criterion = mcc.MCCLoss()
+    kl_criterion = evaluate.KLDivergence()
     
-    return optimizer, scheduler, mcc_criterion, criterion
+    return optimizer, scheduler, mcc_criterion, kl_criterion 
 
 def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            'image_dir': r'/mnt/version8/image',
-            'label_dir': r'/mnt/version8/label',
-            'padding_info': r'/mnt/version8/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/version8/image',
+            # 'label_dir': r'/mnt/version8/label',
+            # 'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -157,10 +158,10 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            'image_dir': r'/mnt/version7/unlabel/image',
-            'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/unlabel/image',
+            # 'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
         }
     }
 

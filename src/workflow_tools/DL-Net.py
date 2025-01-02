@@ -1,3 +1,7 @@
+# TODO 放弃有标签数据的一致性损失
+# TODO 2 datalodaer for st and mt model, st with no transform, mt with transform?
+# TODO 按照论文设置权重
+
 import sys
 import torch
 import wandb
@@ -8,9 +12,9 @@ import cv2
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -53,7 +57,7 @@ def setup_environment(my_parameters):
     for param in teacher_model.parameters():
         param.requires_grad = False
 
-    optimizer, scheduler, criterion, mse_criterion = dl_config.setup_training(
+    optimizer, scheduler, criterion, kl_criterion = dl_config.setup_training(
         model,
         my_parameters['learning_rate'],
         my_parameters['scheduler_factor'],
@@ -82,7 +86,7 @@ def setup_environment(my_parameters):
         wandb.define_metric('total_loss', summary='min')
         wandb.define_metric('val_loss', summary='min')
 
-    return model, teacher_model, device, optimizer, scheduler, criterion, mse_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
+    return model, teacher_model, device, optimizer, scheduler, criterion, kl_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger
 
 # ------------------- Signal Handling -------------------
 
@@ -207,7 +211,7 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch, teacher_model, model_good_epoch):
+def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, geo_transform, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch, teacher_model, model_good_epoch):
     model.train()
 
     # Initialize loss variables
@@ -241,12 +245,12 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 cons_loss_un = compute_consistency_loss(
                     model, teacher_model, device, non_geometric_transform,
                     unlabeled_images, unlabeled_masks,
-                    epoch, rampup, criterion
+                    epoch, rampup, kl_criterion 
                 )
                 cons_loss_labeled = compute_consistency_loss(
                     model, teacher_model, device, non_geometric_transform,
                     images, masks,
-                    epoch, rampup, criterion
+                    epoch, rampup, kl_criterion 
                 )
                 un_weight = my_parameters['unlabel_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
                 labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
@@ -390,7 +394,7 @@ def main():
         run_experiment(base_params)
 
 def run_experiment(my_parameters):
-    model, teacher_model, device, optimizer, scheduler, criterion, mse_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
+    model, teacher_model, device, optimizer, scheduler, criterion, kl_criterion, scaler, transform_train, transform_val, geometric_transform, non_geometric_transform, mylogger = setup_environment(my_parameters)
     register_signals()
 
     train_dataset, val_dataset, train_loader, val_loader, unlabeled_loader, unlabeled_iter = prepare_data(my_parameters, transform_train, transform_val, geometric_transform)
@@ -411,7 +415,7 @@ def run_experiment(my_parameters):
 
             train_loss_m, cons_loss_un_m, cons_loss_labled_m, total_loss_m, soft_dice_m = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
-                unlabeled_iter, non_geometric_transform, criterion, mse_criterion, optimizer, scaler, proceed_once, epoch,
+                unlabeled_iter, geometric_transform, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model, model_good_epoch 
             )
             proceed_once = False
