@@ -54,13 +54,15 @@ class ImageObject:
         """Apply a single transformation using match-case"""
         match transform:
             case "scale_up_2x":
-                new_size = (self.obj_data.shape[1]*2, self.obj_data.shape[0]*2)
+                h, w = self.obj_data.shape[:2]
+                new_size = (w*2, h*2)  # cv2.resize expects (width, height)
                 self.obj_data = cv2.resize(self.obj_data, new_size, interpolation=cv2.INTER_LINEAR)
                 self.obj_mask = cv2.resize(self.obj_mask.astype(np.float32), new_size, 
                                         interpolation=cv2.INTER_NEAREST) > 0.5
                 
             case "scale_down_0.5x":
-                new_size = (self.obj_data.shape[1]//2, self.obj_data.shape[0]//2)
+                h, w = self.obj_data.shape[:2]
+                new_size = (max(1, w//2), max(1, h//2))  # ensure size is at least 1x1
                 self.obj_data = cv2.resize(self.obj_data, new_size, interpolation=cv2.INTER_LINEAR)
                 self.obj_mask = cv2.resize(self.obj_mask.astype(np.float32), new_size, 
                                         interpolation=cv2.INTER_NEAREST) > 0.5
