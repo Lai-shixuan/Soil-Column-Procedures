@@ -42,6 +42,57 @@ class MaskedMSELoss(nn.Module):
         return masked_mse
 
 
+class KLDivergence(nn.Module):
+    def __init__(self, reduction='mean', log_p=True, log_q=True, eps=1e-8):
+        """
+        KL Divergence Loss Function with mask support.
+        
+        Args:
+            reduction (str): Output reduction method, 'mean'/'sum'/'none', default is 'mean'
+            log_p (bool): Set True if p is log probability, False otherwise
+            log_q (bool): Set True if q is log probability, False otherwise
+            eps (float): Small value added to log computation to avoid log(0) error
+        """
+        super(KLDivergence, self).__init__()
+        self.reduction = reduction
+        self.log_p = log_p
+        self.log_q = log_q
+        self.eps = eps
+
+    def forward(self, p, q, mask=None):
+        """
+        Calculate masked KL divergence between two probability distributions.
+        Args:
+            p (torch.Tensor): Shape [batch, height, width]
+            q (torch.Tensor): Shape [batch, height, width]
+            mask (torch.Tensor): Shape [batch, height, width]
+        """
+        if mask is None:
+            mask = torch.ones_like(p)  # Shape: [batch, height, width]
+
+        # Apply sigmoid to student predictions
+        p = torch.sigmoid(p)  # Shape: [batch, height, width]
+        
+        # Compute log probabilities
+        p = torch.log(p + self.eps) if not self.log_p else p
+        q = torch.log(q + self.eps) if not self.log_q else q
+        
+        # Calculate KL divergence
+        kl_elementwise = p * (p - q)  # Shape: [batch, height, width]
+        
+        # Apply mask
+        masked_loss = kl_elementwise * mask * 20  # Shape: [batch, height, width]
+        
+        if self.reduction == 'mean':
+            return masked_loss.sum() / mask.sum()
+        elif self.reduction == 'sum':
+            return masked_loss.sum()
+        elif self.reduction == 'none':
+            return masked_loss
+        else:
+            raise ValueError(f"Invalid reduction type: {self.reduction}")
+
+
 def soft_dice_coefficient(y_true: torch.Tensor, y_pred: torch.Tensor, mask: torch.Tensor = None, smooth=1e-6) -> torch.Tensor:
     """
     Calculate the soft Dice coefficient. The inputs are PyTorch tensors.
