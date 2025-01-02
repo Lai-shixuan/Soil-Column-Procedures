@@ -19,12 +19,15 @@ class my_Dataset(Dataset):
         self.padding_info = padding_info
         self.use_transform: bool = True
 
+        if self.transform is None:
+            self.use_transform = False
+
     def __len__(self):
         return len(self.imagelist)
 
     def __getitem__(self, idx):
         img = self.imagelist[idx]
-        label = self.labels[idx] if not self.is_unlabeled else None
+        label = self.labels[idx].astype(np.float32) if not self.is_unlabeled else None
 
         # Create padding mask if padding info is available
         mask = None
