@@ -2,12 +2,12 @@ import cv2
 import numpy as np
 import random
 import sys
+from pathlib import Path
+from typing import Tuple, List, Optional
 
 sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from skimage import measure
-from pathlib import Path
-from typing import Tuple, List, Optional
 from src.workflow_tools.database.s4refine_label import read_tif_image_label
 from src.workflow_tools.database.s4padding import pad_data_image, pad_label_image, get_padding_mask
 from src.API_functions.Images import file_batch as fb
@@ -202,74 +202,50 @@ class ImageAugmenter:
         return transforms
 
     def augment(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """Perform augmentation using vectorized operations"""
-        # 预分配结果数组，使用copy以保留原始数据
+        # Cache some arrays
         augmented_data = self.data_img.copy()
         augmented_label = self.label_img.copy()
-        augmented_additional = (self.additional_img.copy() 
-                              if self.additional_img is not None else None)
-        
-        # 创建有效区域掩码，使用bool类型节省内存
+        augmented_additional = (
+            self.additional_img.copy() if self.additional_img is not None else None
+        )
         valid_mask = np.zeros(self.label_img.shape, dtype=bool)
-        
-        # 随机打乱对象顺序并批量处理
         indices = np.random.permutation(len(self.data_objects))
-        positions = []
-        valid_objects = []
-        
-        # 第一遍：收集所有有效的对象和位置
+
         for idx in indices:
             data_obj = self.data_objects[idx]
-            
-            # 批量应用变换
             transforms = self._generate_random_transforms()
             data_obj.apply_transforms(transforms)
-            
             position = data_obj.find_valid_position(self.boundary)
             if position is None:
                 continue
-                
+
             y, x = position
             h, w = data_obj.get_size()
-            
-            # 检查边界
             if y + h > augmented_data.shape[0] or x + w > augmented_data.shape[1]:
                 continue
-                
-            # 快速检查重叠
+
+            # Reuse a single mask array
             current_mask = np.zeros_like(valid_mask)
             current_mask[y:y+h, x:x+w] = data_obj.obj_mask[:h, :w]
-            
             if np.any(current_mask & valid_mask):
                 continue
-                
-            positions.append((y, x, h, w))
-            valid_objects.append(idx)
+
+            # Place the object in a single pass
+            mask_region = data_obj.obj_mask[:h, :w]
+            augmented_data[y:y+h, x:x+w][mask_region] = data_obj.obj_data[:h, :w][mask_region]
             valid_mask |= current_mask
-        
-        # 第二遍：批量更新图像
-        for pos, idx in zip(positions, valid_objects):
-            y, x, h, w = pos
-            data_obj = self.data_objects[idx]
+
+            # Update label
             label_obj = self.label_objects[idx]
-            
-            # 获取当前对象的掩码
-            mask = data_obj.obj_mask[:h, :w]
-            
-            # 使用布尔索引进行批量赋值
-            augmented_data[y:y+h, x:x+w][mask] = data_obj.obj_data[:h, :w][mask]
-            
-            # 更新标签
             label_obj.copy_transforms_from_data(data_obj)
-            augmented_label[y:y+h, x:x+w][mask] = label_obj.obj_data[:h, :w][mask]
-            
-            # 处理额外的掩码图像
+            augmented_label[y:y+h, x:x+w][mask_region] = label_obj.obj_data[:h, :w][mask_region]
+
+            # Update additional if exists
             if augmented_additional is not None and idx < len(self.additional_objects):
                 additional_obj = self.additional_objects[idx]
                 additional_obj.copy_transforms_from_data(data_obj)
-                augmented_additional[y:y+h, x:x+w][mask] = additional_obj.obj_data[:h, :w][mask]
-        
-        # 未放置对象的区域已经保持原始图像内容(通过初始copy)
+                augmented_additional[y:y+h, x:x+w][mask_region] = additional_obj.obj_data[:h, :w][mask_region]
+
         return augmented_data, augmented_label, augmented_additional
 
 def generate_random_grid_mask(shape: Tuple[int, int], 
@@ -298,6 +274,7 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
                   output_label_path: Path, output_mask_path: Path, 
                   output_additional_path: Path, num_augmentations: int = 3):
     """Process folders with padding and mask handling."""
+
     if not data_path.exists() or not label_path.exists():
         raise FileNotFoundError("Data or label path does not exist")
     
@@ -315,7 +292,35 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
         if data_files[i].name.split('-')[:2] != label_files[i].name.split('-')[:2]:
             raise ValueError(f'File names do not match: {data_files[i].name} and {label_files[i].name}')
 
+    total_files = len(data_files)
+    print(f"Found {total_files} files to process")
+
+    # Gather all images into 3D volumes
+    data_stacks = []
+    label_stacks = []
     for data_file, label_file in zip(data_files, label_files):
+        raw_data = cv2.imread(str(data_file), cv2.IMREAD_UNCHANGED)
+        raw_label = read_tif_image_label(str(label_file))
+        padded_data = pad_data_image(raw_data)
+        padded_label = pad_label_image(raw_label)
+        data_stacks.append(padded_data)
+        label_stacks.append(padded_label)
+
+    data_3d = np.stack(data_stacks, axis=0)
+    label_3d = np.stack(label_stacks, axis=0)
+
+    # Process each 2D slice separately using skimage's label with 2D connectivity
+    splitted_3d = []
+    object_counts = []
+    for z in range(label_3d.shape[0]):
+        slice_labeled, num_obj = measure.label(label_3d[z], return_num=True, connectivity=1)
+        splitted_3d.append(slice_labeled)
+        object_counts.append(num_obj)
+    splitted_3d = np.stack(splitted_3d, axis=0)
+
+    for file_idx, (data_file, label_file) in enumerate(zip(data_files, label_files), 1):
+        
+        # Load images
         data_img = cv2.imread(str(data_file), cv2.IMREAD_UNCHANGED)
         label_img = read_tif_image_label(str(label_file))
         
@@ -325,6 +330,7 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
         mask = get_padding_mask(data_img.shape)
         
         for aug_idx in range(num_augmentations):
+            
             # Generate random grid mask
             additional_mask = generate_random_grid_mask(padded_data.shape[:2])
             
@@ -344,6 +350,7 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
                        augmented_label, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
             cv2.imwrite(str(output_additional_path / aug_additional_name),
                        augmented_additional.astype(np.float32), [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+            
 
 if __name__ == '__main__':
     data_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image/')
@@ -354,4 +361,4 @@ if __name__ == '__main__':
     output_additional_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/additional/')
     
     process_folder(data_path, label_path, output_data_path, output_label_path, 
-                  output_mask_path, output_additional_path, num_augmentations=10)
+                  output_mask_path, output_additional_path, num_augmentations=3)
