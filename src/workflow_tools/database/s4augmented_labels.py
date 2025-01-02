@@ -202,29 +202,29 @@ class ImageAugmenter:
         return transforms
 
     def augment(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """Perform augmentation using optimized approach"""
-        # 预分配结果数组，避免拷贝
-        augmented_data = np.zeros_like(self.data_img)
-        augmented_label = np.zeros_like(self.label_img)
-        augmented_additional = (np.zeros_like(self.additional_img) 
+        """Perform augmentation using vectorized operations"""
+        # 预分配结果数组，使用copy以保留原始数据
+        augmented_data = self.data_img.copy()
+        augmented_label = self.label_img.copy()
+        augmented_additional = (self.additional_img.copy() 
                               if self.additional_img is not None else None)
         
-        # 创建有效区域掩码
-        valid_mask = np.zeros_like(self.label_img, dtype=bool)
+        # 创建有效区域掩码，使用bool类型节省内存
+        valid_mask = np.zeros(self.label_img.shape, dtype=bool)
         
-        # 随机打乱对象顺序
+        # 随机打乱对象顺序并批量处理
         indices = np.random.permutation(len(self.data_objects))
+        positions = []
+        valid_objects = []
         
-        # 批量处理所有对象的变换
+        # 第一遍：收集所有有效的对象和位置
         for idx in indices:
             data_obj = self.data_objects[idx]
-            label_obj = self.label_objects[idx]
             
-            # 生成并应用变换
+            # 批量应用变换
             transforms = self._generate_random_transforms()
             data_obj.apply_transforms(transforms)
             
-            # 查找有效位置
             position = data_obj.find_valid_position(self.boundary)
             if position is None:
                 continue
@@ -232,42 +232,44 @@ class ImageAugmenter:
             y, x = position
             h, w = data_obj.get_size()
             
-            # 确保不越界
-            h = min(h, augmented_data.shape[0] - y)
-            w = min(w, augmented_data.shape[1] - x)
-            
-            # 创建当前对象的掩码
+            # 检查边界
+            if y + h > augmented_data.shape[0] or x + w > augmented_data.shape[1]:
+                continue
+                
+            # 快速检查重叠
             current_mask = np.zeros_like(valid_mask)
             current_mask[y:y+h, x:x+w] = data_obj.obj_mask[:h, :w]
             
-            # 检查是否与已放置的对象重叠
             if np.any(current_mask & valid_mask):
                 continue
-            
-            # 更新有效区域掩码
+                
+            positions.append((y, x, h, w))
+            valid_objects.append(idx)
             valid_mask |= current_mask
+        
+        # 第二遍：批量更新图像
+        for pos, idx in zip(positions, valid_objects):
+            y, x, h, w = pos
+            data_obj = self.data_objects[idx]
+            label_obj = self.label_objects[idx]
+            
+            # 获取当前对象的掩码
+            mask = data_obj.obj_mask[:h, :w]
             
             # 使用布尔索引进行批量赋值
-            mask_region = current_mask[y:y+h, x:x+w]
-            augmented_data[y:y+h, x:x+w][mask_region] = data_obj.obj_data[:h, :w][data_obj.obj_mask[:h, :w]]
+            augmented_data[y:y+h, x:x+w][mask] = data_obj.obj_data[:h, :w][mask]
             
             # 更新标签
             label_obj.copy_transforms_from_data(data_obj)
-            augmented_label[y:y+h, x:x+w][mask_region] = label_obj.obj_data[:h, :w][label_obj.obj_mask[:h, :w]]
+            augmented_label[y:y+h, x:x+w][mask] = label_obj.obj_data[:h, :w][mask]
             
             # 处理额外的掩码图像
             if augmented_additional is not None and idx < len(self.additional_objects):
                 additional_obj = self.additional_objects[idx]
                 additional_obj.copy_transforms_from_data(data_obj)
-                augmented_additional[y:y+h, x:x+w][mask_region] = additional_obj.obj_data[:h, :w][additional_obj.obj_mask[:h, :w]]
+                augmented_additional[y:y+h, x:x+w][mask] = additional_obj.obj_data[:h, :w][mask]
         
-        # 将未放置对象的区域填充为原始图像
-        unplaced_mask = ~valid_mask
-        augmented_data[unplaced_mask] = self.data_img[unplaced_mask]
-        augmented_label[unplaced_mask] = self.label_img[unplaced_mask]
-        if augmented_additional is not None:
-            augmented_additional[unplaced_mask] = self.additional_img[unplaced_mask]
-        
+        # 未放置对象的区域已经保持原始图像内容(通过初始copy)
         return augmented_data, augmented_label, augmented_additional
 
 def generate_random_grid_mask(shape: Tuple[int, int], 
