@@ -59,7 +59,7 @@ class ImageObject:
                 if (new_size[1] > self.full_image.shape[0] or 
                     new_size[0] > self.full_image.shape[1]):
                     # Fallback to scale down if too large
-                    new_size = (self.obj_data.shape[1]//2, self.obj_data.shape[0]//2)
+                    new_size = (self.obj_data.shape[1], self.obj_data.shape[0])
                 self.obj_data = cv2.resize(self.obj_data, new_size, interpolation=cv2.INTER_LINEAR)
                 self.obj_mask = cv2.resize(self.obj_mask.astype(np.float32), new_size, 
                                         interpolation=cv2.INTER_NEAREST) > 0.5
@@ -202,38 +202,71 @@ class ImageAugmenter:
         return transforms
 
     def augment(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
-        """Perform augmentation using object-oriented approach"""
-        augmented_data = self.data_img.copy()
-        augmented_label = self.label_img.copy()
-        augmented_additional = self.additional_img.copy() if self.additional_img is not None else None
+        """Perform augmentation using optimized approach"""
+        # 预分配结果数组，避免拷贝
+        augmented_data = np.zeros_like(self.data_img)
+        augmented_label = np.zeros_like(self.label_img)
+        augmented_additional = (np.zeros_like(self.additional_img) 
+                              if self.additional_img is not None else None)
         
-        # Randomly shuffle objects
-        indices = list(range(len(self.data_objects)))
-        random.shuffle(indices)
+        # 创建有效区域掩码
+        valid_mask = np.zeros_like(self.label_img, dtype=bool)
         
+        # 随机打乱对象顺序
+        indices = np.random.permutation(len(self.data_objects))
+        
+        # 批量处理所有对象的变换
         for idx in indices:
             data_obj = self.data_objects[idx]
             label_obj = self.label_objects[idx]
             
-            # Generate and apply transforms for data object
+            # 生成并应用变换
             transforms = self._generate_random_transforms()
             data_obj.apply_transforms(transforms)
             
-            # Find valid position
+            # 查找有效位置
             position = data_obj.find_valid_position(self.boundary)
-            if position is not None:
-                # Place data object
-                data_obj.place_in_image(augmented_data, position)
+            if position is None:
+                continue
                 
-                # Update and place label object
-                label_obj.copy_transforms_from_data(data_obj)
-                label_obj.place_in_image(augmented_label, position)
-                
-                # Handle additional object if it exists
-                if self.additional_img is not None and idx < len(self.additional_objects):
-                    additional_obj = self.additional_objects[idx]
-                    additional_obj.copy_transforms_from_data(data_obj)
-                    additional_obj.place_in_image(augmented_additional, position)
+            y, x = position
+            h, w = data_obj.get_size()
+            
+            # 确保不越界
+            h = min(h, augmented_data.shape[0] - y)
+            w = min(w, augmented_data.shape[1] - x)
+            
+            # 创建当前对象的掩码
+            current_mask = np.zeros_like(valid_mask)
+            current_mask[y:y+h, x:x+w] = data_obj.obj_mask[:h, :w]
+            
+            # 检查是否与已放置的对象重叠
+            if np.any(current_mask & valid_mask):
+                continue
+            
+            # 更新有效区域掩码
+            valid_mask |= current_mask
+            
+            # 使用布尔索引进行批量赋值
+            mask_region = current_mask[y:y+h, x:x+w]
+            augmented_data[y:y+h, x:x+w][mask_region] = data_obj.obj_data[:h, :w][data_obj.obj_mask[:h, :w]]
+            
+            # 更新标签
+            label_obj.copy_transforms_from_data(data_obj)
+            augmented_label[y:y+h, x:x+w][mask_region] = label_obj.obj_data[:h, :w][label_obj.obj_mask[:h, :w]]
+            
+            # 处理额外的掩码图像
+            if augmented_additional is not None and idx < len(self.additional_objects):
+                additional_obj = self.additional_objects[idx]
+                additional_obj.copy_transforms_from_data(data_obj)
+                augmented_additional[y:y+h, x:x+w][mask_region] = additional_obj.obj_data[:h, :w][additional_obj.obj_mask[:h, :w]]
+        
+        # 将未放置对象的区域填充为原始图像
+        unplaced_mask = ~valid_mask
+        augmented_data[unplaced_mask] = self.data_img[unplaced_mask]
+        augmented_label[unplaced_mask] = self.label_img[unplaced_mask]
+        if augmented_additional is not None:
+            augmented_additional[unplaced_mask] = self.additional_img[unplaced_mask]
         
         return augmented_data, augmented_label, augmented_additional
 
