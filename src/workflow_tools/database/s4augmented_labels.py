@@ -131,17 +131,27 @@ class LabelObject(ImageObject):
         self.update_position(data_obj.current_bbox['rmin'], 
                            data_obj.current_bbox['cmin'])
 
+class AdditionalObject(ImageObject):
+    """Class for additional mask objects"""
+    def copy_transforms_from_data(self, data_obj: DataObject) -> None:
+        """Copy transforms from corresponding data object"""
+        self.apply_transforms(data_obj.transforms)
+        self.update_position(data_obj.current_bbox['rmin'], 
+                           data_obj.current_bbox['cmin'])
+
 class ImageAugmenter:
     """Updated augmenter using object-oriented approach"""
-    def __init__(self, data_img: np.ndarray, label_img: np.ndarray, mask: np.ndarray = None):
+    def __init__(self, data_img: np.ndarray, label_img: np.ndarray, additional_img: np.ndarray = None, mask: np.ndarray = None):
         self.data_img = data_img
         self.label_img = label_img
+        self.additional_img = additional_img
         self.boundary = mask if mask is not None else np.ones_like(label_img)
         
         # Split into objects
         self.splited_img, self.num_objects = measure.label(self.label_img, return_num=True)
         self.data_objects: List[DataObject] = []
         self.label_objects: List[LabelObject] = []
+        self.additional_objects: List[AdditionalObject] = []
         
         # Create objects
         for obj_id in range(1, self.num_objects + 1):
@@ -152,6 +162,10 @@ class ImageAugmenter:
             
             label_obj = LabelObject(obj_id, self.label_img, object_mask)
             self.label_objects.append(label_obj)
+            
+            if additional_img is not None:
+                additional_obj = AdditionalObject(obj_id, self.additional_img, object_mask)
+                self.additional_objects.append(additional_obj)
 
     def _generate_random_transforms(self) -> List[str]:
         """Generate random transformation sequence"""
@@ -181,10 +195,11 @@ class ImageAugmenter:
             
         return transforms
 
-    def augment(self) -> Tuple[np.ndarray, np.ndarray]:
+    def augment(self) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """Perform augmentation using object-oriented approach"""
         augmented_data = self.data_img.copy()
         augmented_label = self.label_img.copy()
+        augmented_additional = self.additional_img.copy() if self.additional_img is not None else None
         
         # Randomly shuffle objects
         indices = list(range(len(self.data_objects)))
@@ -207,11 +222,40 @@ class ImageAugmenter:
                 # Update and place label object
                 label_obj.copy_transforms_from_data(data_obj)
                 label_obj.place_in_image(augmented_label, position)
+                
+                # Handle additional object if it exists
+                if self.additional_img is not None and idx < len(self.additional_objects):
+                    additional_obj = self.additional_objects[idx]
+                    additional_obj.copy_transforms_from_data(data_obj)
+                    additional_obj.place_in_image(augmented_additional, position)
         
-        return augmented_data, augmented_label
+        return augmented_data, augmented_label, augmented_additional
+
+def generate_random_grid_mask(shape: Tuple[int, int], 
+                            grid_size: Tuple[int, int] = (4, 4),
+                            probability: float = 0.5) -> np.ndarray:
+    """Generate a random grid mask with rectangles"""
+    mask = np.zeros(shape, dtype=np.float32)
+    height, width = shape
+    rows, cols = grid_size
+    
+    cell_height = height // rows
+    cell_width = width // cols
+    
+    for i in range(rows):
+        for j in range(cols):
+            if random.random() < probability:
+                y_start = i * cell_height
+                x_start = j * cell_width
+                y_end = (i + 1) * cell_height
+                x_end = (j + 1) * cell_width
+                mask[y_start:y_end, x_start:x_end] = 1.0
+                
+    return mask
 
 def process_folder(data_path: Path, label_path: Path, output_data_path: Path, 
-                  output_label_path: Path, output_mask_path: Path, num_augmentations: int = 3):
+                  output_label_path: Path, output_mask_path: Path, 
+                  output_additional_path: Path, num_augmentations: int = 3):
     """Process folders with padding and mask handling."""
     if not data_path.exists() or not label_path.exists():
         raise FileNotFoundError("Data or label path does not exist")
@@ -219,6 +263,7 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
     output_data_path.mkdir(parents=True, exist_ok=True)
     output_label_path.mkdir(parents=True, exist_ok=True)
     output_mask_path.mkdir(parents=True, exist_ok=True)
+    output_additional_path.mkdir(parents=True, exist_ok=True)
 
     data_files = [Path(item) for item in fb.get_image_names(str(data_path), None, 'tif')]
     label_files = [Path(item) for item in fb.get_image_names(str(label_path), None, 'tif')]
@@ -239,21 +284,25 @@ def process_folder(data_path: Path, label_path: Path, output_data_path: Path,
         mask = get_padding_mask(data_img.shape)
         
         for aug_idx in range(num_augmentations):
-            augmenter = ImageAugmenter(padded_data, padded_label, mask)
-            augmented_data, augmented_label, augmented_mask = augmenter.augment()
+            # Generate random grid mask
+            additional_mask = generate_random_grid_mask(padded_data.shape[:2])
+            
+            # Create augmenter with additional mask
+            augmenter = ImageAugmenter(padded_data, padded_label, additional_mask, mask)
+            augmented_data, augmented_label, augmented_additional = augmenter.augment()
             
             # Create filenames with augmentation index
             aug_data_name = data_file.name.replace('-harmonized', f'aug{aug_idx+1}-augmented')
             aug_label_name = label_file.name.replace('-preciseLabel', f'aug{aug_idx+1}-augmented')
-            aug_mask_name = data_file.name.replace('-harmonized', f'aug{aug_idx+1}-mask')
+            aug_additional_name = data_file.name.replace('-harmonized', f'aug{aug_idx+1}-additional')
             
+            # Save all images
             cv2.imwrite(str(output_data_path / aug_data_name), 
-                        augmented_data, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+                       augmented_data, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
             cv2.imwrite(str(output_label_path / aug_label_name), 
-                        augmented_label, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
-            # Save mask as 32-bit float TIFF            
-            cv2.imwrite(str(output_mask_path / aug_mask_name),
-                        augmented_mask.astype(np.float32), [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+                       augmented_label, [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+            cv2.imwrite(str(output_additional_path / aug_additional_name),
+                       augmented_additional.astype(np.float32), [cv2.IMWRITE_TIFF_COMPRESSION, 1])
 
 if __name__ == '__main__':
     data_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image/')
@@ -261,4 +310,7 @@ if __name__ == '__main__':
     output_data_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/image/')
     output_label_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/label/')
     output_mask_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/mask/')
-    process_folder(data_path, label_path, output_data_path, output_label_path, output_mask_path, num_augmentations=10)
+    output_additional_path = Path('/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/additional/')
+    
+    process_folder(data_path, label_path, output_data_path, output_label_path, 
+                  output_mask_path, output_additional_path, num_augmentations=10)
