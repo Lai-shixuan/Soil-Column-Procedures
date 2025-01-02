@@ -54,8 +54,12 @@ class ImageObject:
         """Apply a single transformation using match-case"""
         match transform:
             case "scale_up_2x":
-                h, w = self.obj_data.shape[:2]
-                new_size = (w*2, h*2)  # cv2.resize expects (width, height)
+                new_size = (self.obj_data.shape[1]*2, self.obj_data.shape[0]*2)
+                # Check if scaled up size would exceed full image dimensions
+                if (new_size[1] > self.full_image.shape[0] or 
+                    new_size[0] > self.full_image.shape[1]):
+                    # Fallback to scale down if too large
+                    new_size = (self.obj_data.shape[1]//2, self.obj_data.shape[0]//2)
                 self.obj_data = cv2.resize(self.obj_data, new_size, interpolation=cv2.INTER_LINEAR)
                 self.obj_mask = cv2.resize(self.obj_mask.astype(np.float32), new_size, 
                                         interpolation=cv2.INTER_NEAREST) > 0.5
@@ -234,7 +238,7 @@ class ImageAugmenter:
         return augmented_data, augmented_label, augmented_additional
 
 def generate_random_grid_mask(shape: Tuple[int, int], 
-                            grid_size: Tuple[int, int] = (4, 4),
+                            grid_size: Tuple[int, int] = (8, 8),
                             probability: float = 0.5) -> np.ndarray:
     """Generate a random grid mask with rectangles"""
     mask = np.zeros(shape, dtype=np.float32)
