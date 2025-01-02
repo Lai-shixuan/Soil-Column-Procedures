@@ -93,6 +93,19 @@ class ImageObject:
             'cmax': new_x + self.obj_data.shape[1]
         }
 
+    def place_in_image(self, target_img: np.ndarray, position: Tuple[int, int]) -> None:
+        """Place object in target image at specified position"""
+        y, x = position
+        h, w = self.get_size()
+        
+        # Ensure we don't go out of bounds
+        h = min(h, target_img.shape[0] - y)
+        w = min(w, target_img.shape[1] - x)
+        
+        mask = self.obj_mask[:h, :w]
+        target_img[y:y+h, x:x+w][mask] = self.obj_data[:h, :w][mask]
+        self.update_position(y, x)
+
 class DataObject(ImageObject):
     """Class for data image objects"""
     def find_valid_position(self, boundary: np.ndarray, max_attempts: int = 5) -> Optional[Tuple[int, int]]:
@@ -109,19 +122,6 @@ class DataObject(ImageObject):
             if np.all(target_region[self.obj_mask] == 1):
                 return y, x
         return None
-
-    def place_in_image(self, target_img: np.ndarray, position: Tuple[int, int]) -> None:
-        """Place object in target image at specified position"""
-        y, x = position
-        h, w = self.get_size()
-        
-        # Ensure we don't go out of bounds
-        h = min(h, target_img.shape[0] - y)
-        w = min(w, target_img.shape[1] - x)
-        
-        mask = self.obj_mask[:h, :w]
-        target_img[y:y+h, x:x+w][mask] = self.obj_data[:h, :w][mask]
-        self.update_position(y, x)
 
 class LabelObject(ImageObject):
     """Class for label image objects"""
