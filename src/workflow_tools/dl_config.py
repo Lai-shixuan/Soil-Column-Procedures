@@ -1,3 +1,12 @@
+# 1. no kl, no mcc, using dice again, both supervised and consitency loss
+# 2. no consistency loss for labeled data (transform too much)
+# 3. consistency loss is 0.667, as the unlabeled data is 2/3
+# 4. add valiation for teacher model
+# TODO 2 datalodaer for st and mt model, st with no transform, mt with transform?
+# TODO check graient explode
+# TODO add geotransform to unlabel
+
+
 import sys
 import torch
 import albumentations as A
@@ -18,12 +27,12 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '15.7-unet++mcc-kl-local-batch4',
+        'wandb': '16.2-semi-scse-batch3-alpha0.98-cons-0.25-no-transinload',
         'seed': 3407,
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 4,
+        'label_batch_size': 3,
         'ratio': 0.20,
         'Kfold': None,
 
@@ -33,21 +42,21 @@ def get_parameters() -> Dict[str, Any]:
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
-        'transform': 'basic-aug+++-(oneof)',
+        'transform': 'basic-aug+++',
 
         # Learning related parameters
         'learning_rate': 1e-4,
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 200,
+        'scheduler_patience': 40,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 0.4,
-        'consistency_rampup': 220,
-        'teacher_alpha': 0.95,
+        'consistency_weight': 1/4,
+        'consistency_rampup': 66,
+        'teacher_alpha': 0.98,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1300,
@@ -111,11 +120,13 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
 def setup_model(encoder_name: str) -> torch.nn.Module:
+    # aux_params = {'dropout': 0.2, 'classes': 1}
     model = smp.UnetPlusPlus(
         encoder_name=encoder_name,
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
+        decoder_attention_type='scse'
     )
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
@@ -139,7 +150,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     mcc_criterion = mcc.MCCLoss()
     kl_criterion = evaluate.KLDivergence()
     
-    return optimizer, scheduler, mcc_criterion, kl_criterion 
+    return optimizer, scheduler, criterion, kl_criterion 
 
 def get_data_paths() -> dict:
     """Define all data paths in a central location"""
