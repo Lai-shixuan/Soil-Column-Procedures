@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '16.2-semi-scse-batch3-alpha0.98-cons-0.25-no-transinload',
+        'wandb': '16.3-semi-scse-batch3-alpha0.99-cons-0.25-no-transinload',
         'seed': 3407,
 
         # Data related parameters
@@ -55,8 +55,8 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
         'consistency_weight': 1/4,
-        'consistency_rampup': 66,
-        'teacher_alpha': 0.98,
+        'consistency_rampup': 50,
+        'teacher_alpha': 0.99,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1300,

@@ -465,7 +465,7 @@ def run_experiment(my_parameters):
             # Log the best training, teacher val and student val loss, save the model if it is the best
             if train_loss_m < train_loss_best:
                 train_loss_best = train_loss_m
-                if train_loss_best < 0.23 and model_good_epoch == 100000:
+                if train_loss_best < 0.25 and model_good_epoch == 100000:
                     model_good_epoch = epoch
                     print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
                 print(f'New best training loss: {train_loss_best:.3f}')
