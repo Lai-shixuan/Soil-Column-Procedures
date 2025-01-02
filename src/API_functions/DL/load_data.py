@@ -61,10 +61,10 @@ class my_Dataset(Dataset):
                 mask = augmented['mask']
                 return img, mask
             else:
-                augmenter = s4augmented_labels.ImageAugmenter(img, label, mask)
-                augmented_img, augmented_label, augmented_mask = augmenter.augment()
+                augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
+                augmented_img, augmented_label, _ = augmenter.augment()
 
-                augmented = self.transform(image=augmented_img, masks=[augmented_label, augmented_mask])
+                augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
                 img = augmented['image']
                 label = augmented['masks'][0]
                 mask = augmented['masks'][1]

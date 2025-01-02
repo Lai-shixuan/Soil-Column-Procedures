@@ -21,6 +21,7 @@ from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
 from src.workflow_tools.cvat_noisy import cvat_nosiy
+from src.workflow_tools.database import s4augmented_labels
 
 
 # Global flag to track interruption
@@ -182,9 +183,9 @@ def update_teacher_model(teacher_model, student_model, alpha):
     for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
         t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
 
-def compute_consistency_loss(student_model, teacher_model, device, non_geometric_transform,
+def compute_consistency_loss(student_model, teacher_model, device, transform_train,
                             images, masks,
-                            epoch, ramup, criterion):
+                            epoch, ramup, criterion, threshold=0.7):
     rampup = np.clip(epoch / ramup, 0, 1)
 
     with torch.no_grad():
@@ -193,21 +194,51 @@ def compute_consistency_loss(student_model, teacher_model, device, non_geometric
     output = deal_with_nan(epoch, output)
     teacher_pred = torch.sigmoid(output).squeeze(1)
 
-    non_geometric_batch = []
-    for img in images:
-        img_np = img.cpu().permute(1, 2, 0).numpy() # convert to numpy and H,W,C
-        non_geometric = non_geometric_transform(image=img_np)['image']
-        non_geometric_batch.append(non_geometric)
-    augmented_images = torch.stack(non_geometric_batch).to(device)
+    confs = (teacher_pred > threshold).float()
+    masks = masks * confs
 
-    student_pred = student_model(augmented_images).squeeze(1)
-    loss = criterion(student_pred, teacher_pred, masks)
+    teacher_pred = (teacher_pred > 0.5).float()
+
+    batch_imgs = []
+    batch_labels = []
+    batch_masks = []
+    batch_conf = []
+    for img, label, mask, conf in zip(images, teacher_pred, masks, confs):
+        img_np = img.squeeze(0).cpu().numpy()
+        label_np = label.cpu().numpy()
+        mask_np = mask.cpu().numpy()
+        conf_np = conf.cpu().numpy()
+
+        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, conf_np, mask_np)
+        augmented_img, augmented_label, augmented_conf = augmenter.augment()
+
+        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np, augmented_conf])
+        # augmented = transform_train(image=augmented_img, masks=[augmented_label, augmented_mask])
+        aug2_imgs = augmented['image']
+        aug2_label = augmented['masks'][0]
+        aug2_mask = augmented['masks'][1]
+        aug2_conf = augmented['masks'][2]
+
+        batch_imgs.append(aug2_imgs)
+        batch_labels.append(aug2_label)
+        batch_masks.append(aug2_mask)
+        batch_conf.append(aug2_conf)
+
+    trans_imgs = torch.stack(batch_imgs).to(device)
+    trans_lbls = torch.stack(batch_labels).to(device)
+    trans_masks = torch.stack(batch_masks).to(device)
+    trans_conf = torch.stack(batch_conf).to(device)
+
+    trans_masks = trans_conf * trans_masks
+
+    student_pred = student_model(trans_imgs).squeeze(1)
+    loss = criterion(student_pred, trans_lbls, trans_masks)
 
     return rampup * loss
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, geo_transform, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch, teacher_model, model_good_epoch):
+def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader, unlabeled_iter, transform_train, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch, teacher_model, model_good_epoch):
     model.train()
 
     # Initialize loss variables
@@ -240,7 +271,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             if my_parameters['mode'] == 'semi':
                 rampup = my_parameters['consistency_rampup']
                 cons_loss_un = compute_consistency_loss(
-                    model, teacher_model, device, non_geometric_transform,
+                    model, teacher_model, device, transform_train,
                     unlabeled_images, unlabeled_masks,
                     epoch, rampup, criterion 
                 )
@@ -308,7 +339,7 @@ def validate(model, device, val_loader, criterion):
 
     # Update validation loop autocast
     with torch.no_grad(), autocast(device_type='cuda'):
-        for images, labels, masks in tqdm(val_loader):
+        for images, labels, masks in val_loader:
             images = images.to(device)
             labels = labels.to(device)
             masks = masks.to(device)
@@ -414,7 +445,7 @@ def run_experiment(my_parameters):
 
             train_loss_m, cons_loss_un_m, _, total_loss_m, soft_dice_m = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
-                unlabeled_iter, geometric_transform, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch,
+                unlabeled_iter, transform_train, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model, model_good_epoch 
             )
             proceed_once = False
@@ -465,7 +496,7 @@ def run_experiment(my_parameters):
             # Log the best training, teacher val and student val loss, save the model if it is the best
             if train_loss_m < train_loss_best:
                 train_loss_best = train_loss_m
-                if train_loss_best < 0.25 and model_good_epoch == 100000:
+                if train_loss_best < 0.20 and model_good_epoch == 100000:
                     model_good_epoch = epoch
                     print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
                 print(f'New best training loss: {train_loss_best:.3f}')
