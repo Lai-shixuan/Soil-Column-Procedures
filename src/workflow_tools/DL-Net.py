@@ -9,9 +9,9 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -48,7 +48,10 @@ def setup_environment(my_parameters):
     teacher_model = dl_config.setup_model(my_parameters['encoder'])
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
-    teacher_model.load_state_dict(model.state_dict())
+        teacher_model.load_state_dict(model.state_dict())
+        # state_dict = torch.load('data/pths/precise/model_U-Net++_16.12-semi-same_pretrain(continues2train).pth', map_location='cuda')
+        # teacher_model.load_state_dict(state_dict)
+        # del state_dict
 
     teacher_model.to(device)
     teacher_model.eval()
@@ -188,7 +191,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
                             images, masks,
                             epoch, ramup, criterion, threshold=0.8):
     # rampup = np.clip(epoch / ramup, 0, 1)
-    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
+    # rampup = exp(-5 * (1 - epoch / ramup) ** 2)
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -196,47 +199,36 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     output = deal_with_nan(epoch, output)
     teacher_pred = torch.sigmoid(output).squeeze(1)
 
-    threshold = threshold * rampup
-    confs = (teacher_pred > threshold).float()
-
     teacher_pred = (teacher_pred > 0.5).float()
 
     batch_imgs = []
     batch_labels = []
     batch_masks = []
-    batch_conf = []
-    for img, label, mask, conf in zip(images, teacher_pred, masks, confs):
+    for img, label, mask in zip(images, teacher_pred, masks):
         img_np = img.squeeze(0).cpu().numpy()
         label_np = label.cpu().numpy()
         mask_np = mask.cpu().numpy()
-        conf_np = conf.cpu().numpy()
 
-        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, conf_np, mask_np)
-        augmented_img, augmented_label, augmented_conf = augmenter.augment()
+        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, mask = mask_np)
+        augmented_img, augmented_label, _ = augmenter.augment()
 
-        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np, augmented_conf])
-        # augmented = transform_train(image=augmented_img, masks=[augmented_label, augmented_mask])
+        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np])
         aug2_imgs = augmented['image']
         aug2_label = augmented['masks'][0]
         aug2_mask = augmented['masks'][1]
-        aug2_conf = augmented['masks'][2]
 
         batch_imgs.append(aug2_imgs)
         batch_labels.append(aug2_label)
         batch_masks.append(aug2_mask)
-        batch_conf.append(aug2_conf)
 
     trans_imgs = torch.stack(batch_imgs).to(device)
     trans_lbls = torch.stack(batch_labels).to(device)
     trans_masks = torch.stack(batch_masks).to(device)
-    trans_conf = torch.stack(batch_conf).to(device)
-
-    trans_masks = trans_conf * trans_masks
 
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
     
-    return rampup * loss
+    return loss
 
 # ------------------- Epoch -------------------
 
@@ -294,14 +286,25 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         scaler.update()
 
         # Update teacher model via EMA
-        if my_parameters['mode'] == 'semi' and epoch < model_good_epoch + 1:
-            # teacher_model.load_state_dict(model.state_dict())
-            update_teacher_model(teacher_model, model, alpha=0.90)
-        if my_parameters['mode'] == 'semi' and epoch == model_good_epoch + 1:
-            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
-            print(f"Teacher model equal student model at epoch {epoch}")
-        if my_parameters['mode'] == 'semi' and epoch > model_good_epoch + 1:
-            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+        if my_parameters['mode'] == 'semi':
+            if epoch < 150:
+                teacher_model.load_state_dict(model.state_dict())
+                alpha = 0
+            elif epoch < 151:
+                alpha = 0.9
+            elif epoch < 154:
+                alpha = 0.92
+            elif epoch < 157:
+                alpha = 0.94
+            elif epoch < 160:
+                alpha = 0.96
+            elif epoch < 175:
+                alpha = 0.98
+            elif epoch < 190:
+                alpha = 0.99
+            else:
+                alpha = 0.999
+                update_teacher_model(teacher_model, model, alpha)
 
         supervised_total += supervised_loss.item()
         # soft_dice_total += soft_dice.item()
@@ -332,9 +335,9 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
     if my_parameters['mode'] == 'semi':
         # None stands for total_cons_loss_labeled_m
-        return train_loss_mean, total_cons_loss_un_m, None, total_loss_mean, soft_dice_mean
+        return train_loss_mean, total_cons_loss_un_m, None, total_loss_mean, soft_dice_mean, alpha
     else:
-        return train_loss_mean, None, None, train_loss_mean, soft_dice_mean 
+        return train_loss_mean, None, None, train_loss_mean, soft_dice_mean, None
 
 def validate(model, device, val_loader, criterion):
     model.eval()
@@ -446,7 +449,7 @@ def run_experiment(my_parameters):
 
             # ------------------- Training -------------------
 
-            train_loss_m, cons_loss_un_m, _, total_loss_m, soft_dice_m = train_one_epoch(
+            train_loss_m, cons_loss_un_m, _, total_loss_m, soft_dice_m, alpha = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, transform_train, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model, model_good_epoch 
@@ -484,6 +487,7 @@ def run_experiment(my_parameters):
                     'total_loss': total_loss_m,
                     'val_loss': val_loss_mean,
                     'val_teacher_loss': val_teacher_loss_mean,
+                    'alpha': alpha,
                     'learning_rate': current_lr
                 }
             else:

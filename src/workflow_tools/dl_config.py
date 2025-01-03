@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '16.8-semi-conf0.7-alpha0.999',
+        'wandb': '16.22-semi-150-slow-graduate-alpha',
         'seed': 3407,
 
         # Data related parameters
@@ -42,7 +42,7 @@ def get_parameters() -> Dict[str, Any]:
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
-        'transform': 'basic-aug+++',
+        'transform': 'basic-aug++++',
 
         # Learning related parameters
         'learning_rate': 1e-4,
@@ -55,7 +55,7 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
         'consistency_weight': 1/4,
-        'consistency_rampup': 50,
+        'consistency_rampup': 100,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
@@ -105,9 +105,10 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
         A.RandomGridShuffle(grid=(3, 3), p=0.5),
         A.RandomRotate90(p=0.6),
         A.Rotate(limit=90, p=0.8),
-        A.Erasing(p=0.5),
+        A.Erasing(p=0.8),
         A.MultiplicativeNoise(elementwise=True, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.5),
+        # A.GaussNoise(p=0.5),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.7),
         A.RandomShadow(p=0.5),
         A.GaussianBlur(p=0.5, blur_limit=(3, 5)),
         ToTensorV2(),
