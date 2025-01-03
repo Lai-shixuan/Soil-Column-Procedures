@@ -13,9 +13,9 @@ import albumentations as A
 import segmentation_models_pytorch as smp
 import pandas as pd
 
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '16.8-semi-conf0.7-alpha0.999',
+        'wandb': '16.21-semi-150-repeat18-highLR-removeNoise',
         'seed': 3407,
 
         # Data related parameters
@@ -42,10 +42,10 @@ def get_parameters() -> Dict[str, Any]:
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
-        'transform': 'basic-aug+++',
+        'transform': 'basic-aug++++-',
 
         # Learning related parameters
-        'learning_rate': 1e-4,
+        'learning_rate': 5e-4,
         'scheduler': 'reduce_on_plateau',
         'scheduler_patience': 40,
         'scheduler_factor': 0.5,
@@ -55,7 +55,7 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
         'consistency_weight': 1/4,
-        'consistency_rampup': 50,
+        'consistency_rampup': 100,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
@@ -105,9 +105,10 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
         A.RandomGridShuffle(grid=(3, 3), p=0.5),
         A.RandomRotate90(p=0.6),
         A.Rotate(limit=90, p=0.8),
-        A.Erasing(p=0.5),
+        A.Erasing(p=0.7),
         A.MultiplicativeNoise(elementwise=True, p=0.5),
-        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.5),
+        # A.GaussNoise(p=0.5),
+        A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.7),
         A.RandomShadow(p=0.5),
         A.GaussianBlur(p=0.5, blur_limit=(3, 5)),
         ToTensorV2(),
@@ -156,12 +157,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            'image_dir': r'/mnt/version8/image',
-            'label_dir': r'/mnt/version8/label',
-            'padding_info': r'/mnt/version8/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/version8/image',
+            # 'label_dir': r'/mnt/version8/label',
+            # 'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -169,10 +170,10 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            'image_dir': r'/mnt/version7/unlabel/image',
-            'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/unlabel/image',
+            # 'padding_info': r'/mnt/version7/unlabel/image_patches.csv',
         }
     }
 

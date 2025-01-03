@@ -48,7 +48,10 @@ def setup_environment(my_parameters):
     teacher_model = dl_config.setup_model(my_parameters['encoder'])
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
-    teacher_model.load_state_dict(model.state_dict())
+        teacher_model.load_state_dict(model.state_dict())
+        # state_dict = torch.load('data/pths/precise/model_U-Net++_16.1-supervised-scse-batch3.pth', map_location='cuda')
+        # teacher_model.load_state_dict(state_dict)
+        # del state_dict
 
     teacher_model.to(device)
     teacher_model.eval()
@@ -188,7 +191,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
                             images, masks,
                             epoch, ramup, criterion, threshold=0.8):
     # rampup = np.clip(epoch / ramup, 0, 1)
-    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
+    # rampup = exp(-5 * (1 - epoch / ramup) ** 2)
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -196,47 +199,46 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     output = deal_with_nan(epoch, output)
     teacher_pred = torch.sigmoid(output).squeeze(1)
 
-    threshold = threshold * rampup
-    confs = (teacher_pred > threshold).float()
+    # threshold = threshold * rampup
+    # confs = (teacher_pred > threshold).float()
 
     teacher_pred = (teacher_pred > 0.5).float()
 
     batch_imgs = []
     batch_labels = []
     batch_masks = []
-    batch_conf = []
-    for img, label, mask, conf in zip(images, teacher_pred, masks, confs):
+    # batch_conf = []
+    for img, label, mask in zip(images, teacher_pred, masks):
         img_np = img.squeeze(0).cpu().numpy()
         label_np = label.cpu().numpy()
         mask_np = mask.cpu().numpy()
-        conf_np = conf.cpu().numpy()
+        # conf_np = conf.cpu().numpy()
 
-        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, conf_np, mask_np)
-        augmented_img, augmented_label, augmented_conf = augmenter.augment()
+        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, mask=mask_np)
+        augmented_img, augmented_label, _ = augmenter.augment()
 
-        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np, augmented_conf])
-        # augmented = transform_train(image=augmented_img, masks=[augmented_label, augmented_mask])
+        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np])
         aug2_imgs = augmented['image']
         aug2_label = augmented['masks'][0]
         aug2_mask = augmented['masks'][1]
-        aug2_conf = augmented['masks'][2]
+        # aug2_conf = augmented['masks'][2]
 
         batch_imgs.append(aug2_imgs)
         batch_labels.append(aug2_label)
         batch_masks.append(aug2_mask)
-        batch_conf.append(aug2_conf)
+        # batch_conf.append(aug2_conf)
 
     trans_imgs = torch.stack(batch_imgs).to(device)
     trans_lbls = torch.stack(batch_labels).to(device)
     trans_masks = torch.stack(batch_masks).to(device)
-    trans_conf = torch.stack(batch_conf).to(device)
+    # trans_conf = torch.stack(batch_conf).to(device)
 
-    trans_masks = trans_conf * trans_masks
+    # trans_masks = trans_conf * trans_masks
 
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
     
-    return rampup * loss
+    return loss
 
 # ------------------- Epoch -------------------
 
@@ -294,14 +296,17 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         scaler.update()
 
         # Update teacher model via EMA
-        if my_parameters['mode'] == 'semi' and epoch < model_good_epoch + 1:
-            # teacher_model.load_state_dict(model.state_dict())
-            update_teacher_model(teacher_model, model, alpha=0.90)
-        if my_parameters['mode'] == 'semi' and epoch == model_good_epoch + 1:
-            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
-            print(f"Teacher model equal student model at epoch {epoch}")
-        if my_parameters['mode'] == 'semi' and epoch > model_good_epoch + 1:
-            update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+        if my_parameters['mode'] == 'semi':
+            if epoch < 150:
+                teacher_model.load_state_dict(model.state_dict())
+            elif epoch < model_good_epoch + 1:
+                # teacher_model.load_state_dict(model.state_dict())
+                update_teacher_model(teacher_model, model, alpha=0.99)
+            elif epoch == model_good_epoch + 1:
+                update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+                print(f"Teacher model equal student model at epoch {epoch}")
+            elif epoch > model_good_epoch + 1:
+                update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
 
         supervised_total += supervised_loss.item()
         # soft_dice_total += soft_dice.item()
