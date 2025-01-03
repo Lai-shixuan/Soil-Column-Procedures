@@ -5,12 +5,13 @@ import signal
 import numpy as np
 import os
 import cv2
+from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -185,8 +186,9 @@ def update_teacher_model(teacher_model, student_model, alpha):
 
 def compute_consistency_loss(student_model, teacher_model, device, transform_train,
                             images, masks,
-                            epoch, ramup, criterion, threshold=0.7):
-    rampup = np.clip(epoch / ramup, 0, 1)
+                            epoch, ramup, criterion, threshold=0.8):
+    # rampup = np.clip(epoch / ramup, 0, 1)
+    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -194,8 +196,8 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     output = deal_with_nan(epoch, output)
     teacher_pred = torch.sigmoid(output).squeeze(1)
 
+    threshold = threshold * rampup
     confs = (teacher_pred > threshold).float()
-    masks = masks * confs
 
     teacher_pred = (teacher_pred > 0.5).float()
 
@@ -233,7 +235,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
 
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
-
+    
     return rampup * loss
 
 # ------------------- Epoch -------------------
@@ -293,7 +295,8 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
         # Update teacher model via EMA
         if my_parameters['mode'] == 'semi' and epoch < model_good_epoch + 1:
-            teacher_model.load_state_dict(model.state_dict())
+            # teacher_model.load_state_dict(model.state_dict())
+            update_teacher_model(teacher_model, model, alpha=0.90)
         if my_parameters['mode'] == 'semi' and epoch == model_good_epoch + 1:
             update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
             print(f"Teacher model equal student model at epoch {epoch}")
@@ -496,7 +499,7 @@ def run_experiment(my_parameters):
             # Log the best training, teacher val and student val loss, save the model if it is the best
             if train_loss_m < train_loss_best:
                 train_loss_best = train_loss_m
-                if train_loss_best < 0.20 and model_good_epoch == 100000:
+                if train_loss_best < 0.20 and val_teacher_loss_best < 0.16 and val_loss_best < 0.16 and model_good_epoch == 100000:
                     model_good_epoch = epoch
                     print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
                 print(f'New best training loss: {train_loss_best:.3f}')
