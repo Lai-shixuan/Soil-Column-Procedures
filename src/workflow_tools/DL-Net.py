@@ -302,7 +302,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             # elif epoch < model_good_epoch + 1:
             elif epoch < 340:
                 # teacher_model.load_state_dict(model.state_dict())
-                alpha = 0.999
+                alpha = 0.99
                 update_teacher_model(teacher_model, model, alpha=alpha)
             # elif epoch == model_good_epoch + 1:
             elif epoch == 340:
@@ -473,12 +473,12 @@ def run_experiment(my_parameters):
 
             scheduler.step(val_loss_mean)
 
-            manual_lr_epoch = 148
-            manual_lr = 3e-5
-            if epoch == manual_lr_epoch:
-                print(f"Epoch {epoch}: Manually setting learning rate to {manual_lr}")
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = manual_lr
+            # manual_lr_epoch = 148
+            # manual_lr = 3e-5
+            # if epoch == manual_lr_epoch:
+                # print(f"Epoch {epoch}: Manually setting learning rate to {manual_lr}")
+                # for param_group in optimizer.param_groups:
+                    # param_group['lr'] = manual_lr
 
             if device == 'cuda':
                 torch.cuda.empty_cache()
