@@ -525,8 +525,8 @@ def run_experiment(my_parameters):
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
             else:
                 no_improvement_count += 1                
-                if no_improvement_count >= my_parameters['patience']:
-                    print(f"No improvement for {my_parameters['patience']} epochs, stopping early.")
+                if no_improvement_count >= my_parameters['patience'] or (epoch > 200 and val_loss_mean > 0.5):
+                    print(f"No improvement for {my_parameters['patience']} epochs or val_loss > 0.5, stopping training.")
                     break
 
     except Exception as e:

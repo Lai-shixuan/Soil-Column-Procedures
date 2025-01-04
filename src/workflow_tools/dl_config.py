@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '16.21-semi-150-repeat18-highLR-removeNoise',
+        'wandb': '17.7-semi-0.99',
         'seed': 3407,
 
         # Data related parameters
@@ -45,23 +45,23 @@ def get_parameters() -> Dict[str, Any]:
         'transform': 'basic-aug++++-',
 
         # Learning related parameters
-        'learning_rate': 5e-4,
+        'learning_rate': 25e-5,
         'scheduler': 'reduce_on_plateau',
-        'scheduler_patience': 40,
+        'scheduler_patience': 30,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 1/4,
+        'consistency_weight': 1/2,
         'consistency_rampup': 100,
-        'teacher_alpha': 0.999,
+        'teacher_alpha': 0.99,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 1300,
-        'patience': 1200,
-        'batch_debug': False,
+        'n_epochs': 1500,
+        'patience': 300,
+        'batch_debug': True,
 
         # Scenarios, linux can compile, windows can't
         'compile': True,
@@ -75,8 +75,11 @@ def get_parameters() -> Dict[str, Any]:
 
 def get_debug_param_sets():
     return [
-        {**get_parameters(), 'encoder': 'dpn68', 'wandb': '13.14-dpn68'},
-        {**get_parameters(), 'encoder': 'dpn98', 'wandb': '13.15-dpn98'},
+        # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
+        # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
+        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '17.4-25e-5'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '17.5-1e-4'},
+        {**get_parameters(), 'learning_rate': 5e-5, 'wandb': '17.6-5e-5'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
