@@ -9,9 +9,9 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -469,6 +469,13 @@ def run_experiment(my_parameters):
             current_lr = optimizer.param_groups[0]['lr']
 
             scheduler.step(val_loss_mean)
+
+            manual_lr_epoch = 148
+            manual_lr = 3e-5
+            if epoch == manual_lr_epoch:
+                print(f"Epoch {epoch}: Manually setting learning rate to {manual_lr}")
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = manual_lr
 
             if device == 'cuda':
                 torch.cuda.empty_cache()
