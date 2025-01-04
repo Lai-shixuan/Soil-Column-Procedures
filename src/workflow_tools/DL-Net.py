@@ -301,7 +301,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 teacher_model.load_state_dict(model.state_dict())
             elif epoch < model_good_epoch + 1:
                 # teacher_model.load_state_dict(model.state_dict())
-                alpha = 0.99
+                alpha = 0.999
                 update_teacher_model(teacher_model, model, alpha=alpha)
             elif epoch == model_good_epoch + 1:
                 alpha = my_parameters['teacher_alpha']
