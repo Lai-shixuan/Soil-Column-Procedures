@@ -9,9 +9,9 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -299,15 +299,18 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         if my_parameters['mode'] == 'semi':
             if epoch < 150:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch < model_good_epoch + 1:
+            # elif epoch < model_good_epoch + 1:
+            elif epoch < 340:
                 # teacher_model.load_state_dict(model.state_dict())
                 alpha = 0.999
                 update_teacher_model(teacher_model, model, alpha=alpha)
-            elif epoch == model_good_epoch + 1:
+            # elif epoch == model_good_epoch + 1:
+            elif epoch == 340:
                 alpha = my_parameters['teacher_alpha']
                 update_teacher_model(teacher_model, model, alpha=alpha)
                 print(f"Teacher model equal student model at epoch {epoch}")
-            elif epoch > model_good_epoch + 1:
+            # elif epoch > model_good_epoch + 1:
+            elif epoch > 340:
                 alpha = my_parameters['teacher_alpha']
                 update_teacher_model(teacher_model, model, alpha=alpha)
 

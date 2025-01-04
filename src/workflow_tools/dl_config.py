@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '17.14-semi-0.999first-consistency0.16-lessLR',
+        'wandb': '17.15-semi-0.999-340-consistency0.16-lessLR',
         'seed': 3407,
 
         # Data related parameters
@@ -64,7 +64,7 @@ def get_parameters() -> Dict[str, Any]:
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
-        'compile': True,
+        'compile': False,
 
         # Try to update labels, failed before
         'update': False
@@ -160,12 +160,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            # 'image_dir': r'/mnt/version8/image',
-            # 'label_dir': r'/mnt/version8/label',
-            # 'padding_info': r'/mnt/version8/image_patches.csv',
+        #     'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+        #     'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+        #     'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/version8/image',
+            'label_dir': r'/mnt/version8/label',
+            'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -173,10 +173,10 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            # 'image_dir': r'/mnt/version7/image',
-            # 'padding_info': r'/mnt/version7/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            'image_dir': r'/mnt/version7/image',
+            'padding_info': r'/mnt/version7/image_patches.csv',
         }
     }
 
