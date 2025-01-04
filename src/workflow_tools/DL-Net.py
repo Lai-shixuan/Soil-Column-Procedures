@@ -301,7 +301,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 teacher_model.load_state_dict(model.state_dict())
             elif epoch < model_good_epoch + 1:
                 # teacher_model.load_state_dict(model.state_dict())
-                update_teacher_model(teacher_model, model, alpha=0.99)
+                update_teacher_model(teacher_model, model, alpha=0.98)
             elif epoch == model_good_epoch + 1:
                 update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
                 print(f"Teacher model equal student model at epoch {epoch}")
