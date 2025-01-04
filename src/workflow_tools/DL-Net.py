@@ -35,7 +35,6 @@ def setup_environment(my_parameters):
     mylogger = log.DataLogger('wandb')
 
     seed.stablize_seed(my_parameters['seed'])
-    torch.use_deterministic_algorithms(False)    # to ensure reproducibility
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
     model = dl_config.setup_model(my_parameters['encoder'])
@@ -252,6 +251,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         total_cons_loss_un = 0.0
         total_cons_loss_labeled = 0.0
         total_loss_total = 0.0
+        alpha = 0
 
     for images, labels, masks in tqdm(train_loader):
         images = images.to(device)
@@ -301,12 +301,15 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 teacher_model.load_state_dict(model.state_dict())
             elif epoch < model_good_epoch + 1:
                 # teacher_model.load_state_dict(model.state_dict())
-                update_teacher_model(teacher_model, model, alpha=0.98)
+                alpha = 0.99
+                update_teacher_model(teacher_model, model, alpha=alpha)
             elif epoch == model_good_epoch + 1:
-                update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+                alpha = my_parameters['teacher_alpha']
+                update_teacher_model(teacher_model, model, alpha=alpha)
                 print(f"Teacher model equal student model at epoch {epoch}")
             elif epoch > model_good_epoch + 1:
-                update_teacher_model(teacher_model, model, alpha=my_parameters['teacher_alpha'])
+                alpha = my_parameters['teacher_alpha']
+                update_teacher_model(teacher_model, model, alpha=alpha)
 
         supervised_total += supervised_loss.item()
         # soft_dice_total += soft_dice.item()
@@ -337,9 +340,9 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
     if my_parameters['mode'] == 'semi':
         # None stands for total_cons_loss_labeled_m
-        return train_loss_mean, total_cons_loss_un_m, None, total_loss_mean, soft_dice_mean
+        return train_loss_mean, total_cons_loss_un_m, None, total_loss_mean, soft_dice_mean, alpha
     else:
-        return train_loss_mean, None, None, train_loss_mean, soft_dice_mean 
+        return train_loss_mean, None, None, train_loss_mean, soft_dice_mean, None
 
 def validate(model, device, val_loader, criterion):
     model.eval()
@@ -451,7 +454,7 @@ def run_experiment(my_parameters):
 
             # ------------------- Training -------------------
 
-            train_loss_m, cons_loss_un_m, _, total_loss_m, soft_dice_m = train_one_epoch(
+            train_loss_m, cons_loss_un_m, _, total_loss_m, soft_dice_m, alpha = train_one_epoch(
                 model, device, train_loader, my_parameters, unlabeled_loader,
                 unlabeled_iter, transform_train, non_geometric_transform, criterion, kl_criterion, optimizer, scaler, proceed_once, epoch,
                 teacher_model, model_good_epoch 
@@ -489,7 +492,8 @@ def run_experiment(my_parameters):
                     'total_loss': total_loss_m,
                     'val_loss': val_loss_mean,
                     'val_teacher_loss': val_teacher_loss_mean,
-                    'learning_rate': current_lr
+                    'learning_rate': current_lr,
+                    'alpha': alpha
                 }
             else:
                 dict_to_log = {
