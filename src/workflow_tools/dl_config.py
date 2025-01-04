@@ -54,14 +54,14 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 1/2,
+        'consistency_weight': 1/4,
         'consistency_rampup': 100,
-        'teacher_alpha': 0.99,
+        'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
         'patience': 300,
-        'batch_debug': True,
+        'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
         'compile': True,
