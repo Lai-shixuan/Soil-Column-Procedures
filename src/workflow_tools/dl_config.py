@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '17.19-semi-99-250-999rest-cosLR',
+        'wandb': '17.20-semi-99-250-999rest-cosLR-more-unlabeled-data',
         'seed': 3407,
 
         # Data related parameters
@@ -183,6 +183,10 @@ def get_data_paths() -> dict:
             # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
             'image_dir': r'/mnt/version7/image',
             'padding_info': r'/mnt/version7/image_patches.csv',
+        },
+        'second-unlabeled': {
+            'image_dir': r'/mnt/version7/labeled/image',
+            'padding_info': r'/mnt/version7/labeled/image_patches.csv',
         }
     }
 
@@ -242,5 +246,11 @@ def load_and_preprocess_data():
     if params['mode'] == 'semi':
         unlabeled_images, unlabeled_padding_info = load_dataset(data_paths['unlabeled'], mode='unlabeled')
         unlabeled_data = fb.read_images(unlabeled_images, 'gray', read_all=True)
+
+        second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
+        second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
+
+        unlabeled_data.append(second_unlabeled_data)
+        unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
 
     return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info
