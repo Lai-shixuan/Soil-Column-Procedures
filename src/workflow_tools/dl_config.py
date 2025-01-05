@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '17.25-semi-99-250-9995all-50patience',
+        'wandb': '18.2-updateBN-EMA-in-plateau',
         'seed': 3407,
 
         # Data related parameters
@@ -61,7 +61,7 @@ def get_parameters() -> Dict[str, Any]:
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
         'patience': 300,
-        'batch_debug': False,
+        'batch_debug': True,
 
         # Scenarios, linux can compile, windows can't
         'compile': True,
@@ -77,9 +77,9 @@ def get_debug_param_sets():
     return [
         # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
         # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
-        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '17.4-25e-5'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '17.5-1e-4'},
-        {**get_parameters(), 'learning_rate': 5e-5, 'wandb': '17.6-5e-5'},
+        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '18.2-25e-5'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '18.3-1e-4'},
+        {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '18.4-7e-5'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
