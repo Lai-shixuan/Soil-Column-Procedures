@@ -9,9 +9,9 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
 # sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -475,7 +475,7 @@ def run_experiment(my_parameters):
             val_teacher_loss_mean = validate(teacher_model, device, val_loader, criterion)
             current_lr = optimizer.param_groups[0]['lr']
 
-            scheduler.step(val_loss_mean)
+            scheduler.step()
 
             # manual_lr_epoch = 148
             # manual_lr = 3e-5
