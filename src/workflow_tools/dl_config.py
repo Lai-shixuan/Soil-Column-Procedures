@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '17.20-semi-99-250-999rest-cosLR-more-unlabeled-data',
+        'wandb': '17.21-semi-99-250-999-99-50patience',
         'seed': 3407,
 
         # Data related parameters
@@ -46,8 +46,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Learning related parameters
         'learning_rate': 5e-4,
-        'scheduler': 'cosineLR',
-        'scheduler_patience': 60,
+        'scheduler': 'plateau',     # scheduler = 'plateau', 'cosine', 'step'
+        'scheduler_patience': 50,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 0.25e-4,
 
@@ -64,7 +64,7 @@ def get_parameters() -> Dict[str, Any]:
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
-        'compile': False,
+        'compile': True,
 
         # Try to update labels, failed before
         'update': False
@@ -144,17 +144,17 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
-    T_max = 400  # 第一个周期包含25个step
-    eta_min = 2.5e-5  # 最小学习率
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
+    # T_max = 400  # 第一个周期包含25个step
+    # eta_min = 2.5e-5  # 最小学习率
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #     optimizer,
-    #     mode='min',
-    #     factor=scheduler_factor,
-    #     patience=scheduler_patience,
-    #     min_lr=scheduler_min_lr
-    # )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode='min',
+        factor=scheduler_factor,
+        patience=scheduler_patience,
+        min_lr=scheduler_min_lr
+    )
     criterion = evaluate.DiceBCELoss()
     mse_criterion = evaluate.MaskedMSELoss()
     mcc_criterion = mcc.MCCLoss()
@@ -166,12 +166,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            'image_dir': r'/mnt/version8/image',
-            'label_dir': r'/mnt/version8/label',
-            'padding_info': r'/mnt/version8/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/version8/image',
+            # 'label_dir': r'/mnt/version8/label',
+            # 'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -179,10 +179,10 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            'image_dir': r'/mnt/version7/image',
-            'padding_info': r'/mnt/version7/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/image',
+            # 'padding_info': r'/mnt/version7/image_patches.csv',
         },
         'second-unlabeled': {
             'image_dir': r'/mnt/version7/labeled/image',
@@ -247,10 +247,10 @@ def load_and_preprocess_data():
         unlabeled_images, unlabeled_padding_info = load_dataset(data_paths['unlabeled'], mode='unlabeled')
         unlabeled_data = fb.read_images(unlabeled_images, 'gray', read_all=True)
 
-        second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
-        second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
+        # second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
+        # second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
 
-        unlabeled_data.append(second_unlabeled_data)
-        unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
+        # unlabeled_data.append(second_unlabeled_data)
+        # unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
 
     return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info
