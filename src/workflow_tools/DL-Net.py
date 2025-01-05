@@ -35,9 +35,9 @@ def setup_environment(my_parameters):
 
     # 你想使用的 GPU 编号 (从 0 开始)
     gpu_id = 0
+    torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    print(f"I have these GPU: {print(torch.cuda.current_device())}")
     mylogger = log.DataLogger('wandb')
 
     seed.stablize_seed(my_parameters['seed'])

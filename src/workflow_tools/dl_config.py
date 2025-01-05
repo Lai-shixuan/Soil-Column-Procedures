@@ -144,9 +144,9 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
-    T_0 = 400  # 第一个周期包含25个step
+    T_max = 400  # 第一个周期包含25个step
     eta_min = 2.5e-5  # 最小学习率
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_0=T_0, eta_min=eta_min)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     #     optimizer,
