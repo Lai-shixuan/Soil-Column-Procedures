@@ -56,7 +56,7 @@ def get_parameters() -> Dict[str, Any]:
         'unlabel_batch_size': 4,
         'consistency_weight': 0.25,
         'consistency_rampup': 100,
-        'teacher_alpha': 0.999,
+        'teacher_alpha': 0.99,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
