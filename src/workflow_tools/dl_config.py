@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '17.25-semi-150-99-200-999-400-9995-cosine',
+        'wandb': '19.1',
         'seed': 3407,
 
         # Data related parameters
@@ -61,7 +61,7 @@ def get_parameters() -> Dict[str, Any]:
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
         'patience': 300,
-        'batch_debug': False,
+        'batch_debug': True,
 
         # Scenarios, linux can compile, windows can't
         'compile': False,
@@ -77,9 +77,9 @@ def get_debug_param_sets():
     return [
         # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
         # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
-        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '17.4-25e-5'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '17.5-1e-4'},
-        {**get_parameters(), 'learning_rate': 5e-5, 'wandb': '17.6-5e-5'},
+        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '19.1-25e-5-moredata'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '19.2-1e-4-moredata'},
+        {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '19.3-7e-5-moredata'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
@@ -144,7 +144,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
-    T_max = 400  # 第一个周期包含25个step
+    T_max = 600  # 第一个周期包含25个step
     eta_min = 2.5e-5  # 最小学习率
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 

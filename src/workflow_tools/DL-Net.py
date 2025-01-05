@@ -33,7 +33,7 @@ interrupted = False
 
 def setup_environment(my_parameters):
 
-    gpu_id = 2
+    gpu_id = 1
     torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -191,6 +191,17 @@ def update_teacher_model(teacher_model, student_model, alpha):
     for t_param, s_param in zip(teacher_model.parameters(), student_model.parameters()):
         t_param.data = alpha * t_param.data + (1 - alpha) * s_param.data
 
+def update_ema_variables(ema_model, model, alpha):
+    with torch.no_grad():
+        model_state_dict = model.state_dict()
+        ema_model_state_dict = ema_model.state_dict()
+        for entry in ema_model_state_dict.keys():
+            ema_param = ema_model_state_dict[entry].clone().detach()
+            param = model_state_dict[entry].clone().detach()
+            new_param = (ema_param * alpha) + (param * (1. - alpha))
+            ema_model_state_dict[entry] = new_param
+        ema_model.load_state_dict(ema_model_state_dict)
+
 def compute_consistency_loss(student_model, teacher_model, device, transform_train,
                             images, masks,
                             epoch, ramup, criterion, threshold=0.8):
@@ -308,14 +319,14 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             elif epoch < 200:
                 # teacher_model.load_state_dict(model.state_dict())
                 alpha = 0.99
-                update_teacher_model(teacher_model, model, alpha=alpha)
+                update_ema_variables(teacher_model, model, alpha=alpha)
             # elif epoch > model_good_epoch + 1:
-            elif epoch <= 400:
-                alpha = 0.999
-                update_teacher_model(teacher_model, model, alpha=alpha)
+            elif epoch <= 380:
+                alpha = 0.99
+                update_ema_variables(teacher_model, model, alpha=alpha)
             elif epoch > 400:
-                alpha = 0.9995
-                update_teacher_model(teacher_model, model, alpha=alpha)
+                alpha = 0.999
+                update_ema_variables(teacher_model, model, alpha=alpha)
 
         supervised_total += supervised_loss.item()
         # soft_dice_total += soft_dice.item()
