@@ -305,13 +305,12 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 alpha = 0.99
                 update_teacher_model(teacher_model, model, alpha=alpha)
             # elif epoch == model_good_epoch + 1:
-            elif epoch == 250:
+            elif epoch < 400:
                 alpha = my_parameters['teacher_alpha']
                 update_teacher_model(teacher_model, model, alpha=alpha)
-                print(f"Teacher model equal student model at epoch {epoch}")
             # elif epoch > model_good_epoch + 1:
-            elif epoch > 250:
-                alpha = my_parameters['teacher_alpha']
+            elif epoch > 400:
+                alpha = 0.99
                 update_teacher_model(teacher_model, model, alpha=alpha)
 
         supervised_total += supervised_loss.item()
