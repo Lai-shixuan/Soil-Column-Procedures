@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '18.2-updateBN-EMA-in-plateau',
+        'wandb': '24.1-cons0.5',
         'seed': 3407,
 
         # Data related parameters
@@ -45,7 +45,7 @@ def get_parameters() -> Dict[str, Any]:
         'transform': 'basic-aug++++-',
 
         # Learning related parameters
-        'learning_rate': 5e-4,
+        'learning_rate': 2.5e-4,
         'scheduler': 'plateau',     # scheduler = 'plateau', 'cosine', 'step'
         'scheduler_patience': 50,
         'scheduler_factor': 0.5,
@@ -54,14 +54,14 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 0.25,
+        'consistency_weight': 0.5,
         'consistency_rampup': 100,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
-        'patience': 300,
-        'batch_debug': True,
+        'patience': 350,
+        'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
         'compile': True,
@@ -77,7 +77,7 @@ def get_debug_param_sets():
     return [
         # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
         # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
-        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '18.2-25e-5'},
+        # {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '18.2-25e-5'},
         {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '18.3-1e-4'},
         {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '18.4-7e-5'},
     ]
