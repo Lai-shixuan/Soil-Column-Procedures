@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '26.2-more-consloss-lessLR-conf-resnest26-fix-totalloss',
+        'wandb': '27-sgdw',
         'seed': 3407,
 
         # Data related parameters
@@ -38,8 +38,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'timm-resnest26d',   # mobileone_s0
-        'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
+        'encoder': 'resnext50_32x4d',   # mobileone_s0
+        'optimizer': 'sgd',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic-aug++++-',
@@ -137,10 +137,17 @@ def setup_model(encoder_name: str) -> torch.nn.Module:
 
 def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr):
     # parameters = get_parameters()
-    optimizer = torch.optim.Adam(
-        model.parameters(), 
+    # optimizer = torch.optim.Adam(
+    #     model.parameters(), 
+    #     lr=learning_rate,
+    #     # weight_decay=parameters['weight_decay']
+    # )
+
+    optimizer = torch.optim.sgd(
+        model.parameters(),
         lr=learning_rate,
-        # weight_decay=parameters['weight_decay']
+        momentum=0.9,
+        weight_decay=1e-4
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
