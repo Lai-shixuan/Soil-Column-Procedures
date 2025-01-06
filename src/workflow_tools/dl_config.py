@@ -143,7 +143,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     #     # weight_decay=parameters['weight_decay']
     # )
 
-    optimizer = torch.optim.sgd(
+    optimizer = torch.optim.SGD(
         model.parameters(),
         lr=learning_rate,
         momentum=0.9,
