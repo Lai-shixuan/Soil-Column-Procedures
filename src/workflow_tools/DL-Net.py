@@ -33,7 +33,7 @@ interrupted = False
 
 def setup_environment(my_parameters):
 
-    gpu_id = 0
+    gpu_id = 1
     torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -206,7 +206,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
                             images, masks,
                             epoch, ramup, criterion, threshold=0.8):
     # rampup = np.clip(epoch / ramup, 0, 1)
-    # rampup = exp(-5 * (1 - epoch / ramup) ** 2)
+    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -233,14 +233,10 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
         augmented_img, augmented_label, _ = augmenter.augment()
 
         augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np])
-        aug2_imgs = augmented['image']
-        aug2_label = augmented['masks'][0]
-        aug2_mask = augmented['masks'][1]
+        batch_imgs.append(augmented['image'])
+        batch_labels.append(augmented['masks'][0])
+        batch_masks.append(augmented['masks'][1])
         # aug2_conf = augmented['masks'][2]
-
-        batch_imgs.append(aug2_imgs)
-        batch_labels.append(aug2_label)
-        batch_masks.append(aug2_mask)
         # batch_conf.append(aug2_conf)
 
     trans_imgs = torch.stack(batch_imgs).to(device)
@@ -253,7 +249,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
     
-    return loss
+    return loss * rampup
 
 # ------------------- Epoch -------------------
 
@@ -315,16 +311,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         if my_parameters['mode'] == 'semi':
             if epoch < 150:
                 teacher_model.load_state_dict(model.state_dict())
-            # elif epoch < model_good_epoch + 1:
-            elif epoch < 200:
-                # teacher_model.load_state_dict(model.state_dict())
+            elif epoch <= 300:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            # elif epoch > model_good_epoch + 1:
-            elif epoch <= 380:
-                alpha = 0.99
-                update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 400:
+            elif epoch > 300:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
 

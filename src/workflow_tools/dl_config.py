@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '19.1',
+        'wandb': '19.4-0.8LR-rampup',
         'seed': 3407,
 
         # Data related parameters
@@ -45,7 +45,7 @@ def get_parameters() -> Dict[str, Any]:
         'transform': 'basic-aug++++-',
 
         # Learning related parameters
-        'learning_rate': 5e-4,
+        'learning_rate': 0.8e-4,
         'scheduler': 'plateau',     # scheduler = 'plateau', 'cosine', 'step'
         'scheduler_patience': 50,
         'scheduler_factor': 0.5,
@@ -55,7 +55,7 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
         'consistency_weight': 0.5,
-        'consistency_rampup': 100,
+        'consistency_rampup': 300,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
@@ -144,8 +144,8 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
-    T_max = 800  # 第一个周期包含25个step
-    eta_min = 2.5e-5  # 最小学习率
+    T_max = 600  # 第一个周期包含25个step
+    eta_min = 1e-5  # 最小学习率
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
