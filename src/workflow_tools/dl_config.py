@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '19.5-0.8LR-rampup-repeat19.3-conf',
+        'wandb': '19.6-more-consloss-lessLR-conf',
         'seed': 3407,
 
         # Data related parameters
@@ -54,7 +54,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 0.5,
+        'consistency_weight': 0.6,
         'consistency_rampup': 300,
         'teacher_alpha': 0.999,
 
@@ -145,7 +145,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
 
     # 定义 CosineAnnealingWarmRestarts 调度器
     T_max = 600  # 第一个周期包含25个step
-    eta_min = 1e-5  # 最小学习率
+    eta_min = 7e-6  # 最小学习率
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
