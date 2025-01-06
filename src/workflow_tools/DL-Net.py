@@ -204,11 +204,7 @@ def update_ema_variables(ema_model, model, alpha):
 
 def compute_consistency_loss(student_model, teacher_model, device, transform_train,
                             images, masks,
-                            epoch, rampup, criterion, threshold=0.8):
-    # rampup = np.clip(epoch / ramup, 0, 1)
-    rampup_weight = exp(-5 * (1 - epoch / rampup) ** 2)
-    if epoch > rampup:
-        rampup_weight = 1
+                            epoch, rampup_weight, criterion, threshold=0.8):
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -287,10 +283,14 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
             if my_parameters['mode'] == 'semi':
                 rampup = my_parameters['consistency_rampup']
+                # rampup = np.clip(epoch / ramup, 0, 1)
+                rampup_weight = exp(-5 * (1 - epoch / rampup) ** 2)
+                if epoch > rampup:
+                    rampup_weight = 1
                 cons_loss_un = compute_consistency_loss(
                     model, teacher_model, device, transform_train,
                     unlabeled_images, unlabeled_masks,
-                    epoch, rampup, criterion 
+                    epoch, rampup_weight, criterion 
                 )
                 cons_loss = cons_loss_un
                 # cons_loss_labeled = compute_consistency_loss(
@@ -302,7 +302,8 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 # labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
                 # cons_loss = cons_loss_un * un_weight + cons_loss_labeled * labeled_weight
 
-            total_loss = supervised_loss * (1 - my_parameters['consistency_weight']) + cons_loss * my_parameters['consistency_weight'] if my_parameters['mode'] == 'semi' else supervised_loss
+            cons_combine_weight = my_parameters['consistency_weight'] * rampup_weight
+            total_loss = supervised_loss * (1 - cons_combine_weight) + cons_loss * cons_combine_weight if my_parameters['mode'] == 'semi' else supervised_loss
 
         scaler.scale(total_loss).backward()
         scaler.step(optimizer)
