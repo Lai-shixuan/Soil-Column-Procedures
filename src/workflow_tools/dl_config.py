@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '19.4-0.8LR-rampup-repeat19.3',
+        'wandb': '19.5-0.8LR-rampup-repeat19.3-conf',
         'seed': 3407,
 
         # Data related parameters

@@ -33,7 +33,7 @@ interrupted = False
 
 def setup_environment(my_parameters):
 
-    gpu_id = 1
+    gpu_id = 0
     torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -204,9 +204,11 @@ def update_ema_variables(ema_model, model, alpha):
 
 def compute_consistency_loss(student_model, teacher_model, device, transform_train,
                             images, masks,
-                            epoch, ramup, criterion, threshold=0.8):
+                            epoch, rampup, criterion, threshold=0.8):
     # rampup = np.clip(epoch / ramup, 0, 1)
-    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
+    rampup_weight = exp(-5 * (1 - epoch / rampup) ** 2)
+    if epoch > rampup:
+        rampup_weight = 1
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -214,42 +216,41 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     output = deal_with_nan(epoch, output)
     teacher_pred = torch.sigmoid(output).squeeze(1)
 
-    # threshold = threshold * rampup
-    # confs = (teacher_pred > threshold).float()
+    threshold = threshold * rampup_weight
+    confs = torch.where((teacher_pred > threshold) | (teacher_pred < 1 - threshold), 1, 0).float()
 
     teacher_pred = (teacher_pred > 0.5).float()
 
     batch_imgs = []
     batch_labels = []
     batch_masks = []
-    # batch_conf = []
-    for img, label, mask in zip(images, teacher_pred, masks):
+    batch_conf = []
+    for img, label, mask, conf in zip(images, teacher_pred, masks, confs):
         img_np = img.squeeze(0).cpu().numpy()
         label_np = label.cpu().numpy()
         mask_np = mask.cpu().numpy()
-        # conf_np = conf.cpu().numpy()
+        conf_np = conf.cpu().numpy()
 
-        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, mask=mask_np)
-        augmented_img, augmented_label, _ = augmenter.augment()
+        augmenter = s4augmented_labels.ImageAugmenter(img_np, label_np, additional_img=conf_np, mask=mask_np)
+        augmented_img, augmented_label, augmented_conf = augmenter.augment()
 
-        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np])
+        augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np, augmented_conf])
         batch_imgs.append(augmented['image'])
         batch_labels.append(augmented['masks'][0])
         batch_masks.append(augmented['masks'][1])
-        # aug2_conf = augmented['masks'][2]
-        # batch_conf.append(aug2_conf)
+        batch_conf.append(augmented['masks'][2])
 
     trans_imgs = torch.stack(batch_imgs).to(device)
     trans_lbls = torch.stack(batch_labels).to(device)
     trans_masks = torch.stack(batch_masks).to(device)
-    # trans_conf = torch.stack(batch_conf).to(device)
+    trans_conf = torch.stack(batch_conf).to(device)
 
-    # trans_masks = trans_conf * trans_masks
+    trans_masks = trans_conf * trans_masks
 
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
     
-    return loss * rampup
+    return loss * rampup_weight
 
 # ------------------- Epoch -------------------
 
