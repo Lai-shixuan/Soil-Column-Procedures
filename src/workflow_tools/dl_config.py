@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '19.4-0.8LR-rampup',
+        'wandb': '19.4-0.8LR-rampup-repeat19.3',
         'seed': 3407,
 
         # Data related parameters
@@ -61,7 +61,7 @@ def get_parameters() -> Dict[str, Any]:
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
         'patience': 300,
-        'batch_debug': True,
+        'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
         'compile': False,
