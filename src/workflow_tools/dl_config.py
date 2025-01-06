@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '19.6-more-consloss-lessLR-conf',
+        'wandb': '26-more-consloss-lessLR-conf-resnest26',
         'seed': 3407,
 
         # Data related parameters
@@ -38,7 +38,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
-        'encoder': 'resnext50_32x4d',   # mobileone_s0
+        'encoder': 'timm-resnest26d',   # mobileone_s0
         'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         # 'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
