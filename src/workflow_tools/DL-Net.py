@@ -206,7 +206,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
                             images, masks,
                             epoch, ramup, criterion, threshold=0.8):
     # rampup = np.clip(epoch / ramup, 0, 1)
-    # rampup = exp(-5 * (1 - epoch / ramup) ** 2)
+    rampup = exp(-5 * (1 - epoch / ramup) ** 2)
 
     with torch.no_grad():
         output = teacher_model(images)
@@ -233,14 +233,11 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
         augmented_img, augmented_label, _ = augmenter.augment()
 
         augmented = transform_train(image=augmented_img, masks=[augmented_label, mask_np])
-        aug2_imgs = augmented['image']
-        aug2_label = augmented['masks'][0]
-        aug2_mask = augmented['masks'][1]
+        batch_imgs.append(augmented['image'])
+        batch_labels.append(augmented['masks'][0])
+        batch_masks.append(augmented['masks'][1])
+        
         # aug2_conf = augmented['masks'][2]
-
-        batch_imgs.append(aug2_imgs)
-        batch_labels.append(aug2_label)
-        batch_masks.append(aug2_mask)
         # batch_conf.append(aug2_conf)
 
     trans_imgs = torch.stack(batch_imgs).to(device)
@@ -253,7 +250,7 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
     student_pred = student_model(trans_imgs).squeeze(1)
     loss = criterion(student_pred, trans_lbls, trans_masks)
     
-    return loss
+    return loss * rampup
 
 # ------------------- Epoch -------------------
 
@@ -315,18 +312,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         if my_parameters['mode'] == 'semi':
             if epoch < 150:
                 teacher_model.load_state_dict(model.state_dict())
-            # elif epoch < model_good_epoch + 1:
-            elif epoch < 250:
-                # teacher_model.load_state_dict(model.state_dict())
+            elif epoch < 300:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            # elif epoch == model_good_epoch + 1:
-            elif epoch < 380:
-                # alpha = my_parameters['teacher_alpha']
-                alpha = 0.99
-                update_ema_variables(teacher_model, model, alpha=alpha)
-            # elif epoch > model_good_epoch + 1:
-            elif epoch >= 380:
+            elif epoch >= 300:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
 
@@ -534,9 +523,6 @@ def run_experiment(my_parameters):
             # Log the best training, teacher val and student val loss, save the model if it is the best
             if train_loss_m < train_loss_best:
                 train_loss_best = train_loss_m
-                if train_loss_best < 0.20 and val_teacher_loss_best < 0.16 and val_loss_best < 0.16 and model_good_epoch == 100000:
-                    model_good_epoch = epoch
-                    print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
                 print(f'New best training loss: {train_loss_best:.3f}')
             
             if val_teacher_loss_mean < val_teacher_loss_best:
@@ -558,6 +544,10 @@ def run_experiment(my_parameters):
                 if no_improvement_count >= my_parameters['patience'] or (epoch > 200 and val_loss_mean > 0.5):
                     print(f"No improvement for {my_parameters['patience']} epochs or val_loss > 0.5, stopping training.")
                     break
+            
+            # if train_loss_best < 0.20 and val_teacher_loss_best < 0.16 and val_loss_best < 0.16 and model_good_epoch == 100000:
+            #     model_good_epoch = epoch
+            #     print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
 
     except Exception as e:
         print(f"An error occurred: {e}")
