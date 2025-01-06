@@ -67,7 +67,8 @@ def setup_environment(my_parameters):
         my_parameters['learning_rate'],
         my_parameters['scheduler_factor'],
         my_parameters['scheduler_patience'],
-        my_parameters['scheduler_min_lr']
+        my_parameters['scheduler_min_lr'],
+        my_parameters['T_max']
     )
 
     # Add after device definition
@@ -475,19 +476,15 @@ def run_experiment(my_parameters):
 
             val_loss_mean = validate(model, device, val_loader, criterion)
             val_teacher_loss_mean = validate(teacher_model, device, val_loader, criterion)
+
+            # ------------------- Scheduler -------------------
+            
             current_lr = optimizer.param_groups[0]['lr']
 
-            scheduler.step()
-
-            # manual_lr_epoch = 148
-            # manual_lr = 3e-5
-            # if epoch == manual_lr_epoch:
-                # print(f"Epoch {epoch}: Manually setting learning rate to {manual_lr}")
-                # for param_group in optimizer.param_groups:
-                    # param_group['lr'] = manual_lr
-
-            if device == 'cuda':
-                torch.cuda.empty_cache()
+            if my_parameters['scheduler_type'] == 'plateau':
+                scheduler.step(val_loss_mean)
+            elif my_parameters['scheduler_type'] == 'cosine':
+                scheduler.step()
 
             # ------------------- Calculate Update -------------------
 

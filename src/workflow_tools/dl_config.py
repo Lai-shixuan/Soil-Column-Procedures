@@ -46,7 +46,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Learning related parameters
         'learning_rate': 0.8e-4,
-        'scheduler': 'plateau',     # scheduler = 'plateau', 'cosine', 'step'
+        'scheduler_type': 'cosine',  # 'cosine' or 'plateau'
+        'T_max': 600,
         'scheduler_patience': 50,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 0.25e-4,
@@ -135,7 +136,7 @@ def setup_model(encoder_name: str) -> torch.nn.Module:
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
 
-def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr):
+def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr, T_max):
     # parameters = get_parameters()
     optimizer = torch.optim.AdamW(
         model.parameters(), 
@@ -150,18 +151,23 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     #     # weight_decay=1e-4
     # )
 
-    # 定义 CosineAnnealingWarmRestarts 调度器
-    T_max = 600  # 第一个周期包含25个step
-    eta_min = 7e-6  # 最小学习率
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
+    parameters = get_parameters()
+    
+    if parameters['scheduler_type'] == 'cosine':
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, 
+            T_max=T_max, 
+            eta_min=scheduler_min_lr
+        )
+    else:  # plateau
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=scheduler_factor,
+            patience=scheduler_patience,
+            min_lr=scheduler_min_lr
+        )
 
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #     optimizer,
-    #     mode='min',
-    #     factor=scheduler_factor,
-    #     patience=scheduler_patience,
-    #     min_lr=scheduler_min_lr
-    # )
     criterion = evaluate.DiceBCELoss()
     mse_criterion = evaluate.MaskedMSELoss()
     mcc_criterion = mcc.MCCLoss()
