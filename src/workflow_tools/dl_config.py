@@ -54,7 +54,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 4,
-        'consistency_weight': 0.25,
+        'consistency_weight': 0.5,
         'consistency_rampup': 100,
         'teacher_alpha': 0.999,
 
@@ -77,9 +77,9 @@ def get_debug_param_sets():
     return [
         # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
         # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
-        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '19.1-25e-5-moredata'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '19.2-1e-4-moredata'},
-        {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '19.3-7e-5-moredata'},
+        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '23.1-25e-5-moredata'},
+        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '23.2-1e-4-moredata'},
+        {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '23.3-7e-5-moredata'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
@@ -144,7 +144,7 @@ def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, s
     )
 
     # 定义 CosineAnnealingWarmRestarts 调度器
-    T_max = 600  # 第一个周期包含25个step
+    T_max = 800  # 第一个周期包含25个step
     eta_min = 2.5e-5  # 最小学习率
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
 

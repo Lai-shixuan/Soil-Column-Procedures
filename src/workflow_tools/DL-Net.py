@@ -33,7 +33,7 @@ interrupted = False
 
 def setup_environment(my_parameters):
 
-    gpu_id = 1
+    gpu_id = 0
     torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -553,7 +553,7 @@ def run_experiment(my_parameters):
                 print(f'Model saved at epoch {epoch:.3f}, val_loss: {val_loss_mean:.3f}')
             else:
                 no_improvement_count += 1                
-                if no_improvement_count >= my_parameters['patience'] or (epoch > 200 and val_loss_mean > 0.5):
+                if no_improvement_count >= my_parameters['patience'] or (epoch > 300 and val_loss_mean > 0.4):
                     print(f"No improvement for {my_parameters['patience']} epochs or val_loss > 0.5, stopping training.")
                     break
 
