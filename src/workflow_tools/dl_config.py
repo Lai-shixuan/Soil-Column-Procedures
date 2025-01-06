@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '27.2-adamw',
+        'wandb': '28.1-large-batch',
         'seed': 3407,
 
         # Data related parameters
@@ -39,13 +39,13 @@ def get_parameters() -> Dict[str, Any]:
         # Model related parameters
         'model': 'U-Net++',         # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
         'encoder': 'resnext50_32x4d',   # mobileone_s0
-        'optimizer': 'adamw',        # optimizer = 'adam', 'adamw', 'sgd'
+        'optimizer': 'adam',        # optimizer = 'adam', 'adamw', 'sgd'
         'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic-aug++++-',
 
         # Learning related parameters
-        'learning_rate': 0.8e-4,
+        'learning_rate': 1.2e-4,
         'scheduler_type': 'cosine',  # 'cosine' or 'plateau'
         'T_max': 600,
         'scheduler_patience': 50,
@@ -54,7 +54,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
-        'unlabel_batch_size': 4,
+        'unlabel_batch_size': 8,
         'consistency_weight': 0.5,
         'consistency_rampup': 300,
         'teacher_alpha': 0.999,
@@ -65,7 +65,7 @@ def get_parameters() -> Dict[str, Any]:
         'batch_debug': False,
 
         # Scenarios, linux can compile, windows can't
-        'compile': False,
+        'compile': True,
 
         # Try to update labels, failed before
         'update': False
@@ -131,17 +131,17 @@ def setup_model(encoder_name: str) -> torch.nn.Module:
         encoder_weights="imagenet",
         in_channels=1,
         classes=1,
-        decoder_attention_type='scse'
+        # decoder_attention_type='scse'
     )
     # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
     return model
 
 def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr, T_max):
     # parameters = get_parameters()
-    optimizer = torch.optim.AdamW(
+    optimizer = torch.optim.Adam(
         model.parameters(), 
         lr=learning_rate,
-        weight_decay=1e-4
+        # weight_decay=1e-4
     )
 
     # optimizer = torch.optim.SGD(
@@ -179,12 +179,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            'image_dir': r'/mnt/version8/image',
-            'label_dir': r'/mnt/version8/label',
-            'padding_info': r'/mnt/version8/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/version8/image',
+            # 'label_dir': r'/mnt/version8/label',
+            # 'padding_info': r'/mnt/version8/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -192,14 +192,16 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            'image_dir': r'/mnt/version7/image',
-            'padding_info': r'/mnt/version7/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/image',
+            # 'padding_info': r'/mnt/version7/image_patches.csv',
         },
         'second-unlabeled': {
-            'image_dir': r'/mnt/version7/labeled/image',
-            'padding_info': r'/mnt/version7/labeled/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train_val/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train_val/image_patches.csv',
+            # 'image_dir': r'/mnt/version7/labeled/image',
+            # 'padding_info': r'/mnt/version7/labeled/image_patches.csv',
         }
     }
 

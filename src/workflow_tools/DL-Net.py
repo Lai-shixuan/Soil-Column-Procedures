@@ -9,9 +9,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -33,7 +32,7 @@ interrupted = False
 
 def setup_environment(my_parameters):
 
-    gpu_id = 1
+    gpu_id = 0
     torch.cuda.set_device(gpu_id)
     device = torch.device(f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
