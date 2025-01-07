@@ -493,7 +493,8 @@ def run_experiment(my_parameters):
             # ------------------- Validation -------------------
 
             val_loss_mean = validate(model, device, val_loader, criterion)
-            val_teacher_loss_mean = validate(teacher_model, device, val_loader, criterion)
+            if my_parameters['mode'] == 'semi':
+                val_teacher_loss_mean = validate(teacher_model, device, val_loader, criterion)
 
             # ------------------- Scheduler -------------------
             
