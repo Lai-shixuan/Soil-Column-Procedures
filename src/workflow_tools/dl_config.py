@@ -27,11 +27,11 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '28.3-large-batch-160-250epoch-250rampup',
+        'wandb': '29-noBN-large-batch-160-250epoch-250rampup',
         'seed': 3407,
         
         # PC related parameters
-        'gpu_id': 0,
+        'gpu_id': 1,
         'compile': False,
         'PC': 'v100',
 

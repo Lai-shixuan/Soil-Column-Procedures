@@ -1,5 +1,6 @@
 import sys
 import torch
+import torch.nn as nn
 import wandb
 import signal
 import numpy as np
@@ -29,6 +30,20 @@ interrupted = False
 
 
 # ------------------- Setup -------------------
+def remove_bn_layers(model):
+    """
+    Recursively removes all BatchNorm1d and BatchNorm2d layers from a PyTorch model.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model to modify.
+    """
+    for name, module in model.named_children():
+        if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
+            # Replace the BatchNorm layer with Identity
+            setattr(model, name, nn.Identity())
+        else:
+            # Recursively call remove_bn_layers on the child module
+            remove_bn_layers(module)
 
 def setup_environment(my_parameters):
 
@@ -42,6 +57,7 @@ def setup_environment(my_parameters):
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
     model = dl_config.setup_model(my_parameters['encoder'])
+    remove_bn_layers(model)
     if my_parameters['compile']:
         model = torch.compile(model).to(device)
     else:
@@ -49,6 +65,7 @@ def setup_environment(my_parameters):
 
     # Create teacher model
     teacher_model = dl_config.setup_model(my_parameters['encoder'])
+    remove_bn_layers(teacher_model)
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
         teacher_model.load_state_dict(model.state_dict())
