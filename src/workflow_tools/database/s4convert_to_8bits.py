@@ -1,7 +1,8 @@
 import cv2
 import sys
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from pathlib import Path
 from tqdm import tqdm
@@ -26,8 +27,8 @@ def batch_images(path_in: Path, path_out: Path):
 
 
 if __name__ == "__main__":
-    path_in = r'g:\DL_Data_raw\version8-low-precise\3.Harmonized\image\test'
-    path_out = r'g:\DL_Data_raw\version8-low-precise\3.Harmonized\image\test\8bit'
+    path_in = r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image'
+    path_out = r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/8bit'
 
     path_in = Path(path_in)
     path_out = Path(path_out)

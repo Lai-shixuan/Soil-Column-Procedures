@@ -305,7 +305,7 @@ class InferencePipeline:
             metrics.update({
                 'dice_score': evaluate.dice_coefficient(masked_output_prob, masked_label),
                 'iou_score': evaluate.iou(masked_output_prob, masked_label),
-                'bce_loss': criterion(output, label, mask)[0].item(),
+                'bce_loss': criterion(output, label, mask).item(),
                 'f1_score': smp.metrics.functional.f1_score(tp, fp, fn, tn, reduction='micro').item(),
                 'precision': smp.metrics.functional.precision(tp, fp, fn, tn, reduction='micro').item(),
                 'recall': smp.metrics.functional.recall(tp, fp, fn, tn, reduction='micro').item(),
@@ -447,7 +447,7 @@ if __name__ == "__main__":
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='data/pths/precise/model_U-Net++_14.1-unet++mccloss.pth',
+        model_path='data/pths/precise/model_U-Net++_17.23-semi-99-250-999-99-cosine-more-data.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -464,7 +464,7 @@ if __name__ == "__main__":
         save_path=r'/mnt/g/DL_Data_raw/version8-low-precise/_inference',
         padding_info_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image_patches.csv',
 
-        batch_size=8,
+        batch_size=3,
         remove_prefix=True,
         run_config={
             'summary_filename': 'inference_summary.csv'

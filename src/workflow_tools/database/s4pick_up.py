@@ -2,7 +2,8 @@ import sys
 import shutil
 import random
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from src.API_functions.Images import file_batch as fb
 from pathlib import Path
@@ -203,16 +204,16 @@ if __name__ == "__main__":
         - parallel_label (bool): True to extract labels in parallel with.
     """
     config = {
-        'base_input': Path(r'g:\DL_Data_raw\version7-large-lowRH\3.Harmonized\image'),
-        'output_folder': Path(r'g:\DL_Data_raw\version7-large-lowRH\4.Converted\8bit'),
+        'base_input': Path(r'/mnt/g/DL_Data_raw/version7-large-lowRH/3.Harmonized/image'),
+        'output_folder': Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/temp'),
         'mode': 'direct_folder',  
         'column_ids': None,
 
         'extraction_mode': 'random',
         'continuous': False,
-        'images_per_section': 40,
+        'images_per_section': 1,
         'num_sections': 1,
-        'random_seed': 408,
+        'random_seed': 8,
 
         'parallel_label': False,
     }
