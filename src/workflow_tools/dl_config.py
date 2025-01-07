@@ -27,11 +27,11 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '29-noBN-large-batch-160-250epoch-250rampup',
+        'wandb': '28.4-LargeBatch-160-210-210rampup-300Tmax',
         'seed': 3407,
         
         # PC related parameters
-        'gpu_id': 1,
+        'gpu_id': 0,
         'compile': False,
         'PC': 'v100',
 
@@ -61,7 +61,7 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
         'consistency_weight': 0.5,
-        'consistency_rampup': 250,
+        'consistency_rampup': 210,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
