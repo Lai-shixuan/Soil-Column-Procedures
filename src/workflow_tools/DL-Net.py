@@ -10,8 +10,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -45,6 +45,25 @@ def remove_bn_layers(model):
             # Recursively call remove_bn_layers on the child module
             remove_bn_layers(module)
 
+def replace_bn_with_in(model):
+    """
+    Recursively replaces all BatchNorm1d and BatchNorm2d layers with InstanceNorm1d and InstanceNorm2d layers, respectively.
+
+    Args:
+        model (torch.nn.Module): The PyTorch model to modify.
+    """
+    for name, module in model.named_children():
+        if isinstance(module, nn.BatchNorm1d):
+            num_features = module.num_features
+            in_layer = nn.InstanceNorm1d(num_features, affine=module.affine, track_running_stats=False)
+            setattr(model, name, in_layer)
+        elif isinstance(module, nn.BatchNorm2d):
+            num_features = module.num_features
+            in_layer = nn.InstanceNorm2d(num_features, affine=module.affine, track_running_stats=False)
+            setattr(model, name, in_layer)
+        else:
+            replace_bn_with_in(module)
+
 def setup_environment(my_parameters):
 
     gpu_id = my_parameters['gpu_id']
@@ -59,6 +78,8 @@ def setup_environment(my_parameters):
     model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(model)
+    elif my_parameters['normalization'] == 'in':
+        replace_bn_with_in(model)
     if my_parameters['compile']:
         model = torch.compile(model).to(device)
     else:
@@ -68,6 +89,8 @@ def setup_environment(my_parameters):
     teacher_model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(teacher_model)
+    elif my_parameters['normalization'] == 'in':
+        replace_bn_with_in(teacher_model)
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
         teacher_model.load_state_dict(model.state_dict())
