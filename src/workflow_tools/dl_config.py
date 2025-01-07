@@ -27,18 +27,18 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': 'sup1-resnext50-unet++',
+        'wandb': '28.5-200-240-350',
         'seed': 3407,
         
         # PC related parameters
         'gpu_id': 0,
-        'compile': True,
-        'PC': 'wsl',   # v100 or wsl
-        'project_name': 'Transfer-Learning', # 'Precise-annotation' or 'Transfer-Learning'
+        'compile': False,
+        'PC': 'v100',   # v100 or wsl
+        'project_name': 'Precise-annotation', # 'Precise-annotation' or 'Transfer-Learning'
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 8,
+        'label_batch_size': 3,
         'ratio': 0.20,
         'Kfold': None,
 
@@ -52,18 +52,18 @@ def get_parameters() -> Dict[str, Any]:
         'normalization': 'nothing',     # nothing, remove, BN, LN, GN
 
         # Learning related parameters
-        'learning_rate': 5e-4,
-        'scheduler_type': 'plateau',    # 'cosine' or 'plateau'
-        'T_max': 700,
+        'learning_rate': 1.2e-4,
+        'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
+        'T_max': 350,
         'scheduler_patience': 10,       # 10 or 40
         'scheduler_factor': 0.5,
-        'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
+        'scheduler_min_lr': 0.25e-4,       # 0.25e-4 or 1e-6
 
         # Add semi-supervised parameters
-        'mode': 'supervised',             # 'supervised' or 'semi'
+        'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
         'consistency_weight': 0.5,
-        'consistency_rampup': 500,
+        'consistency_rampup': 200,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
@@ -186,12 +186,12 @@ def get_data_paths() -> dict:
             # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
             # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
             # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            # 'image_dir': r'/mnt/version8/image',
-            # 'label_dir': r'/mnt/version8/label',
-            # 'padding_info': r'/mnt/version8/image_patches.csv',
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/version8/image',
+            'label_dir': r'/mnt/version8/label',
+            'padding_info': r'/mnt/version8/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
+            # 'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
