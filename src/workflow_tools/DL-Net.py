@@ -10,8 +10,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -94,7 +94,7 @@ def setup_environment(my_parameters):
 
     # Initialize wandb
     wandb.init(
-        project="Precise-annotation",
+        project=my_parameters['project_name'],
         name=my_parameters['wandb'],
         config=my_parameters,
     )
@@ -321,7 +321,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 # labeled_weight = my_parameters['label_batch_size'] / (my_parameters['unlabel_batch_size'] + my_parameters['label_batch_size'])
                 # cons_loss = cons_loss_un * un_weight + cons_loss_labeled * labeled_weight
 
-            cons_combine_weight = my_parameters['consistency_weight'] * rampup_weight
+                cons_combine_weight = my_parameters['consistency_weight'] * rampup_weight
             total_loss = supervised_loss * (1 - cons_combine_weight) + cons_loss * cons_combine_weight if my_parameters['mode'] == 'semi' else supervised_loss
 
         scaler.scale(total_loss).backward()
