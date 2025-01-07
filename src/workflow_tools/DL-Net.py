@@ -67,7 +67,7 @@ def setup_environment(my_parameters):
     # Create teacher model
     teacher_model = dl_config.setup_model(my_parameters['encoder'])
     if my_parameters['normalization'] == 'remove':
-        remove_bn_layers(model)
+        remove_bn_layers(teacher_model)
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
         teacher_model.load_state_dict(model.state_dict())
@@ -330,12 +330,12 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
         # Update teacher model via EMA
         if my_parameters['mode'] == 'semi':
-            if epoch < 160:
+            if epoch < 500:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch <= 210:
+            elif epoch <= 600:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 210:
+            elif epoch > 600:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
 
