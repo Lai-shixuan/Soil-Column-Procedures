@@ -55,7 +55,7 @@ def get_parameters() -> Dict[str, Any]:
         'learning_rate': 5e-4,
         'scheduler_type': 'plateau',    # 'cosine' or 'plateau'
         'T_max': 370,
-        'scheduler_patience': 10,       # 10 or 40
+        'scheduler_patience': 5,       # 10 or 40
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
 
@@ -67,9 +67,9 @@ def get_parameters() -> Dict[str, Any]:
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 1500,
-        'patience': 300,
-        'batch_debug': False,
+        'n_epochs': 55,
+        'patience': 55,
+        'batch_debug': True,
 
         # Try to update labels, failed before
         'update': False
@@ -80,11 +80,15 @@ def get_parameters() -> Dict[str, Any]:
 
 def get_debug_param_sets():
     return [
-        # {**get_parameters(), 'learning_rate': 100e-5, 'wandb': '17.2-100e-5'},
-        # {**get_parameters(), 'learning_rate': 75e-5, 'wandb': '17.3-75e-5'},
-        {**get_parameters(), 'learning_rate': 25e-5, 'wandb': '23.1-25e-5-moredata'},
-        {**get_parameters(), 'learning_rate': 1e-4, 'wandb': '23.2-1e-4-moredata'},
-        {**get_parameters(), 'learning_rate': 7e-5, 'wandb': '23.3-7e-5-moredata'},
+        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup6-resnext50-UPerNet'},
+        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup7-efficientnetb0-UPerNet'},
+        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnet34', 'wandb': 'sup8-resnet34-UPerNet'},
+        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnet34', 'wandb': 'sup5-resnet34-DeepLabv3+'},
+        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnext50_32x4d', 'wandb': 'sup3-resnext50-DeepLabv3+'},
+        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'efficientnet-b0', 'wandb': 'sup4-efficientnetb0-DeepLabv3+'},
+        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnext50_32x4d', 'wandb': 'sup9-resnext50-U-Net++'},
+        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'efficientnet-b0', 'wandb': 'sup10-efficientnetb0-U-Net++'},
+        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnet34', 'wandb': 'sup11-resnet34-U-Net++'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
@@ -128,16 +132,37 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
     
     return transform_train, transform_val, geometric_transform, non_geometric_transform
 
-def setup_model(encoder_name: str) -> torch.nn.Module:
+def setup_model(model_name: str, encoder_name: str) -> torch.nn.Module:
     # aux_params = {'dropout': 0.2, 'classes': 1}
-    model = smp.UnetPlusPlus(
-        encoder_name=encoder_name,
-        encoder_weights="imagenet",
-        in_channels=1,
-        classes=1,
-        # decoder_attention_type='scse'
-    )
-    # model = fr_unet.FR_UNet(num_channels=1, num_classes=1, feature_scale=2, dropout=0.2, fuse=True, out_ave=True)
+    if model_name == 'U-Net++':
+        model = smp.UnetPlusPlus(
+            encoder_name=encoder_name,
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+            # decoder_attention_type='scse'
+        )
+    elif model_name == 'DeepLabv3+':
+        model = smp.DeepLabV3Plus(
+            encoder_name=encoder_name,
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+        )
+    elif model_name == 'PSPNet':
+        model = smp.PSPNet(
+            encoder_name=encoder_name,
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+        )
+    elif model_name == 'UPerNet':
+        model = smp.UPerNet(
+            encoder_name=encoder_name,
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+        )
     return model
 
 def setup_training(model, learning_rate, scheduler_factor, scheduler_patience, scheduler_min_lr, T_max):

@@ -56,7 +56,7 @@ def setup_environment(my_parameters):
     seed.stablize_seed(my_parameters['seed'])
     transform_train, transform_val, geometric_transform, non_geometric_transform = dl_config.get_transforms(my_parameters['seed'])
 
-    model = dl_config.setup_model(my_parameters['encoder'])
+    model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(model)
     if my_parameters['compile']:
@@ -65,7 +65,7 @@ def setup_environment(my_parameters):
         model = model.to(device)
 
     # Create teacher model
-    teacher_model = dl_config.setup_model(my_parameters['encoder'])
+    teacher_model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(teacher_model)
     if my_parameters['compile']:
@@ -545,9 +545,10 @@ def run_experiment(my_parameters):
                     print(f"Model is good at epoch {model_good_epoch}, now start to update teacher model.")
                 print(f'New best training loss: {train_loss_best:.3f}')
             
-            if val_teacher_loss_mean < val_teacher_loss_best:
-                val_teacher_loss_best = val_teacher_loss_mean
-                print(f'New best teacher validation loss: {val_teacher_loss_best:.3f}')
+            if my_parameters['mode'] == 'semi':
+                if val_teacher_loss_mean < val_teacher_loss_best:
+                    val_teacher_loss_best = val_teacher_loss_mean
+                    print(f'New best teacher validation loss: {val_teacher_loss_best:.3f}')
 
             if val_loss_mean < val_loss_best:
                 val_loss_best = val_loss_mean
