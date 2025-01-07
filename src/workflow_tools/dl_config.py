@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '28.1-large-batch',
+        'wandb': '28.2-large-batch',
         'seed': 3407,
 
         # Data related parameters
@@ -47,7 +47,7 @@ def get_parameters() -> Dict[str, Any]:
         # Learning related parameters
         'learning_rate': 1.2e-4,
         'scheduler_type': 'cosine',  # 'cosine' or 'plateau'
-        'T_max': 600,
+        'T_max': 300,
         'scheduler_patience': 50,
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 0.25e-4,
@@ -56,7 +56,7 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
         'consistency_weight': 0.5,
-        'consistency_rampup': 300,
+        'consistency_rampup': 200,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
