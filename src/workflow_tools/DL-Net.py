@@ -303,8 +303,10 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         total_cons_loss_labeled = 0.0
         total_loss_total = 0.0
         alpha = 0
+    
+    accumulation_steps = 2
 
-    for images, labels, masks in tqdm(train_loader):
+    for i, (images, labels, masks) in enumerate(tqdm(train_loader)):
         images = images.to(device)
         labels = labels.to(device)
         masks = masks.to(device)
@@ -315,13 +317,15 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             unlabeled_images = unlabeled_images.to(device)
             unlabeled_masks = unlabeled_masks.to(device)
 
-        optimizer.zero_grad()
+
         with autocast(device_type='cuda'):
             outputs = model(images)
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
             
             supervised_loss = criterion(outputs, labels, masks)
+
+            supervised_loss = supervised_loss / accumulation_steps
 
             if my_parameters['mode'] == 'semi':
                 rampup = my_parameters['consistency_rampup']
@@ -335,6 +339,8 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                     epoch, rampup_weight, criterion 
                 )
                 cons_loss = cons_loss_un
+
+                cons_loss_un = cons_loss_un / accumulation_steps
                 # cons_loss_labeled = compute_consistency_loss(
                 #     model, teacher_model, device, non_geometric_transform,
                 #     images, masks,
@@ -348,8 +354,11 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             total_loss = supervised_loss * (1 - cons_combine_weight) + cons_loss * cons_combine_weight if my_parameters['mode'] == 'semi' else supervised_loss
 
         scaler.scale(total_loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+
+        if (i+1) % accumulation_steps == 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         # Update teacher model via EMA
         if my_parameters['mode'] == 'semi':
@@ -378,6 +387,12 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
             print(f'count of label 0: {(labels == 0).sum()}, count of label 1:{(labels == 1).sum()}')
             if my_parameters['mode'] == 'semi':
                 print(f"consistency loss: {cons_loss.item()}, weight: {my_parameters['consistency_weight'] * np.clip(epoch / my_parameters['consistency_rampup'], 0, 1)}")
+
+    # If the number of batches is not a multiple of accumulation_steps, step the optimizer 
+    if len(train_loader) % accumulation_steps != 0:
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
 
     # For each epoch, divide the total loss by the number of samples
     train_loss_mean = supervised_total / len(train_loader)
