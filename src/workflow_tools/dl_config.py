@@ -48,6 +48,7 @@ def get_parameters() -> Dict[str, Any]:
         'weight_decay': 0.01,     # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic-aug++++-',
+        'normalization': 'nothing', # nothing, remove, BN, LN, GN
 
         # Learning related parameters
         'learning_rate': 1.2e-4,
