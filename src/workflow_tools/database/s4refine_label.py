@@ -26,10 +26,10 @@ def read_tif_image_label(file_path):
 
     return img
 
-def process_white_objects(img, data_img, original_filename) -> List[Dict[str, Any]]:
+def process_white_objects(label_img, data_img, original_filename) -> List[Dict[str, Any]]:
     """Process white objects in the image and return their properties"""
     # Label connected components
-    labeled_img = measure.label(img)
+    labeled_img = measure.label(label_img)
     properties = measure.regionprops(labeled_img)
     
     object_data = []
@@ -48,58 +48,98 @@ def process_white_objects(img, data_img, original_filename) -> List[Dict[str, An
     
     return object_data
 
-def process_tif_folder(label_path: Path, data_path: Path, output: Path, iqr_threshold: float = 0.75):
+def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_output: Path, 
+                      iqr_threshold: float = 0.75, use_global_threshold: bool = False):
     """Process all TIF images in the folder and create a DataFrame
     
     Args:
         label_path: Path to label images
         data_path: Path to data images
         output: Path to save refined labels
+        debug_output: Path to save marked debug images
         iqr_threshold: Multiplier for IQR to determine outlier threshold (default: 0.75)
+        use_global_threshold: If True, use global statistics for thresholding (default: False)
     """
     all_pores = []
+    image_data = {}
 
     labels = fb.get_image_names(str(label_path), None, 'tif')
-    datas = fb.get_image_names(str(data_path), None, 'tif')
+    datas = fb.get_image_names(str(data_path), None, 'png')
     names = [Path(label).stem for label in labels]
 
     for label_file, data_file, name in zip(labels, datas, names):
         label_img = read_tif_image_label(label_file)
         data_img = cv2.imread(str(data_file), cv2.IMREAD_UNCHANGED)
+        
+        # Store the images
+        image_data[name] = {
+            'label': label_img,
+            'data': data_img
+        }
 
         objects = process_white_objects(label_img, data_img, name)
         all_pores.extend(objects)
     
     df = pd.DataFrame(all_pores)
     df = df[['id', 'original_image', 'size', 'avg_value']]
+
+    # Calculate global thresholds if needed
+    if use_global_threshold:
+        Q1 = df['avg_value'].quantile(0.25)
+        Q3 = df['avg_value'].quantile(0.75)
+        IQR = Q3 - Q1
+        global_upper_bound = Q3 + iqr_threshold * IQR
+        global_lower_bound = Q1 - iqr_threshold * IQR
     
-    # Use IQR method to detect outliers
-    Q1 = df['avg_value'].quantile(0.25)
-    Q3 = df['avg_value'].quantile(0.75)
-    IQR = Q3 - Q1
-    upper_bound = Q3 + iqr_threshold * IQR  # Using configurable IQR threshold
-    
-    # Mark outliers (True for outliers, False for valid data)
-    df['outlier'] = df['avg_value'] > upper_bound
-    
-    # Process and save modified label images
+    # Process each image separately
     for name in df['original_image'].unique():
-        label_file = next(label_path.glob(f"{name}*.tif"))
-        label_img = read_tif_image_label(label_file)
+        img_df = df[df['original_image'] == name].copy()
+        
+        # Use either global or image-specific thresholds
+        if use_global_threshold:
+            img_upper_bound = global_upper_bound
+            img_lower_bound = global_lower_bound
+        else:
+            Q1 = img_df['avg_value'].quantile(0.25)
+            Q3 = img_df['avg_value'].quantile(0.75)
+            IQR = Q3 - Q1
+            img_upper_bound = Q3 + iqr_threshold * IQR
+            img_lower_bound = Q1 - iqr_threshold * IQR
+        
+        # Mark outliers for this image using .loc
+        img_df.loc[:, 'outlier'] = img_df['avg_value'] > img_upper_bound
+        outlier_ids = img_df[img_df['outlier']]['id'].values
+        
+        # Use stored images
+        label_img = image_data[name]['label']
+        data_img = image_data[name]['data']
         labeled_img = measure.label(label_img)
         
-        # Get outlier IDs for this image
-        outlier_ids = df[(df['original_image'] == name) & (df['outlier'])]['id'].values
+        # Create output images
+        refined_img = label_img.copy().astype(np.float32)
+        debug_img = np.zeros((label_img.shape[0], label_img.shape[1], 3), dtype=np.uint8)
         
-        # Create new image with outliers removed
-        new_img = label_img.copy().astype(np.float32)  # ensure float32 type
+        # Mark valid labels as white
+        debug_img[label_img == 1] = [255, 255, 255]
+        
+        # Mark outliers (high values with labels) as red
         for idx in outlier_ids:
-            mask = labeled_img == (idx + 1)  # regionprops index starts from 1
-            new_img[mask] = 0
-            
-        # Save modified image as 32-bit float TIF
-        cv2.imwrite(str(output_path / f"{name}.tif"), new_img, 
-                    [cv2.IMWRITE_TIFF_COMPRESSION, 1])  # uncompressed TIFF
+            mask = labeled_img == (idx + 1)
+            refined_img[mask] = 0
+            debug_img[mask] = [0, 0, 255]  # BGR format: Red is [0, 0, 255]
+        
+        # Mark missing parts (low values without labels) as blue
+        missing_mask = (data_img < img_lower_bound) & (label_img == 0)
+        refined_img[missing_mask] = 1  # Mark missing parts in refined_img
+        debug_img[missing_mask] = [255, 0, 0]  # BGR format: Blue is [255, 0, 0]
+        
+        # Save images
+        cv2.imwrite(str(output / f"{name}.tif"), refined_img, 
+                    [cv2.IMWRITE_TIFF_COMPRESSION, 1])
+        cv2.imwrite(str(debug_output / f"{name}.png"), debug_img)
+        
+        # Update main dataframe with outlier information using .loc
+        df.loc[img_df.index, 'outlier'] = img_df['outlier']
     
     return df
 
@@ -153,24 +193,31 @@ def plot_analysis(df: pd.DataFrame, upper_bound: float):
 
 if __name__ == '__main__':
     input_label_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-origin')
-    input_gray_data_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image')
+    input_gray_data_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/8bit')
     output_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-refined')
+    debug_output_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-debug')
 
     if not input_label_path.exists():
         raise ValueError(f"Folder not found: {input_label_path}")
     if not output_path.exists():
         output_path.mkdir(parents=True, exist_ok=True)
+    if not debug_output_path.exists():
+        debug_output_path.mkdir(parents=True, exist_ok=True)
 
-    # Configure IQR threshold
-    IQR_THRESHOLD = 0.75
-    result_df = process_tif_folder(input_label_path, input_gray_data_path, output_path, IQR_THRESHOLD)
+    # Configure parameters
+    IQR_THRESHOLD = 1 
+    USE_GLOBAL_THRESHOLD = True  # Set to True to use global statistics
+
+    result_df = process_tif_folder(input_label_path, input_gray_data_path, 
+                                output_path, debug_output_path, 
+                                IQR_THRESHOLD, USE_GLOBAL_THRESHOLD)
     result_df.to_csv(Path("output.csv"), index=False, lineterminator='\n')
 
-    # Calculate upper bound for plotting
+    # Always use global threshold for visualization
     Q1 = result_df['avg_value'].quantile(0.25)
     Q3 = result_df['avg_value'].quantile(0.75)
-    upper_bound = Q3 + IQR_THRESHOLD * (Q3 - Q1)
+    global_upper_bound = Q3 + IQR_THRESHOLD * (Q3 - Q1)
 
-    # Create visualization
-    fig = plot_analysis(result_df, upper_bound)
+    # Create visualization with global threshold
+    fig = plot_analysis(result_df, global_upper_bound)
     plt.show()
