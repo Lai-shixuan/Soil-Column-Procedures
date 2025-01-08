@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '29.4-gradient-accumulations3-0.25-consloss',
+        'wandb': '29.7-accumulations3-0.25-220-260-400',
         'seed': 3407,
         
         # PC related parameters
@@ -49,12 +49,12 @@ def get_parameters() -> Dict[str, Any]:
         'weight_decay': 0.01,           # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic-aug++++-',
-        'normalization': 'nothing',     # nothing, remove, in, LN, GN
+        'normalization': 'in',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
         'learning_rate': 2e-4,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
-        'T_max': 370,
+        'T_max': 400,
         'scheduler_patience': 10,       # 10 or 40
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 0.25e-4,       # 0.25e-4 or 1e-6
@@ -62,8 +62,8 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
-        'consistency_weight': 0.25,
-        'consistency_rampup': 270,
+        'consistency_weight': 0.7,
+        'consistency_rampup': 400,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
