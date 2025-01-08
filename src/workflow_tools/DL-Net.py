@@ -45,14 +45,27 @@ def remove_bn_layers(model):
             # Recursively call remove_bn_layers on the child module
             remove_bn_layers(module)
 
-def replace_bn_with_in(model):
+def replace_bn_with_in(model, exclude_modules=None):
     """
-    Recursively replaces all BatchNorm1d and BatchNorm2d layers with InstanceNorm1d and InstanceNorm2d layers, respectively.
+    递归地将PyTorch模型中的所有BatchNorm1d和BatchNorm2d层替换为InstanceNorm1d和InstanceNorm2d层，
+    但排除指定的模块。
 
     Args:
-        model (torch.nn.Module): The PyTorch model to modify.
+        model (torch.nn.Module): 需要修改的PyTorch模型。
+        exclude_modules (list of str, optional): 模块名称列表，这些模块中的BN层将不会被替换。
     """
+    if exclude_modules is None:
+        exclude_modules = []
+
     for name, module in model.named_children():
+        module_path = name
+
+        # 检查是否在排除列表中
+        if any(module_path.startswith(exclude) for exclude in exclude_modules):
+            # 如果当前模块在排除列表中，跳过替换，并继续遍历其子模块
+            # replace_bn_with_in(module, exclude_modules)
+            continue
+
         if isinstance(module, nn.BatchNorm1d):
             num_features = module.num_features
             in_layer = nn.InstanceNorm1d(num_features, affine=module.affine, track_running_stats=False)
@@ -62,7 +75,19 @@ def replace_bn_with_in(model):
             in_layer = nn.InstanceNorm2d(num_features, affine=module.affine, track_running_stats=False)
             setattr(model, name, in_layer)
         else:
-            replace_bn_with_in(module)
+            # 递归调用以处理子模块
+            replace_bn_with_in(module, exclude_modules)
+
+def count_norm_layers(model):
+    bn = 0
+    in_layer = 0
+    for module in model.modules():
+        if isinstance(module, nn.BatchNorm1d) or isinstance(module, nn.BatchNorm2d):
+            bn += 1
+        if isinstance(module, nn.InstanceNorm1d) or isinstance(module, nn.InstanceNorm2d):
+            in_layer += 1
+    return bn, in_layer
+
 
 def setup_environment(my_parameters):
 
@@ -79,7 +104,9 @@ def setup_environment(my_parameters):
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(model)
     elif my_parameters['normalization'] == 'in':
-        replace_bn_with_in(model)
+        replace_bn_with_in(model, exclude_modules=['encoder'])
+        bn_count, in_count = count_norm_layers(model)
+        print(f'BatchNorm layers: {bn_count}, InstanceNorm layers: {in_count}')
     if my_parameters['compile']:
         model = torch.compile(model).to(device)
     else:
@@ -90,7 +117,9 @@ def setup_environment(my_parameters):
     if my_parameters['normalization'] == 'remove':
         remove_bn_layers(teacher_model)
     elif my_parameters['normalization'] == 'in':
-        replace_bn_with_in(teacher_model)
+        replace_bn_with_in(teacher_model, exclude_modules=['encoder'])
+        bn_count, in_count = count_norm_layers(model)
+        print(f'BatchNorm layers: {bn_count}, InstanceNorm layers: {in_count}')
     if my_parameters['compile']:
         teacher_model = torch.compile(teacher_model)
         teacher_model.load_state_dict(model.state_dict())

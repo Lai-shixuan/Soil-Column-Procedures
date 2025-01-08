@@ -27,11 +27,11 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '29.7-accumulations3-0.25-220-260-400',
+        'wandb': '29.8-accumulations3-0.5-220-260-400-in',
         'seed': 3407,
         
         # PC related parameters
-        'gpu_id': 0,
+        'gpu_id': 1,
         'compile': False,
         'PC': 'v100',   # v100 or wsl
         'project_name': 'Precise-annotation', # 'Precise-annotation' or 'Transfer-Learning'
@@ -52,7 +52,7 @@ def get_parameters() -> Dict[str, Any]:
         'normalization': 'in',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
-        'learning_rate': 2e-4,
+        'learning_rate': 12e-4,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
         'T_max': 400,
         'scheduler_patience': 10,       # 10 or 40
