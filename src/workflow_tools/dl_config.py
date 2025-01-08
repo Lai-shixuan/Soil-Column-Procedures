@@ -27,18 +27,18 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '29.2-gradient-accumulation',
+        'wandb': '29.4-gradient-accumulations3-0.25-consloss',
         'seed': 3407,
         
         # PC related parameters
-        'gpu_id': 1,
+        'gpu_id': 0,
         'compile': False,
         'PC': 'v100',   # v100 or wsl
         'project_name': 'Precise-annotation', # 'Precise-annotation' or 'Transfer-Learning'
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 3,
+        'label_batch_size': 4,
         'ratio': 0.20,
         'Kfold': None,
 
@@ -52,7 +52,7 @@ def get_parameters() -> Dict[str, Any]:
         'normalization': 'nothing',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
-        'learning_rate': 1.2e-4,
+        'learning_rate': 2e-4,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
         'T_max': 370,
         'scheduler_patience': 10,       # 10 or 40
@@ -62,7 +62,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
-        'consistency_weight': 0.5,
+        'consistency_weight': 0.25,
         'consistency_rampup': 270,
         'teacher_alpha': 0.999,
 
