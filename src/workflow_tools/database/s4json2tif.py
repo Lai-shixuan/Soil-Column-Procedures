@@ -69,8 +69,8 @@ def process_json_files(json_dir: Path, output_dir: Path):
 
 
 if __name__ == '__main__':
-    json_dir = Path(r'g:\DL_Data_raw\version8-low-precise\4.Converted\label-json')
-    output_dir = Path(r'g:\DL_Data_raw\version8-low-precise\4.Converted\label-origin')
+    json_dir = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-json')
+    output_dir = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-origin')
     
     output_dir.mkdir(parents=True, exist_ok=True)
     process_json_files(json_dir, output_dir)

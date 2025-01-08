@@ -15,7 +15,7 @@ def batch_images(path_in: Path, path_out: Path):
     for image_path in tqdm(image_lists):
         # Read image
         image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
-        image = fb.windows_adjustment_one_image(image)
+        # image = fb.windows_adjustment_one_image(image)
         
         # Invert image
         image_8bits = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')
