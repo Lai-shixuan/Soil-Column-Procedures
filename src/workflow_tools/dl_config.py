@@ -27,11 +27,11 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '29.8-accumulations3-0.5-220-260-400-in',
+        'wandb': '29.9-accumulations5-0.5-220-260-400',
         'seed': 3407,
         
         # PC related parameters
-        'gpu_id': 1,
+        'gpu_id': 0,
         'compile': False,
         'PC': 'v100',   # v100 or wsl
         'project_name': 'Precise-annotation', # 'Precise-annotation' or 'Transfer-Learning'
@@ -49,7 +49,7 @@ def get_parameters() -> Dict[str, Any]:
         'weight_decay': 0.01,           # weight_decay = 0.01
         'loss_function': 'cross_entropy',
         'transform': 'basic-aug++++-',
-        'normalization': 'in',     # nothing, remove, in, LN, GN
+        'normalization': 'nothing',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
         'learning_rate': 12e-4,
@@ -62,7 +62,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 8,
-        'consistency_weight': 0.7,
+        'consistency_weight': 0.5,
         'consistency_rampup': 400,
         'teacher_alpha': 0.999,
 
