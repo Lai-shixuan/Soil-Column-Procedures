@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '30.7-large-label-dataset-semi-0.01cons-to-prove',
+        'wandb': '30.8-large-label-dataset-semi-forbid-student-to-prove',
         'seed': 3407,
         
         # PC related parameters
@@ -62,7 +62,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 2,
-        'consistency_weight': 0.01,
+        'consistency_weight': 0.0,
         'consistency_rampup': 400,
         'teacher_alpha': 0.999,
 

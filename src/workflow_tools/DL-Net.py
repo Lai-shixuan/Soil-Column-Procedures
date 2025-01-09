@@ -365,11 +365,16 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 rampup_weight = exp(-5 * (1 - epoch / rampup) ** 2)
                 if epoch > rampup:
                     rampup_weight = 1
-                cons_loss_un = compute_consistency_loss(
-                    model, teacher_model, device, transform_train,
-                    unlabeled_images, unlabeled_masks,
-                    epoch, rampup_weight, criterion 
-                )
+
+                # Test if compute consistency loss make BN layer unstable
+                if epoch < 30:
+                    cons_loss_un = torch.tensor(0).to(device)
+                else:
+                    cons_loss_un = compute_consistency_loss(
+                        model, teacher_model, device, transform_train,
+                        unlabeled_images, unlabeled_masks,
+                        epoch, rampup_weight, criterion 
+                    )
                 cons_loss = cons_loss_un
 
                 cons_loss_un = cons_loss_un / accumulation_steps
