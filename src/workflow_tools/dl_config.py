@@ -27,13 +27,13 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '30.8-large-label-dataset-semi-forbid-student-to-prove',
+        'wandb': '31-large-batch',
         'seed': 3407,
         
         # PC related parameters
         'gpu_id': 0,
-        'compile': True,
-        'PC': 'wsl',   # v100 or wsl
+        'compile': False,
+        'PC': 'v100',   # v100 or wsl
         'project_name': 'Precise-annotation', # 'Precise-annotation' or 'Transfer-Learning'
 
         # Data related parameters
@@ -61,8 +61,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
-        'unlabel_batch_size': 2,
-        'consistency_weight': 0.0,
+        'unlabel_batch_size': 8,
+        'consistency_weight': 0.5,
         'consistency_rampup': 400,
         'teacher_alpha': 0.999,
 
@@ -208,12 +208,12 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
-            # 'image_dir': r'/mnt/version8/image',
-            # 'label_dir': r'/mnt/version8/label',
-            # 'padding_info': r'/mnt/version8/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/version8/image',
+            'label_dir': r'/mnt/version8/label',
+            'padding_info': r'/mnt/version8/image_patches.csv',
             # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
             # 'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
             # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
@@ -224,16 +224,16 @@ def get_data_paths() -> dict:
             'padding_info': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image_patches.csv',
         },
         'unlabeled': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
-            # 'image_dir': r'/mnt/version7/image',
-            # 'padding_info': r'/mnt/version7/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/6.Precheck/image_patches.csv',
+            'image_dir': r'/mnt/version7/image',
+            'padding_info': r'/mnt/version7/image_patches.csv',
         },
         'second-unlabeled': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
-            # 'image_dir': r'/mnt/version7/labeled/image',
-            # 'padding_info': r'/mnt/version7/labeled/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/version7/labeled/image',
+            'padding_info': r'/mnt/version7/labeled/image_patches.csv',
         }
     }
 

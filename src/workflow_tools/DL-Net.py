@@ -10,8 +10,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -366,18 +366,14 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
                 if epoch > rampup:
                     rampup_weight = 1
 
-                # Test if compute consistency loss make BN layer unstable
-                if epoch < 30:
-                    cons_loss_un = torch.tensor(0).to(device)
-                else:
-                    cons_loss_un = compute_consistency_loss(
-                        model, teacher_model, device, transform_train,
-                        unlabeled_images, unlabeled_masks,
-                        epoch, rampup_weight, criterion 
-                    )
+                cons_loss_un = compute_consistency_loss(
+                    model, teacher_model, device, transform_train,
+                    unlabeled_images, unlabeled_masks,
+                    epoch, rampup_weight, criterion 
+                )
                 cons_loss = cons_loss_un
 
-                cons_loss_un = cons_loss_un / accumulation_steps
+                cons_loss = cons_loss / accumulation_steps
                 # cons_loss_labeled = compute_consistency_loss(
                 #     model, teacher_model, device, non_geometric_transform,
                 #     images, masks,
