@@ -29,7 +29,8 @@ from src.workflow_tools.database import s4augmented_labels
 interrupted = False
 
 
-# ------------------- Setup -------------------
+# ------------------- BN IN LN -------------------
+
 def remove_bn_layers(model):
     """
     Recursively removes all BatchNorm1d and BatchNorm2d layers from a PyTorch model.
@@ -88,6 +89,8 @@ def count_norm_layers(model):
             in_layer += 1
     return bn, in_layer
 
+
+# ------------------- Environment -------------------
 
 def setup_environment(my_parameters):
 
@@ -333,7 +336,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         total_loss_total = 0.0
         alpha = 0
     
-    accumulation_steps = 3
+    accumulation_steps = 1
 
     for i, (images, labels, masks) in enumerate(tqdm(train_loader)):
         images = images.to(device)
