@@ -83,7 +83,7 @@ if __name__ == "__main__":
 
         image = pre_process.median(image, 5)
         image = pre_process.reduce_poisson_noise(image, strength=3)
-        image = pre_process.clahe_float32(image)
+        # image = pre_process.clahe_float32(image)
         image = image - np.mean(image)
 
         # image = pre_process.median(image, 5)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
         return image 
 
-    path_in = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/5.1.Augmented/image')
+    path_in = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image')
     path_out = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/5.2.Preprocessed')
     read_img_extension = 'tif'
     
@@ -110,6 +110,6 @@ if __name__ == "__main__":
 
         # Name replaces
         extension=read_img_extension,
-        original_suffix='augmented',
+        original_suffix='harmonized',
         new_suffix='preprocessed'
     )

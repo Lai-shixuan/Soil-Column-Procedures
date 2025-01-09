@@ -182,7 +182,8 @@ class InferencePipeline:
                 encoder_name=self.config.backbone,
                 encoder_weights="imagenet",
                 in_channels=1,
-                classes=1
+                classes=1,
+                decoder_attention_type='scse'
             ),
             'UPerNet': lambda: smp.UPerNet(
                 encoder_name=self.config.backbone,
@@ -464,8 +465,8 @@ if __name__ == "__main__":
         save_path=r'/mnt/g/DL_Data_raw/version8-low-precise/_inference',
         padding_info_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image_patches.csv',
 
-        batch_size=3,
-        remove_prefix=True,
+        batch_size=8,
+        remove_prefix=False,
         run_config={
             'summary_filename': 'inference_summary.csv'
         }
