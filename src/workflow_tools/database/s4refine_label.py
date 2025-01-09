@@ -82,6 +82,7 @@ def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_ou
     
     df = pd.DataFrame(all_pores)
     df = df[['id', 'original_image', 'size', 'avg_value']]
+    df['outlier'] = False  # Initialize 'outlier' column
 
     # Calculate global thresholds if needed
     if use_global_threshold:
@@ -106,10 +107,6 @@ def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_ou
             img_upper_bound = Q3 + iqr_threshold * IQR
             img_lower_bound = Q1 - iqr_threshold * IQR
         
-        # Mark outliers for this image using .loc
-        img_df.loc[:, 'outlier'] = img_df['avg_value'] > img_upper_bound
-        outlier_ids = img_df[img_df['outlier']]['id'].values
-        
         # Use stored images
         label_img = image_data[name]['label']
         data_img = image_data[name]['data']
@@ -122,11 +119,10 @@ def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_ou
         # Mark valid labels as white
         debug_img[label_img == 1] = [255, 255, 255]
         
-        # Mark outliers (high values with labels) as red
-        for idx in outlier_ids:
-            mask = labeled_img == (idx + 1)
-            refined_img[mask] = 0
-            debug_img[mask] = [0, 0, 255]  # BGR format: Red is [0, 0, 255]
+        # Mark outliers (high values with labels) as red pixel by pixel
+        outlier_mask = (data_img > img_upper_bound) & (label_img == 1)
+        refined_img[outlier_mask] = 0
+        debug_img[outlier_mask] = [0, 0, 255]  # BGR format: Red is [0, 0, 255]
         
         # Mark missing parts (low values without labels) as blue
         missing_mask = (data_img < img_lower_bound) & (label_img == 0)
