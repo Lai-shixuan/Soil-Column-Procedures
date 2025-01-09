@@ -10,8 +10,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "/root/Soil-Column-Procedures")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -333,7 +333,7 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
         total_loss_total = 0.0
         alpha = 0
     
-    accumulation_steps = 5
+    accumulation_steps = 3
 
     for i, (images, labels, masks) in enumerate(tqdm(train_loader)):
         images = images.to(device)
@@ -391,12 +391,12 @@ def train_one_epoch(model, device, train_loader, my_parameters, unlabeled_loader
 
         # Update teacher model via EMA
         if my_parameters['mode'] == 'semi':
-            if epoch < 220:
+            if epoch < 210:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch <= 260:
+            elif epoch <= 250:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 260:
+            elif epoch > 250:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
 
