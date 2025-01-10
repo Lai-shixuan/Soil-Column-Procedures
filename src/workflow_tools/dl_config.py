@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34-alpha3050-cos75-ramp50-',
+        'wandb': '34-alpha3080-cos150-ramp50',
         'seed': 3407,
         
         # PC related parameters
@@ -68,7 +68,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 1500,
-        'patience': 300,
+        'patience': 100,
         'batch_debug': False,
 
         # Try to update labels, failed before

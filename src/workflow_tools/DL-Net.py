@@ -370,7 +370,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
         if my_parameters['mode'] == 'semi':
             if epoch < 30:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch <= 50:
+            elif epoch <= 80:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
             elif epoch > 80:
