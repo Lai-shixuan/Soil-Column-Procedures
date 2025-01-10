@@ -27,7 +27,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '33-alpha3050-cos75-ramp50',
+        'wandb': '34-alpha3050-cos75-ramp50-',
         'seed': 3407,
         
         # PC related parameters
@@ -54,7 +54,7 @@ def get_parameters() -> Dict[str, Any]:
         # Learning related parameters
         'learning_rate': 12e-5,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
-        'T_max': 75,
+        'T_max': 150,
         'scheduler_patience': 30,       # 10 or 40
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6

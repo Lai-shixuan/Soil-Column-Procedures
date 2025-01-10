@@ -373,7 +373,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
             elif epoch <= 50:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 50:
+            elif epoch > 80:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
             train_loader.dataset.set_teacher_model(teacher_model)
