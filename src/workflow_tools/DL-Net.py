@@ -319,7 +319,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
     model.train()
 
     # Initialize loss variables
-    accumulation_steps = 1
+    accumulation_steps = 3
     supervised_total = 0.0
     if my_parameters['mode'] == 'semi':
         total_cons_loss = 0.0
@@ -337,7 +337,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
     for i, (images, labels, masks, is_unlabels) in enumerate(tqdm(train_loader)):
         images = images.to(device)
         labels = labels.to(device)
-        masks = masks.to(device)
+        masks = masks.to(device).bool()
         is_unlabels = is_unlabels.to(device)
 
         with autocast(device_type='cuda'):
@@ -368,12 +368,12 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
             optimizer.zero_grad()
 
         if my_parameters['mode'] == 'semi':
-            if epoch < 210:
+            if epoch < 30:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch <= 250:
+            elif epoch <= 50:
                 alpha = 0.99
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 250:
+            elif epoch > 50:
                 alpha = 0.999
                 update_ema_variables(teacher_model, model, alpha=alpha)
             train_loader.dataset.set_teacher_model(teacher_model)
@@ -390,10 +390,10 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
         optimizer.zero_grad()
 
     # For each epoch, divide the total loss by the number of samples
-    train_loss_m = supervised_total / len(train_loader)
+    train_loss_m = supervised_total / len(train_loader) * accumulation_steps
     if my_parameters['mode'] == 'semi':
-        total_cons_loss_m = total_cons_loss / len(train_loader)
-        total_loss_m = total_loss_total / len(train_loader)
+        total_cons_loss_m = total_cons_loss / len(train_loader) * accumulation_steps
+        total_loss_m = total_loss_total / len(train_loader) * accumulation_steps
     else:
         total_loss_m = train_loss_m
 
