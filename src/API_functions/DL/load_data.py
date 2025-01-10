@@ -126,10 +126,13 @@ class MixedRatioSampler(Sampler):
             raise ValueError("Both labeled and unlabeled data must exist in the dataset")
 
         # Calculate number of complete batches
-        self.num_batches = min(
-            len(self.labeled_indices) // self.labeled_per_batch,
-            len(self.unlabeled_indices) // self.unlabeled_per_batch
-        )
+        if self.unlabeled_per_batch == 0:
+            self.num_batches = len(self.labeled_indices) // self.labeled_per_batch
+        else:
+            self.num_batches = min(
+                len(self.labeled_indices) // self.labeled_per_batch,
+                len(self.unlabeled_indices) // self.unlabeled_per_batch
+            )
 
     def __iter__(self):
         # Shuffle indices
