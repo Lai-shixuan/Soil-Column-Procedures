@@ -95,8 +95,8 @@ if __name__ == "__main__":
 
         return image 
 
-    path_in = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/image')
-    path_out = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/5.2.Preprocessed')
+    path_in = Path(r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/3.Harmonized')
+    path_out = Path(r'/mnt/g/DL_Data_raw/version7-large-lowRH/8.Unlabeled/5.2Preprocessed')
     read_img_extension = 'tif'
     
     batch_process_images(
