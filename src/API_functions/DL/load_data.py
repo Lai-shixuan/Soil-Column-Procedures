@@ -1,84 +1,83 @@
 import torch
 import numpy as np
-from torch.utils.data import Dataset
 import pandas as pd
-from typing import List
+import random
+from typing import List, Tuple
+from torch.utils.data import Dataset, Sampler
 
 import sys
 sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 from src.workflow_tools.database import s4augmented_labels
 
 class my_Dataset(Dataset):
-    def __init__(self, imagelist, labels, padding_info: pd.DataFrame=None, transform=None, preprocess=True):
+    def __init__(self, imagelist: List[np.ndarray], labels: List[np.ndarray], padding_info: pd.DataFrame=None, transform=None):
         super(my_Dataset).__init__()
-        self.transform = transform
-        self.imagelist: List[np.ndarray] = imagelist
-        self.labels: List[np.ndarray] = labels
-        self.is_unlabeled = labels[0] is None if labels else False
-        self.preprocess = preprocess
+        self.imagelist = imagelist
+        self.labels = labels
+        self.is_unlabeled = torch.tensor([label is None for label in labels])
         self.padding_info = padding_info
-        self.use_transform: bool = True
 
+        self.use_transform: bool = True
+        self.teacher_model = None
+
+        self.transform = transform
         if self.transform is None:
             self.use_transform = False
 
     def __len__(self):
         return len(self.imagelist)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.BoolTensor]:
         img = self.imagelist[idx]
-        label = self.labels[idx].astype(np.float32) if not self.is_unlabeled else None
+        if self.is_unlabeled[idx]:
+            img_tensor = torch.from_numpy(img).float()
+            img_tensor = img_tensor.unsqueeze(0).unsqueeze(0).to('cuda')
+            label = self.teacher_model(img_tensor)
+            label = torch.sigmoid(label).to('cpu').detach().squeeze(0).squeeze(0).numpy()
+        else:
+            label = self.labels[idx]
 
-        # Create padding mask if padding info is available
-        mask = None
         if self.padding_info is not None:
-            h, w = img.shape[:2]
-            mask = np.ones((h, w), dtype=np.float32)
-            pad_top = self.padding_info.iloc[idx]['padding_top']
-            pad_bottom = self.padding_info.iloc[idx]['padding_bottom']
-            pad_left = self.padding_info.iloc[idx]['padding_left']
-            pad_right = self.padding_info.iloc[idx]['padding_right']
-            
-            # Set padding areas to 0 in mask
-            if pad_top > 0:
-                pad_top = int(pad_top)
-                mask[:pad_top, :] = 0
-            if pad_bottom > 0:
-                pad_bottom = int(pad_bottom)
-                mask[-pad_bottom:, :] = 0
-            if pad_left > 0:
-                pad_left = int(pad_left)
-                mask[:, :pad_left] = 0
-            if pad_right > 0:
-                pad_right = int(pad_right)
-                mask[:, -pad_right:] = 0
+            mask = self.create_mask(img, idx)
         
         if self.use_transform:
-            if self.is_unlabeled:
-                augmented = self.transform(image=img, mask=mask)    # Only geometric transformation
-                img = augmented['image']
-                img = np.expand_dims(img, axis=0)   # Add channel dimension
-                mask = augmented['mask']
-                return img, mask
-            else:
-                augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
-                augmented_img, augmented_label, _ = augmenter.augment()
+            augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
+            augmented_img, augmented_label, _ = augmenter.augment()
 
-                augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
-                img = augmented['image']
-                label = augmented['masks'][0]
-                mask = augmented['masks'][1]
-                
-                return img, label, mask
+            augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
+            return augmented['image'], augmented['masks'][0], augmented['masks'][1], self.is_unlabeled[idx]
         else:
-            if self.is_unlabeled:
-                img = np.expand_dims(img, axis=0)
-                return img, mask
-            else:
-                return img, label, mask
+            print("Warning, no transform is applied to the dataset. And they are numpy arrays.")
+            return img, label, mask, self.is_unlabeled[idx]
 
+    def create_mask(self, img, idx) -> np.ndarray:
+        h, w = img.shape[:2]
+        mask = np.ones((h, w), dtype=np.float32)
+        pad_top = self.padding_info.iloc[idx]['padding_top']
+        pad_bottom = self.padding_info.iloc[idx]['padding_bottom']
+        pad_left = self.padding_info.iloc[idx]['padding_left']
+        pad_right = self.padding_info.iloc[idx]['padding_right']
+        
+        if pad_top > 0:
+            pad_top = int(pad_top)
+            mask[:pad_top, :] = 0
+        if pad_bottom > 0:
+            pad_bottom = int(pad_bottom)
+            mask[-pad_bottom:, :] = 0
+        if pad_left > 0:
+            pad_left = int(pad_left)
+            mask[:, :pad_left] = 0
+        if pad_right > 0:
+            pad_right = int(pad_right)
+            mask[:, -pad_right:] = 0
+        
+        return mask
+    
     def set_use_transform(self, use_transform: bool):
         self.use_transform = use_transform
+
+    def set_teacher_model(self, teacher_model):
+        self.teacher_model = teacher_model
 
     def update_label_by_index(self, idx, pred, threshold=0.8):
         original_label = torch.from_numpy(self.labels[idx]).to('cuda')
@@ -101,39 +100,57 @@ class my_Dataset(Dataset):
         if abs(new_foreground_ratio - original_foreground_ratio) < 0.3:
             self.labels[idx] = new_label.cpu().numpy()
 
-# to be continue
 
-# def dataset_prefold(path):
-#     dataset = sorted([os.path.join(path,x) for x in os.listdir(path) if x.endswith(".jpg")])
-#     return dataset
+class MixedRatioSampler(Sampler):
+    def __init__(self, data_set: my_Dataset, labeled_ratio: float, batch_size: int):
+        """
+        Initialize the mixed ratio sampler
+        Args:
+            data_set: Dataset containing both labeled and unlabeled data
+            labeled_ratio: Ratio of labeled data in each batch (0-1)
+            batch_size: Size of each batch
+        """
+        self.data_source = data_set
+        self.batch_size = batch_size
+        if not (0 <= labeled_ratio <= 1):
+            raise ValueError("labeled_ratio must be between 0 and 1")
+        
+        self.labeled_indices = torch.where(~data_set.is_unlabeled)[0]
+        self.unlabeled_indices = torch.where(data_set.is_unlabeled)[0]
+        
+        self.labeled_ratio = labeled_ratio
+        self.labeled_per_batch = int(self.batch_size * self.labeled_ratio)
+        self.unlabeled_per_batch = self.batch_size - self.labeled_per_batch
+        
+        if len(self.labeled_indices) == 0 or len(self.unlabeled_indices) == 0:
+            raise ValueError("Both labeled and unlabeled data must exist in the dataset")
 
+        # Calculate number of complete batches
+        self.num_batches = min(
+            len(self.labeled_indices) // self.labeled_per_batch,
+            len(self.unlabeled_indices) // self.unlabeled_per_batch
+        )
 
-# def pre_fold(path):
-#     train_set = dataset_prefold(os.path.join(_dataset_dir,"training"))
-#     val_set = dataset_prefold(os.path.join(_dataset_dir,"validation"))
-#     train_val_set = train_set + val_set
+    def __iter__(self):
+        # Shuffle indices
+        labeled_indices = self.labeled_indices[torch.randperm(len(self.labeled_indices))]
+        unlabeled_indices = self.unlabeled_indices[torch.randperm(len(self.unlabeled_indices))]
+        
+        # Generate batches
+        all_indices = []
+        for i in range(self.num_batches):
+            # Get indices for current batch
+            batch_labeled = labeled_indices[i * self.labeled_per_batch : (i + 1) * self.labeled_per_batch]
+            batch_unlabeled = unlabeled_indices[i * self.unlabeled_per_batch : (i + 1) * self.unlabeled_per_batch]
+            
+            # Combine and shuffle the batch
+            batch = torch.cat([batch_labeled, batch_unlabeled])
+            batch = batch[torch.randperm(len(batch))]
+            all_indices.append(batch)
+        
+        # Flatten and return iterator
+        all_indices = torch.cat(all_indices)
+        return iter(all_indices.tolist())
 
-#     le = preprocessing.LabelEncoder()
-#     train_val_encoded = le.fit_transform(train_val_set)
-
-#     kfold = KFold(n_splits=5, shuffle=True, random_state=42)
-
-
-# You can use sklearn to split the data, and here is the self-defined function to split the data
-# from sklearn.model_selection import KFold, train_test_split
-# def data_devider(data: list, labels:list, ratio=0.8):
-
-#     num_train = int(len(data) * ratio)
-
-#     combined = list(zip(data, labels))
-#     random.shuffle(combined)
-#     shuffled_list1, shuffled_list2 = zip(*combined)
-#     data = list(shuffled_list1)
-#     labels = list(shuffled_list2)
-
-#     train_imagelist = data[:num_train]
-#     train_labels = labels[:num_train]
-#     val_imagelist = data[num_train:]
-#     val_labels = labels[num_train:]
-
-#     return train_imagelist, train_labels, val_imagelist, val_labels
+    def __len__(self):
+        return self.num_batches * self.batch_size
