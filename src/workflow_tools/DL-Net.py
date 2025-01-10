@@ -320,6 +320,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
 
     # Initialize loss variables
     accumulation_steps = 3
+    conf_threshold = 0.75
     supervised_total = 0.0
     if my_parameters['mode'] == 'semi':
         total_cons_loss = 0.0
@@ -355,6 +356,10 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
 
             supervised_loss = criterion(outputs[zero_indices], labels[zero_indices], masks[zero_indices])
             supervised_loss = supervised_loss / accumulation_steps
+
+            # confs = torch.where((labels > conf_threshold) | (labels < 1 - conf_threshold), 1, 0).float()
+            # masks = confs * masks
+            
             cons_loss = criterion(outputs[one_indices], labels[one_indices], masks[one_indices])
             cons_loss = cons_loss / accumulation_steps
 
