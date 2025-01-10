@@ -220,7 +220,7 @@ def prepare_data(my_parameters, transform_train, transform_val):
         train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
     else:
         batch_size = my_parameters['label_batch_size']
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
 
     print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}')
