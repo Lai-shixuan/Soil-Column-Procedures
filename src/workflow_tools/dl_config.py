@@ -14,7 +14,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34.6-alpha3080-cos150-ramp50-larger-batch',
+        'wandb': '34.7-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
         # PC related parameters
