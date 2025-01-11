@@ -1,21 +1,8 @@
-# 1. no kl, no mcc, using dice again, both supervised and consitency loss
-# 2. no consistency loss for labeled data (transform too much)
-# 3. consistency loss is 0.667, as the unlabeled data is 2/3
-# 4. add valiation for teacher model
-# TODO 2 datalodaer for st and mt model, st with no transform, mt with transform?
-# TODO check graient explode
-# TODO add geotransform to unlabel
-
-
 import sys
 import torch
 import albumentations as A
 import segmentation_models_pytorch as smp
 import pandas as pd
-
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
-# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from albumentations.pytorch import ToTensorV2
 from pathlib import Path
@@ -27,7 +14,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34.3-alpha3080-cos150-ramp50-morecons',
+        'wandb': '34.4-alpha3080-cos150-ramp50-morecons-conf',
         'seed': 3407,
         
         # PC related parameters

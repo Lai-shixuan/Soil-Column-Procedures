@@ -183,7 +183,7 @@ class InferencePipeline:
                 encoder_weights="imagenet",
                 in_channels=1,
                 classes=1,
-                decoder_attention_type='scse'
+                # decoder_attention_type='scse'
             ),
             'UPerNet': lambda: smp.UPerNet(
                 encoder_name=self.config.backbone,
@@ -238,7 +238,7 @@ class InferencePipeline:
         Returns:
             List[Dict]: List of metrics dictionaries for each processed image.
         """
-        images, labels, masks = [x.to(self.config.device) for x in batch]
+        images, labels, masks, _ = [x.to(self.config.device) for x in batch]
         output = self.model(images)
         
         if output.dim() == 4 and output.size(1) == 1:
@@ -448,7 +448,7 @@ if __name__ == "__main__":
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='data/pths/precise/model_U-Net++_17.23-semi-99-250-999-99-cosine-more-data.pth',
+        model_path='data/pths/precise/model_U-Net++_34.3-alpha3080-cos150-ramp50-morecons.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -465,8 +465,8 @@ if __name__ == "__main__":
         save_path=r'/mnt/g/DL_Data_raw/version8-low-precise/_inference',
         padding_info_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image_patches.csv',
 
-        batch_size=8,
-        remove_prefix=False,
+        batch_size=10,
+        remove_prefix=True,
         run_config={
             'summary_filename': 'inference_summary.csv'
         }
