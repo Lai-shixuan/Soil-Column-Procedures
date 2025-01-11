@@ -448,7 +448,7 @@ if __name__ == "__main__":
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='data/pths/precise/model_U-Net++_34.3-alpha3080-cos150-ramp50-morecons.pth',
+        model_path='data/pths/precise/model_U-Net++_34.5-alpha3080-cos150-ramp50-load-model.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',

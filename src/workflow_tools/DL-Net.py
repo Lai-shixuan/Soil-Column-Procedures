@@ -116,6 +116,7 @@ def setup_environment(my_parameters):
         model = torch.compile(model).to(device)
     else:
         model = model.to(device)
+    model.load_state_dict(torch.load('data/pths/precise/model_U-Net++_sup9-resnext50-U-Net++.pth'))
 
     # Create teacher model
     teacher_model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
