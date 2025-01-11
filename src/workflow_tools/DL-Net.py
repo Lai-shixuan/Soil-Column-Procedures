@@ -12,8 +12,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -116,7 +116,7 @@ def setup_environment(my_parameters):
         model = torch.compile(model).to(device)
     else:
         model = model.to(device)
-    model.load_state_dict(torch.load('data/pths/precise/model_U-Net++_sup9-resnext50-U-Net++.pth'))
+    # model.load_state_dict(torch.load('data/pths/precise/model_U-Net++_sup9-resnext50-U-Net++.pth'))
 
     # Create teacher model
     teacher_model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
