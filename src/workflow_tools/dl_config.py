@@ -14,7 +14,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34.5-alpha3080-cos150-ramp50-load-model',
+        'wandb': '35-cos150-preexpermient',
         'seed': 3407,
         
         # PC related parameters
@@ -25,7 +25,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 3,
+        'label_batch_size': 10,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -47,16 +47,16 @@ def get_parameters() -> Dict[str, Any]:
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
 
         # Add semi-supervised parameters
-        'mode': 'semi',             # 'supervised' or 'semi'
+        'mode': 'supervised',             # 'supervised' or 'semi'
         'unlabel_batch_size': 7,
         'consistency_weight': 0.66,
         'consistency_rampup': 50,
         'teacher_alpha': 0.999,
 
         # Batch debug mode and with earyly stopping
-        'n_epochs': 1500,
+        'n_epochs': 200,
         'patience': 100,
-        'batch_debug': False,
+        'batch_debug': True,
 
         # Try to update labels, failed before
         'update': False
@@ -67,15 +67,21 @@ def get_parameters() -> Dict[str, Any]:
 
 def get_debug_param_sets():
     return [
-        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup6-resnext50-UPerNet'},
-        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup7-efficientnetb0-UPerNet'},
-        {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnet34', 'wandb': 'sup8-resnet34-UPerNet'},
-        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnet34', 'wandb': 'sup5-resnet34-DeepLabv3+'},
-        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnext50_32x4d', 'wandb': 'sup3-resnext50-DeepLabv3+'},
-        {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'efficientnet-b0', 'wandb': 'sup4-efficientnetb0-DeepLabv3+'},
-        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnext50_32x4d', 'wandb': 'sup9-resnext50-U-Net++'},
-        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'efficientnet-b0', 'wandb': 'sup10-efficientnetb0-U-Net++'},
-        {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnet34', 'wandb': 'sup11-resnet34-U-Net++'},
+        {**get_parameters(), 'model': 'Unet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup13-resnext50-Unet'},
+        {**get_parameters(), 'model': 'Unet', 'encoder': 'efficientnet-b0', 'wandb': 'sup14-efficientnetb0-Unet'},
+        {**get_parameters(), 'model': 'Unet', 'encoder': 'resnet34', 'wandb': 'sup15-resnet34-Unet'},
+        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup10-resnext50-PSPNet'},
+        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup11-efficientnetb0-PSPNet'},
+        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'resnet34', 'wandb': 'sup12-resnet34-PSPNet'},
+        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup1-resnext50-UPerNet'},
+        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup2-efficientnetb0-UPerNet'},
+        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnet34', 'wandb': 'sup3-resnet34-UPerNet'},
+        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnet34', 'wandb': 'sup4-resnet34-DeepLabv3+'},
+        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnext50_32x4d', 'wandb': 'sup5-resnext50-DeepLabv3+'},
+        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'efficientnet-b0', 'wandb': 'sup6-efficientnetb0-DeepLabv3+'},
+        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnext50_32x4d', 'wandb': 'sup7-resnext50-U-Net++'},
+        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'efficientnet-b0', 'wandb': 'sup8-efficientnetb0-U-Net++'},
+        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnet34', 'wandb': 'sup9-resnet34-U-Net++'},
     ]
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
@@ -145,6 +151,13 @@ def setup_model(model_name: str, encoder_name: str) -> torch.nn.Module:
         )
     elif model_name == 'UPerNet':
         model = smp.UPerNet(
+            encoder_name=encoder_name,
+            encoder_weights="imagenet",
+            in_channels=1,
+            classes=1,
+        )
+    elif model_name == 'Unet':
+        model = smp.Unet(
             encoder_name=encoder_name,
             encoder_weights="imagenet",
             in_channels=1,

@@ -116,7 +116,6 @@ def setup_environment(my_parameters):
         model = torch.compile(model).to(device)
     else:
         model = model.to(device)
-    model.load_state_dict(torch.load('data/pths/precise/model_U-Net++_sup9-resnext50-U-Net++.pth'))
 
     # Create teacher model
     teacher_model = dl_config.setup_model(my_parameters['model'], my_parameters['encoder'])
@@ -320,7 +319,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
     model.train()
 
     # Initialize loss variables
-    accumulation_steps = 3
+    accumulation_steps = 1
     conf_threshold = 0.75
     supervised_total = 0.0
     if my_parameters['mode'] == 'semi':
