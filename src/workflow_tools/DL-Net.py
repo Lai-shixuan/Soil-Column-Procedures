@@ -12,8 +12,8 @@ from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/root/Soil-Column-Procedures")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
@@ -357,8 +357,8 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
             supervised_loss = criterion(outputs[zero_indices], labels[zero_indices], masks[zero_indices])
             supervised_loss = supervised_loss / accumulation_steps
 
-            confs = torch.where((labels > conf_threshold) | (labels < 1 - conf_threshold), 1, 0).float()
-            masks = confs * masks
+            # confs = torch.where((labels > conf_threshold) | (labels < 1 - conf_threshold), 1, 0).float()
+            # masks = confs * masks
             
             cons_loss = criterion(outputs[one_indices], labels[one_indices], masks[one_indices])
             cons_loss = cons_loss / accumulation_steps
