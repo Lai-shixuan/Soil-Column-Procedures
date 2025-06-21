@@ -33,21 +33,6 @@ interrupted = False
 
 # ------------------- BN IN LN -------------------
 
-def remove_bn_layers(model):
-    """
-    Recursively removes all BatchNorm1d and BatchNorm2d layers from a PyTorch model.
-
-    Args:
-        model (torch.nn.Module): The PyTorch model to modify.
-    """
-    for name, module in model.named_children():
-        if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
-            # Replace the BatchNorm layer with Identity
-            setattr(model, name, nn.Identity())
-        else:
-            # Recursively call remove_bn_layers on the child module
-            remove_bn_layers(module)
-
 def replace_bn_with_in(model, exclude_modules=None):
     """
     递归地将PyTorch模型中的所有BatchNorm1d和BatchNorm2d层替换为InstanceNorm1d和InstanceNorm2d层，
