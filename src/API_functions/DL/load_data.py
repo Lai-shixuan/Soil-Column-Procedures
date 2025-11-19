@@ -44,7 +44,11 @@ class my_Dataset(Dataset):
             augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
             augmented_img, augmented_label, _ = augmenter.augment()
 
-            augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
+            # 将mask和augmented_label组合成一个np array, 第0维度的0代表label，1代表mask
+            masks = np.stack([augmented_label, mask], axis=0)
+
+            # augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
+            augmented = self.transform(image=augmented_img, masks=masks)
             return augmented['image'], augmented['masks'][0], augmented['masks'][1], self.is_unlabeled[idx]
         else:
             print("Warning, no transform is applied to the dataset. And they are numpy arrays.")
