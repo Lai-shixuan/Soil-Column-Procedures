@@ -17,7 +17,7 @@ sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from tqdm import tqdm
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
@@ -25,6 +25,39 @@ from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
 from src.workflow_tools.cvat_noisy import cvat_nosiy
 from src.workflow_tools.database import s4augmented_labels
+
+
+class TrainingContext:
+    """Encapsulates all components and configurations needed for training"""
+    def __init__(self,
+                model: Optional[torch.nn.Module] = None,
+                teacher_model: Optional[torch.nn.Module] = None,
+                device: Optional[torch.device] = None,
+                optimizer: Optional[torch.optim.Optimizer] = None,
+                scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+                criterion: Optional[torch.nn.Module] = None,
+                kl_criterion: Optional[torch.nn.Module] = None,
+                scaler: Optional[GradScaler] = None,
+                transform_train: Optional[Any] = None,
+                transform_val: Optional[Any] = None,
+                train_loader: Optional[DataLoader] = None,
+                val_loader: Optional[DataLoader] = None,
+                my_parameters: Optional[Dict[str, Any]] = None,
+                logger: Optional[log.DataLogger] = None):
+        self.model = model
+        self.teacher_model = teacher_model
+        self.device = device
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.criterion = criterion
+        self.kl_criterion = kl_criterion
+        self.scaler = scaler
+        self.transform_train = transform_train
+        self.transform_val = transform_val
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.my_parameters = my_parameters or {}
+        self.logger = logger
 
 
 # Global flag to track interruption
@@ -164,7 +197,19 @@ def setup_environment(my_parameters):
         wandb.define_metric('total_loss', summary='min')
         wandb.define_metric('val_loss', summary='min')
 
-    return model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, mylogger
+    return TrainingContext(
+        model=model,
+        teacher_model=teacher_model,
+        device=device,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion=criterion,
+        scaler=scaler,
+        transform_train=transform_train,
+        transform_val=transform_val,
+        logger=mylogger,
+        my_parameters=my_parameters
+    )
 
 # ------------------- Signal Handling -------------------
 
@@ -315,7 +360,17 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
 
 # ------------------- Epoch -------------------
 
-def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, criterion, optimizer, scaler, epoch):
+def train_one_epoch(context, epoch):
+    """Trains the model for one epoch using the provided context"""
+    model = context.model
+    teacher_model = context.teacher_model
+    device = context.device
+    train_loader = context.train_loader
+    my_parameters = context.my_parameters
+    criterion = context.criterion
+    optimizer = context.optimizer
+    scaler = context.scaler
+
     model.train()
 
     # Initialize loss variables
@@ -346,7 +401,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
             if outputs.dim() == 4 and outputs.size(1) == 1:
                 outputs = outputs.squeeze(1)
 
-        if my_parameters['mode'] == 'supervised': 
+        if my_parameters['mode'] == 'supervised':
             supervised_loss = criterion(outputs, labels, masks)
             supervised_loss = supervised_loss / accumulation_steps
             total_loss = supervised_loss
@@ -359,7 +414,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
 
             # confs = torch.where((labels > conf_threshold) | (labels < 1 - conf_threshold), 1, 0).float()
             # masks = confs * masks
-            
+
             cons_loss = criterion(outputs[one_indices], labels[one_indices], masks[one_indices])
             cons_loss = cons_loss / accumulation_steps
 
@@ -388,7 +443,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
             total_cons_loss += cons_loss.item()
             total_loss_total += total_loss.item()
 
-    # If the number of batches is not a multiple of accumulation_steps, step the optimizer 
+    # If the number of batches is not a multiple of accumulation_steps, step the optimizer
     if len(train_loader) % accumulation_steps != 0:
         scaler.step(optimizer)
         scaler.update()
@@ -405,7 +460,7 @@ def train_one_epoch(model, teacher_model, device, train_loader, my_parameters, c
     if my_parameters['mode'] == 'semi':
         return train_loss_m, total_cons_loss_m, total_loss_m, alpha
     else:
-        return None, None, train_loss_m, None
+        return None, None, total_loss_m, None
 
 def validate(model, device, val_loader, criterion):
     model.eval()
@@ -497,8 +552,20 @@ def main():
         run_experiment(base_params)
 
 def run_experiment(my_parameters):
-    model, teacher_model, device, optimizer, scheduler, criterion, scaler, transform_train, transform_val, mylogger = setup_environment(my_parameters)
+    context = setup_environment(my_parameters)
     register_signals()
+
+    # Extract needed values from context
+    model = context.model
+    teacher_model = context.teacher_model
+    device = context.device
+    optimizer = context.optimizer
+    scheduler = context.scheduler
+    criterion = context.criterion
+    scaler = context.scaler
+    transform_train = context.transform_train
+    transform_val = context.transform_val
+    mylogger = context.logger
 
     train_dataset, val_dataset, train_loader, val_loader = prepare_data(my_parameters, transform_train, transform_val)
 
@@ -515,7 +582,19 @@ def run_experiment(my_parameters):
 
             # ------------------- Training -------------------
 
-            supervised_loss_m, cons_loss_m, total_loss_m, alpha = train_one_epoch(model, teacher_model, device, train_loader, my_parameters, criterion, optimizer, scaler, epoch)
+            # Create training context
+            context = TrainingContext(
+                model=model,
+                teacher_model=teacher_model,
+                device=device,
+                train_loader=train_loader,
+                my_parameters=my_parameters,
+                criterion=criterion,
+                optimizer=optimizer,
+                scaler=scaler
+            )
+
+            supervised_loss_m, cons_loss_m, total_loss_m, alpha = train_one_epoch(context, epoch)
 
             # ------------------- Validation -------------------
 
