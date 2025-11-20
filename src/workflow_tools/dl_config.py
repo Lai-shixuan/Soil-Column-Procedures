@@ -14,7 +14,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '04-change-ratio-2to6',
+        'wandb': '05-change-ratio-2to6',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -117,6 +117,7 @@ def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compo
         # A.RandomBrightnessContrast(brightness_limit=(-0.2, 0.2), p=0.7),
         # A.RandomShadow(p=0.5),
         A.GaussianBlur(p=0.5, blur_limit=(3, 5)),
+        A.Transpose(p=0.6),
         ToTensorV2(),
     ], seed=seed_value)
 
