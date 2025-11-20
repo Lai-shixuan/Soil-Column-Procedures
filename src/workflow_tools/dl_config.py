@@ -14,7 +14,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '03-change-ratio-2to6',
+        'wandb': '04-change-ratio-2to6',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         

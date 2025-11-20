@@ -5,6 +5,11 @@ import cv2
 from tqdm import tqdm
 import numpy as np
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Enable OpenCV's file caching for faster image reading
+cv2.setUseOptimized(True)
+cv2.setNumThreads(0)  # Let OpenCV manage its own threads internally
 
 import sys
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
@@ -85,39 +90,63 @@ def get_image_names(folder_path: str, image_names: Union[ImageName, None], image
 # --------------------------------- read_images and output_images, huge rom needed --------------------------------- #
 
 # A function to read all images in specific format, with gray, turn to gray, or color:
-def read_images(image_files_names: list, gray: str = "gray", read_all: bool = False, read_num: int = 1000):
+def read_images(image_files_names: list, gray: str = "gray", read_all: bool = False, read_num: int = 1000, use_threading: bool = True, max_workers: int = None):
     """
     By default, not read all images. If you want to read all images, please set read_all=True,
     and delete read_num parameter.
+
+    Added threading support: use_threading=True (default) to enable multi-threaded reading,
+    max_workers to specify number of threads (default: os.cpu_count())
     """
-    def read():
+    def read_single(image_file):
         if gray == "gray":
             image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
         elif gray == "turn to gray":
             image = cv2.imread(image_file, cv2.IMREAD_UNCHANGED)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            # Only convert to grayscale if it's a color image (has 3 or 4 channels)
+            if len(image.shape) == 3:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         elif gray == "color":
             image = cv2.imread(image_file)
         else:
             raise Exception('Error: Please set gray to "gray", "turn to gray" or "color"')
-        images.append(image)
+        return image
 
     if not image_files_names:
         raise Exception('Error: No images found')
-    images = []
+
+    # Determine which files to read
     if read_all:
-        for image_file in tqdm(image_files_names):
-            read()
+        files_to_read = image_files_names
+    else:
+        files_to_read = image_files_names[:min(read_num, len(image_files_names))]
+
+    images = [None] * len(files_to_read)
+
+    if use_threading:
+        # Multi-threaded reading
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Create a dictionary to map future to index
+            future_to_index = {executor.submit(read_single, file_path): idx
+                              for idx, file_path in enumerate(files_to_read)}
+
+            # Use tqdm to show progress
+            for future in tqdm(as_completed(future_to_index), total=len(future_to_index)):
+                idx = future_to_index[future]
+                images[idx] = future.result()
+    else:
+        # Original single-threaded reading
+        for idx, image_file in enumerate(tqdm(files_to_read)):
+            images[idx] = read_single(image_file)
+
+    # Filter out None images (if any)
+    images = [img for img in images if img is not None]
+
+    if read_all:
         print(f"{len(images)} images have been read")
         print(f"\033[1;3mReading completely!\033[0m")
-        return images
-    else:
-        for image_file in image_files_names[:min(read_num, len(image_files_names))]:
-            read()
-        # print(f"first {len(images)} images have been read")
-        # print(f"if you want to read all, please set read_all=True")
-        # print(f"\033[1;3mReading completely!\033[0m")
-        return images
+
+    return images
 
 
 # A function to output all images to a specific folder in a specific format, with a specific name format:
