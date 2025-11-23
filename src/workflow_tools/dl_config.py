@@ -4,6 +4,7 @@ import albumentations as A
 import segmentation_models_pytorch as smp
 import pandas as pd
 
+
 from albumentations.pytorch.transforms import ToTensorV2
 from pathlib import Path
 from typing import Tuple, Dict, Any
@@ -14,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '06-num_work_in_dataloader',
+        'wandb': '08-multi-accumulation',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -31,7 +32,7 @@ def get_parameters() -> Dict[str, Any]:
         'Kfold': None,
 
         # Model related parameters
-        'model': 'U-Net++',             # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
+        'model': 'Unet',             # model = 'U-Net', 'DeepLabv3+', 'PSPNet', 'U-Net++', 'Segformer', 'UPerNet', 'Linknet'
         'encoder': 'resnext50_32x4d',   # mobileone_s0
         'optimizer': 'adam',            # optimizer = 'adam', 'adamw', 'sgd'
         'weight_decay': 0.01,           # weight_decay = 0.01
@@ -60,7 +61,10 @@ def get_parameters() -> Dict[str, Any]:
         'batch_debug': False,
 
         # Try to update labels, failed before
-        'update': False
+        'update': False,
+
+        # Gradient accumulation
+        'accumulation_steps': 3
     }
 
 

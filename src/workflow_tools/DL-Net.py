@@ -374,7 +374,7 @@ def train_one_epoch(context, epoch):
     model.train()
 
     # Initialize loss variables
-    accumulation_steps = 1
+    accumulation_steps = my_parameters['accumulation_steps']
     conf_threshold = 0.75
     supervised_total = 0.0
     if my_parameters['mode'] == 'semi':
