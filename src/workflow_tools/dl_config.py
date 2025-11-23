@@ -53,7 +53,10 @@ def get_parameters() -> Dict[str, Any]:
         'unlabel_batch_size': 6,
         'consistency_weight': 0.5,
         'consistency_rampup': 50,
-        'teacher_alpha': 0.999,
+        'teacher_alpha_initial_epoch': 30,  # Copy model directly before this epoch
+        'teacher_alpha_mid_epoch': 80,      # Use mid alpha before this epoch
+        'teacher_alpha_mid': 0.99,          # Alpha value from initial to mid epoch
+        'teacher_alpha': 0.999,             # Alpha value after mid epoch
 
         # Batch debug mode and with earyly stopping
         'n_epochs': 200,

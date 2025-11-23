@@ -428,13 +428,13 @@ def train_one_epoch(context, epoch):
             optimizer.zero_grad()
 
         if my_parameters['mode'] == 'semi':
-            if epoch < 30:
+            if epoch < my_parameters['teacher_alpha_initial_epoch']:
                 teacher_model.load_state_dict(model.state_dict())
-            elif epoch <= 80:
-                alpha = 0.99
+            elif epoch <= my_parameters['teacher_alpha_mid_epoch']:
+                alpha = my_parameters['teacher_alpha_mid']
                 update_ema_variables(teacher_model, model, alpha=alpha)
-            elif epoch > 80:
-                alpha = 0.999
+            else:
+                alpha = my_parameters['teacher_alpha']
                 update_ema_variables(teacher_model, model, alpha=alpha)
             train_loader.dataset.set_teacher_model(teacher_model)
 
