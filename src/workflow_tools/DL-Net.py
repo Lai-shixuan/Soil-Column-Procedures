@@ -262,11 +262,11 @@ def prepare_data(my_parameters, transform_train, transform_val):
         batch_size = my_parameters['label_batch_size'] + my_parameters['unlabel_batch_size']
         labeled_ratio = my_parameters['label_batch_size'] / batch_size
         sampler = load_data.MixedRatioSampler(train_dataset, labeled_ratio, batch_size=batch_size)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, pin_memory=True)
     else:
         batch_size = my_parameters['label_batch_size']
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False, pin_memory=True)
 
     print(f'len of train_data: {len(train_data)}, len of val_data: {len(val_data)}')
 
@@ -346,10 +346,10 @@ def compute_consistency_loss(student_model, teacher_model, device, transform_tra
         batch_masks.append(augmented['masks'][1])
         batch_conf.append(augmented['masks'][2])
 
-    trans_imgs = torch.stack(batch_imgs).to(device)
-    trans_lbls = torch.stack(batch_labels).to(device)
-    trans_masks = torch.stack(batch_masks).to(device)
-    trans_conf = torch.stack(batch_conf).to(device)
+    trans_imgs = torch.stack(batch_imgs).to(device, non_blocking=True)
+    trans_lbls = torch.stack(batch_labels).to(device, non_blocking=True)
+    trans_masks = torch.stack(batch_masks).to(device, non_blocking=True)
+    trans_conf = torch.stack(batch_conf).to(device, non_blocking=True)
 
     trans_masks = trans_conf * trans_masks
 
@@ -391,10 +391,10 @@ def train_one_epoch(context, epoch):
             train_loader.dataset.set_teacher_model(teacher_model)
 
     for i, (images, labels, masks, is_unlabels) in enumerate(tqdm(train_loader)):
-        images = images.to(device)
-        labels = labels.to(device)
-        masks = masks.to(device).bool()
-        is_unlabels = is_unlabels.to(device)
+        images = images.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        masks = masks.to(device, non_blocking=True).bool()
+        is_unlabels = is_unlabels.to(device, non_blocking=True)
 
         with autocast(device_type='cuda'):
             outputs = model(images)
