@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 from tqdm import tqdm
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from src.API_functions.Images import file_batch as fb
 from src.API_functions.DL.multi_input_adapter import harmonized_normalize

@@ -2,7 +2,8 @@ import sys
 import pytest
 import cv2
 
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from pathlib import Path
 from src.API_functions.Soils import pre_process

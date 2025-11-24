@@ -6,8 +6,9 @@ import pytest
 import logging
 from pathlib import Path
 
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 
 from src.API_functions.Images import file_batch as fb
 from src.API_functions.DL import multi_input_adapter

@@ -12,8 +12,8 @@ cv2.setUseOptimized(True)
 cv2.setNumThreads(0)  # Let OpenCV manage its own threads internally
 
 import sys
-# sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
 from src.API_functions.Soils import pre_process
 from src.API_functions.Soils import threshold_position_independent
 

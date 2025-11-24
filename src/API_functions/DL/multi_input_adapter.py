@@ -6,7 +6,8 @@ import pandas as pd
 from enum import Enum
 
 # sys.path.insert(0, "/root/Soil-Column-Procedures")
-sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+# sys.path.insert(0, "c:/Users/laish/1_Codes/Image_processing_toolchain/")
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
 from src.API_functions.Soils import threshold_position_independent as tpi
 from src.API_functions.Images import file_batch as fb

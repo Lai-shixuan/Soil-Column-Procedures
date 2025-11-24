@@ -6,9 +6,9 @@ import pytest
 
 # Add the src directory to the path
 import sys
-sys.path.insert(0, '/home/shixuan/Soil-Column-Procedures/src')
+sys.path.insert(0, "/home/shixuan/Soil-Column-Procedures/")
 
-from API_functions.Images.file_batch import read_images, get_image_names, ImageName
+from src.API_functions.Images.file_batch import read_images, get_image_names, ImageName
 
 
 class TestFileBatch:
