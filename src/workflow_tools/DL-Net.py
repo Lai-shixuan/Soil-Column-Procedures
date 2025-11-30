@@ -4,10 +4,8 @@ import torch.nn as nn
 import torch.utils.data.sampler
 import wandb
 import signal
-import numpy as np
 import pandas as pd
 import os
-import cv2
 from math import exp
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
@@ -23,8 +21,9 @@ from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
-from src.workflow_tools.cvat_noisy import cvat_nosiy
-from src.workflow_tools.database import s4augmented_labels
+
+# from src.workflow_tools.cvat_noisy import cvat_nosiy
+# from src.workflow_tools.database import s4augmented_labels
 
 
 class TrainingContext:

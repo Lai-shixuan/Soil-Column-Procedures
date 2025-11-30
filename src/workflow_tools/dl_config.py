@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '09-both-data-resolution',
+        'wandb': '02-supervised-340dataset',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -23,11 +23,11 @@ def get_parameters() -> Dict[str, Any]:
         'gpu_id': 0,
         'compile': True,
         'PC': 'wsl',   # v100 or wsl
-        'project_name': 'temp-1118', # 'Precise-annotation' or 'Transfer-Learning'
+        'project_name': '340dataset', # 'Precise-annotation' or 'Transfer-Learning'
 
         # Data related parameters
-        'data_resolution': 'both',   # 'low' or 'high' or 'both'
-        'label_batch_size': 2,
+        'data_resolution': 'low',   # 'low' or 'high' or 'both'
+        'label_batch_size': 8,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -49,7 +49,7 @@ def get_parameters() -> Dict[str, Any]:
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
 
         # Add semi-supervised parameters
-        'mode': 'semi',             # 'supervised' or 'semi'
+        'mode': 'supervised',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
         'consistency_weight': 0.5,
         'consistency_rampup': 50,
@@ -217,15 +217,17 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/image_patches.csv',
             # 'image_dir': r'/mnt/version8/new/image',
             # 'label_dir': r'/mnt/version8/new/label',
             # 'padding_info': r'/mnt/version8/new/image_patches.csv',
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
+        },
+        'low_plus': {
+            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -282,6 +284,7 @@ def load_and_preprocess_data():
     resolutions = []
     if params['data_resolution'] in ['low', 'both']:
         resolutions.append('low')
+        resolutions.append('low_plus')
     if params['data_resolution'] in ['high', 'both']:
         resolutions.append('high')
 
