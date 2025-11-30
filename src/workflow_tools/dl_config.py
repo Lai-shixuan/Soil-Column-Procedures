@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '02-supervised-340dataset',
+        'wandb': '11-semisupervised-right-data',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -27,7 +27,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'label_batch_size': 8,
+        'label_batch_size': 2,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -43,18 +43,18 @@ def get_parameters() -> Dict[str, Any]:
         # Learning related parameters
         'learning_rate': 12e-5,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
-        'T_max': 150,
+        'T_max': 90,
         'scheduler_patience': 30,       # 10 or 40
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
 
         # Add semi-supervised parameters
-        'mode': 'supervised',             # 'supervised' or 'semi'
+        'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
         'consistency_weight': 0.5,
         'consistency_rampup': 50,
-        'teacher_alpha_initial_epoch': 30,  # Copy model directly before this epoch
-        'teacher_alpha_mid_epoch': 80,      # Use mid alpha before this epoch
+        'teacher_alpha_initial_epoch': 25,  # Copy model directly before this epoch
+        'teacher_alpha_mid_epoch': 60,      # Use mid alpha before this epoch
         'teacher_alpha_mid': 0.99,          # Alpha value from initial to mid epoch
         'teacher_alpha': 0.999,             # Alpha value after mid epoch
 
@@ -306,10 +306,10 @@ def load_and_preprocess_data():
         unlabeled_images, unlabeled_padding_info = load_dataset(data_paths['unlabeled'], mode='unlabeled')
         unlabeled_data = fb.read_images(unlabeled_images, 'gray', read_all=True)
 
-        second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
-        second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
+        # second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
+        # second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
 
-        unlabeled_data.extend(second_unlabeled_data)
-        unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
+        # unlabeled_data.extend(second_unlabeled_data)
+        # unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
 
     return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info
