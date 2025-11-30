@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '08-multi-accumulation',
+        'wandb': '09-both-data-resolution',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -26,7 +26,7 @@ def get_parameters() -> Dict[str, Any]:
         'project_name': 'temp-1118', # 'Precise-annotation' or 'Transfer-Learning'
 
         # Data related parameters
-        'data_resolution': 'low',   # 'low' or 'high' or 'both'
+        'data_resolution': 'both',   # 'low' or 'high' or 'both'
         'label_batch_size': 2,
         'ratio': 0.50,
         'Kfold': None,
@@ -217,15 +217,15 @@ def get_data_paths() -> dict:
     """Define all data paths in a central location"""
     return {
         'low': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
-            'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
-            'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
+            # 'image_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image',
+            # 'label_dir': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/label',
+            # 'padding_info': r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/train-val/image_patches.csv',
             # 'image_dir': r'/mnt/version8/new/image',
             # 'label_dir': r'/mnt/version8/new/label',
             # 'padding_info': r'/mnt/version8/new/image_patches.csv',
-            # 'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
-            # 'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
-            # 'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
+            'label_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/label',
+            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
         },
         'high': {
             'image_dir': r'/mnt/g/DL_Data_raw/version6-large/7.Final_dataset/train_val/image',
@@ -239,8 +239,8 @@ def get_data_paths() -> dict:
             # 'padding_info': r'/mnt/version7/unlabel/6.2Precheck/image_patches.csv',
         },
         'second-unlabeled': {
-            'image_dir': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image',
-            'padding_info': r'/mnt/g/DL_Data_raw/version7-large-lowRH/7.Final_dataset/train-val/image_patches.csv',
+            'image_dir': r'/mnt/g/DL_Data_raw/version6-large/8.Unlabeled/6.precheck/image',
+            'padding_info': r'/mnt/g/DL_Data_raw/version6-large/8.Unlabeled/6.precheck/unlabel_image_patches.csv',
             # 'image_dir': r'/mnt/version7/labeled/image',
             # 'padding_info': r'/mnt/version7/labeled/image_patches.csv',
         }
@@ -303,10 +303,10 @@ def load_and_preprocess_data():
         unlabeled_images, unlabeled_padding_info = load_dataset(data_paths['unlabeled'], mode='unlabeled')
         unlabeled_data = fb.read_images(unlabeled_images, 'gray', read_all=True)
 
-        # second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
-        # second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
+        second_unlabeled_images, second_unlabeled_padding_info = load_dataset(data_paths['second-unlabeled'], mode='unlabeled')
+        second_unlabeled_data = fb.read_images(second_unlabeled_images, 'gray', read_all=True)
 
-        # unlabeled_data.extend(second_unlabeled_data)
-        # unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
+        unlabeled_data.extend(second_unlabeled_data)
+        unlabeled_padding_info = pd.concat([unlabeled_padding_info, second_unlabeled_padding_info], ignore_index=True)
 
     return labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info

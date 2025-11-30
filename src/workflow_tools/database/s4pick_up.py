@@ -204,14 +204,14 @@ if __name__ == "__main__":
         - parallel_label (bool): True to extract labels in parallel with.
     """
     config = {
-        'base_input': Path(r'/mnt/g/DL_Data_raw/version7-large-lowRH/3.Harmonized/image'),
-        'output_folder': Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/temp'),
-        'mode': 'direct_folder',  
-        'column_ids': None,
+        'base_input': Path(r'/mnt/f/3.Experimental_Data/Soils/'),
+        'output_folder': Path(r'/mnt/g/DL_Data_raw/version8-low-precise/3.Harmonized/'),
+        'mode': 'column_id',  
+        'column_ids': [f"{i:04d}" for i in range(28, 35)] + [f"{i:04d}" for i in range(16, 22)],
 
         'extraction_mode': 'random',
         'continuous': False,
-        'images_per_section': 1,
+        'images_per_section': 20,
         'num_sections': 1,
         'random_seed': 8,
 

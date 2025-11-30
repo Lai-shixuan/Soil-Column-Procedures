@@ -64,13 +64,16 @@ def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_ou
     image_data = {}
 
     labels = fb.get_image_names(str(label_path), None, 'tif')
-    datas = fb.get_image_names(str(data_path), None, 'png')
+    datas = fb.get_image_names(str(data_path), None, 'tif')
     names = [Path(label).stem for label in labels]
 
     for label_file, data_file, name in zip(labels, datas, names):
         label_img = read_tif_image_label(label_file)
         data_img = cv2.imread(str(data_file), cv2.IMREAD_UNCHANGED)
-        
+        # Ensure data_img is 32bit float and in range 0-1
+        if data_img.dtype != np.float32:
+            raise ValueError(f"Data image {data_file} is not of type float32")
+
         # Store the images
         image_data[name] = {
             'label': label_img,
@@ -110,20 +113,19 @@ def process_tif_folder(label_path: Path, data_path: Path, output: Path, debug_ou
         # Use stored images
         label_img = image_data[name]['label']
         data_img = image_data[name]['data']
-        labeled_img = measure.label(label_img)
         
         # Create output images
         refined_img = label_img.copy().astype(np.float32)
         debug_img = np.zeros((label_img.shape[0], label_img.shape[1], 3), dtype=np.uint8)
-        
+
         # Mark valid labels as white
         debug_img[label_img == 1] = [255, 255, 255]
-        
+
         # Mark outliers (high values with labels) as red pixel by pixel
         outlier_mask = (data_img > img_upper_bound) & (label_img == 1)
         refined_img[outlier_mask] = 0
         debug_img[outlier_mask] = [0, 0, 255]  # BGR format: Red is [0, 0, 255]
-        
+
         # Mark missing parts (low values without labels) as blue
         missing_mask = (data_img < img_lower_bound) & (label_img == 0)
         refined_img[missing_mask] = 1  # Mark missing parts in refined_img
@@ -188,10 +190,10 @@ def plot_analysis(df: pd.DataFrame, upper_bound: float):
     return fig
 
 if __name__ == '__main__':
-    input_label_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-origin')
-    input_gray_data_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/8bit')
-    output_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-refined')
-    debug_output_path = Path(r'/mnt/g/DL_Data_raw/version8-low-precise/4.Converted/label-debug')
+    input_label_path = Path(r'/mnt/g/DL_Data_raw/version9-low-precise/4.Converted/label-origin')
+    input_gray_data_path = Path(r'/mnt/g/DL_Data_raw/version9-low-precise/3.Harmonized/')
+    output_path = Path(r'/mnt/g/DL_Data_raw/version9-low-precise/4.Converted/label-refined')
+    debug_output_path = Path(r'/mnt/g/DL_Data_raw/version9-low-precise/4.Converted/label-debug')
 
     if not input_label_path.exists():
         raise ValueError(f"Folder not found: {input_label_path}")
