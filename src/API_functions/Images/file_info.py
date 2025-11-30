@@ -20,9 +20,9 @@ def get_info(img):
     print("\033[1;3mGetting information completed!\033[0m")
 
 
-def calculate_hist(image):
-    if image.shape.__len__() == 2:
-        hist = cv2.calcHist([image], [0], None, [256], [0, 256])
+def calculate_hist(image, bins=256, hist_range=(0, 256)):
+    if image.shape.__len__() in [1, 2]:  # 1D (masked) or 2D grayscale
+        hist = cv2.calcHist([image], [0], None, [bins], hist_range)
         return hist
     elif image.shape.__len__() == 3:
         color = ('b', 'g', 'r')
