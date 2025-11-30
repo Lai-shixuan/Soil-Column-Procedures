@@ -39,20 +39,28 @@ class my_Dataset(Dataset):
 
         if self.padding_info is not None:
             mask = self.create_mask(img, idx)
-        
+
         if self.use_transform:
+            # Apply augmentation (only for training)
             augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
             augmented_img, augmented_label, _ = augmenter.augment()
 
             # 将mask和augmented_label组合成一个np array, 第0维度的0代表label，1代表mask
             masks = np.stack([augmented_label, mask], axis=0)
 
-            # augmented = self.transform(image=augmented_img, masks=[augmented_label, mask])
             augmented = self.transform(image=augmented_img, masks=masks)
             return augmented['image'], augmented['masks'][0], augmented['masks'][1], self.is_unlabeled[idx]
         else:
-            print("Warning, no transform is applied to the dataset. And they are numpy arrays.")
-            return img, label, mask, self.is_unlabeled[idx]
+            # Still apply the transform (like ToTensorV2) even without augmentation
+            if self.transform is not None:
+                # Combine mask and label for transform
+                masks = np.stack([label, mask], axis=0)
+                augmented = self.transform(image=img, masks=masks)
+                return augmented['image'], augmented['masks'][0], augmented['masks'][1], self.is_unlabeled[idx]
+            else:
+                # Fallback if no transform at all
+                print("Warning, no transform is applied to the dataset. And they are numpy arrays.")
+                return img, label, mask, self.is_unlabeled[idx]
 
     def create_mask(self, img, idx) -> np.ndarray:
         h, w = img.shape[:2]
