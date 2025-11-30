@@ -334,7 +334,8 @@ def train_one_epoch(context, epoch):
         if my_parameters['mode'] == 'supervised':
             supervised_loss = criterion(outputs, labels, masks)
             supervised_loss = supervised_loss / accumulation_steps
-            total_loss = supervised_loss
+            scaler.scale(supervised_loss).backward()
+            supervised_total += supervised_loss.item()
         elif my_parameters['mode'] == 'semi':
             one_indices = torch.nonzero(is_unlabels).squeeze(1)
             zero_indices = torch.nonzero(~is_unlabels).squeeze(1)
@@ -350,13 +351,18 @@ def train_one_epoch(context, epoch):
 
             total_loss = supervised_loss * (1 - cons_combine_weight) + cons_loss * cons_combine_weight
 
-        scaler.scale(total_loss).backward()
+            scaler.scale(total_loss).backward()
+            
+            supervised_total += supervised_loss.item()
+            total_cons_loss += cons_loss.item()
+            total_loss_total += total_loss.item()
 
         if (i+1) % accumulation_steps == 0:
             scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
 
+        # Update teacher model using EMA
         if my_parameters['mode'] == 'semi':
             if epoch < my_parameters['teacher_alpha_initial_epoch']:
                 teacher_model.load_state_dict(model.state_dict())
@@ -367,11 +373,6 @@ def train_one_epoch(context, epoch):
                 alpha = my_parameters['teacher_alpha']
                 update_ema_variables(teacher_model, model, alpha=alpha)
             train_loader.dataset.set_teacher_model(teacher_model)
-
-            supervised_total += supervised_loss.item()
-            if my_parameters['mode'] == 'semi':
-                total_cons_loss += cons_loss.item()
-                total_loss_total += total_loss.item()
 
     # If the number of batches is not a multiple of accumulation_steps, step the optimizer
     if len(train_loader) % accumulation_steps != 0:
