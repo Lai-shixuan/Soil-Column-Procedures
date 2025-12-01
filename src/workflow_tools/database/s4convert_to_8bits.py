@@ -16,6 +16,7 @@ def batch_images(path_in: Path, path_out: Path):
         # Read image
         image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
         image = fb.windows_adjustment_one_image(image)
+        raise ValueError("windows function have been changed from 0-1 to -1 to 1")
         
         # Invert image
         image_8bits = fb.bitconverter.binary_to_grayscale_one_image(image, 'uint8')

@@ -132,10 +132,10 @@ def map_range_to_1(image, range_min, range_max):
     mapped_image = cv2.bitwise_and(image, image, mask=mask)
     
     # Using a linear remap
-    mapped_image = np.interp(mapped_image, (range_min, range_max), (0, 1)).astype(np.float32)
+    mapped_image = np.interp(mapped_image, (range_min, range_max), (-1, 1)).astype(np.float32)
 
     # Set pixels below range_min to 0
-    mapped_image[image < range_min] = 0
+    mapped_image[image < range_min] = -1 
     
     # Set pixels above range_max to 65535
     mapped_image[image > range_max] = 1 

@@ -501,7 +501,7 @@ def rename(path_in: str, path_out: str, new_name: ImageName, reverse: bool, star
     print(f'\033[1;3mRename completely!\033[0m')
 
 
-def windows_adjustment_one_image(image: np.ndarray, min: Optional[int] = None, max: Optional[int] = None) -> np.ndarray:
+def windows_adjustment_one_image(image: np.ndarray, min: Optional[float] = None, max: Optional[float] = None) -> np.ndarray:
     """
     Adjust the windows of a single grayscale image.
     Args:

@@ -21,6 +21,7 @@ from torch.amp import autocast, GradScaler
 from sklearn.model_selection import KFold, train_test_split
 from src.API_functions.DL import load_data, log, seed
 from src.workflow_tools import dl_config
+from src.API_functions.Images.file_batch import windows_adjustment_one_image
 
 # from src.workflow_tools.cvat_noisy import cvat_nosiy
 # from src.workflow_tools.database import s4augmented_labels
@@ -240,18 +241,35 @@ def register_signals():
 def prepare_data(my_parameters, transform_train, transform_val):
     labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data()
 
+    # Apply window adjustment to all data images (0.45-0.55 -> 0-1), only for data_image
+    print("Applying window adjustment to images (0.45-0.55 -> 0-1)...")
+
+    # Process labeled data
+    adjusted_labeled_data = []
+    for img in labeled_data:
+        # Apply window adjustment with min=0.45, max=0.55
+        adjusted_img = windows_adjustment_one_image(img, min=-0.05, max=0.05)
+        adjusted_labeled_data.append(adjusted_img)
+
+    # Process unlabeled data
+    adjusted_unlabeled_data = []
+    for img in unlabeled_data:
+        # Apply window adjustment with min=0.45, max=0.55
+        adjusted_img = windows_adjustment_one_image(img, min=-0.05, max=0.05)
+        adjusted_unlabeled_data.append(adjusted_img)
+
     train_data, val_data, train_labels, val_labels, train_padding_info, val_padding_info = train_test_split(
-        labeled_data, 
+        adjusted_labeled_data,  # Use adjusted data
         labels,
         padding_info,
-        test_size=my_parameters['ratio'], 
+        test_size=my_parameters['ratio'],
         random_state=my_parameters['seed'],
         shuffle=False
     )
 
     if my_parameters['mode'] == 'semi':
-        train_data.extend(unlabeled_data)
-        train_labels.extend([None]*len(unlabeled_data))
+        train_data.extend(adjusted_unlabeled_data)  # Use adjusted unlabeled data
+        train_labels.extend([None]*len(adjusted_unlabeled_data))
         train_padding_info = pd.concat([train_padding_info, unlabeled_padding_info], ignore_index=True)
 
     train_dataset = load_data.my_Dataset(train_data, train_labels, train_padding_info, transform=transform_train)
