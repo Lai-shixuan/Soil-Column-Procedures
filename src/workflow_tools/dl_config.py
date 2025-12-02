@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '16-semi-windows-adjust',
+        'wandb': '18-semi-conf-longref',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -52,8 +52,8 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
         'consistency_weight': 0.5,
-        'consistency_rampup': 12,
-        'teacher_alpha_initial_epoch': 6,  # Copy model directly before this epoch
+        'consistency_rampup': 13,
+        'teacher_alpha_initial_epoch': 7,  # Copy model directly before this epoch
         'teacher_alpha_mid_epoch': 30,      # Use mid alpha before this epoch
         'teacher_alpha_mid': 0.99,          # Alpha value from initial to mid epoch
         'teacher_alpha': 0.999,             # Alpha value after mid epoch
