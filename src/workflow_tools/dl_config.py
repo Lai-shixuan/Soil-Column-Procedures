@@ -51,7 +51,7 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
-        'consistency_weight': 0.5,
+        'consistency_weight': 0.7,
         'consistency_rampup': 26,
         'teacher_alpha_initial_epoch': 1,  # Copy model directly before this epoch
         'teacher_alpha_mid_epoch': 45,      # Use mid alpha before this epoch
