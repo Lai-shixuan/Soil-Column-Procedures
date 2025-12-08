@@ -34,6 +34,8 @@ class my_Dataset(Dataset):
             img_tensor = img_tensor.unsqueeze(0).unsqueeze(0).to('cuda')
             label = self.teacher_model(img_tensor)
             label = torch.sigmoid(label).to('cpu').detach().squeeze(0).squeeze(0).numpy()
+            # Binarize the continuous pseudo-label to binary image (0s and 1s)
+            # label = (label > 0.5).astype(np.float32)
         else:
             label = self.labels[idx]
 
@@ -42,13 +44,16 @@ class my_Dataset(Dataset):
 
         if self.use_transform:
             # Apply augmentation (only for training)
-            augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
-            augmented_img, augmented_label, _ = augmenter.augment()
+            # augmenter = s4augmented_labels.ImageAugmenter(img, label, mask=mask)
+            # augmented_img, augmented_label, _ = augmenter.augment()
 
             # 将mask和augmented_label组合成一个np array, 第0维度的0代表label，1代表mask
-            masks = np.stack([augmented_label, mask], axis=0)
+            # masks = np.stack([augmented_label, mask], axis=0)
+            # augmented = self.transform(image=augmented_img, masks=masks)
+            
+            masks = np.stack([label, mask], axis=0)
+            augmented = self.transform(image=img, masks=masks)
 
-            augmented = self.transform(image=augmented_img, masks=masks)
             return augmented['image'], augmented['masks'][0], augmented['masks'][1], self.is_unlabeled[idx]
         else:
             # Still apply the transform (like ToTensorV2) even without augmentation
