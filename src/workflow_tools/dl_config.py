@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '27-same-but-conf-ratio',
+        'wandb': '28-cut_mix',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -67,7 +67,11 @@ def get_parameters() -> Dict[str, Any]:
         'update': False,
 
         # Gradient accumulation
-        'accumulation_steps': 3
+        'accumulation_steps': 3,
+        # Batch-wise CutMix
+        'use_cutmix': True,
+        'cutmix_alpha': 1.0,
+        'cutmix_prob': 0.5
     }
 
 

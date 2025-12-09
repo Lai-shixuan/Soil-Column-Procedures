@@ -6,7 +6,9 @@ import wandb
 import signal
 import pandas as pd
 import os
+import random
 from math import exp
+from torch.distributions.beta import Beta
 
 os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
@@ -307,6 +309,41 @@ def update_ema_variables(ema_model, model, alpha):
         ema_model.load_state_dict(ema_model_state_dict)
 
 
+# ------------------- Batch-wise CutMix -------------------
+
+def apply_batch_cutmix(images, labels, masks, is_unlabels, alpha=1.0, prob=0.5):
+    """Apply CutMix inside a batch for labeled samples to combat imbalance."""
+    if prob <= 0 or alpha <= 0:
+        return images, labels, masks
+    if random.random() > prob:
+        return images, labels, masks
+
+    labeled_indices = torch.nonzero(~is_unlabels).squeeze(1)
+    if labeled_indices.numel() < 2:
+        return images, labels, masks
+
+    shuffle_indices = labeled_indices[torch.randperm(labeled_indices.numel(), device=images.device)]
+    lam_vals = Beta(alpha, alpha).sample((labeled_indices.numel(),)).to(images.device)
+
+    lam_img = lam_vals.view(-1, 1, 1, 1)
+    lam_mask = lam_vals.view(-1, 1, 1)
+
+    mixed_images = images[labeled_indices] * lam_img + images[shuffle_indices] * (1 - lam_img)
+    mixed_labels = labels[labeled_indices] * lam_mask + labels[shuffle_indices] * (1 - lam_mask)
+    # Keep only regions that are valid in both patches to avoid mixing padded areas
+    mixed_masks = torch.minimum(masks[labeled_indices], masks[shuffle_indices])
+
+    images = images.clone()
+    labels = labels.clone()
+    masks = masks.clone()
+
+    images[labeled_indices] = mixed_images
+    labels[labeled_indices] = mixed_labels
+    masks[labeled_indices] = mixed_masks
+
+    return images, labels, masks
+
+
 # ------------------- Epoch -------------------
 
 def train_one_epoch(context, epoch):
@@ -344,10 +381,20 @@ def train_one_epoch(context, epoch):
     for i, (images, labels, masks, is_unlabels) in enumerate(tqdm(train_loader)):
         images = images.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
-        masks = masks.to(device, non_blocking=True).bool()
-        is_unlabels = is_unlabels.to(device, non_blocking=True)
+        masks = masks.to(device, non_blocking=True).float()
+        is_unlabels = is_unlabels.to(device, non_blocking=True).bool()
 
-        original_masks = masks.float()
+        if my_parameters.get('use_cutmix', False):
+            images, labels, masks = apply_batch_cutmix(
+                images,
+                labels,
+                masks,
+                is_unlabels,
+                alpha=my_parameters.get('cutmix_alpha', 1.0),
+                prob=my_parameters.get('cutmix_prob', 0.0)
+            )
+
+        original_masks = masks.clone()
 
         with autocast(device_type='cuda'):
             outputs = model(images)
