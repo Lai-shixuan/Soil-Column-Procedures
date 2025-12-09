@@ -192,6 +192,7 @@ def setup_environment(my_parameters):
         wandb.define_metric('cons_loss_labeled', summary='min')
         wandb.define_metric('total_loss', summary='min')
         wandb.define_metric('val_loss', summary='min')
+        wandb.define_metric('conf_ratio', summary='mean')
     else:
         wandb.define_metric('epoch', summary='max')
         wandb.define_metric('total_loss', summary='min')
@@ -325,6 +326,8 @@ def train_one_epoch(context, epoch):
     accumulation_steps = my_parameters['accumulation_steps']
     conf_threshold = 0.95
     supervised_total = 0.0
+    confs_one_total = 0.0
+    mask_one_total = 0.0
     if my_parameters['mode'] == 'semi':
         total_cons_loss = 0.0
         total_loss_total = 0.0
@@ -343,6 +346,8 @@ def train_one_epoch(context, epoch):
         labels = labels.to(device, non_blocking=True)
         masks = masks.to(device, non_blocking=True).bool()
         is_unlabels = is_unlabels.to(device, non_blocking=True)
+
+        original_masks = masks.float()
 
         with autocast(device_type='cuda'):
             outputs = model(images)
@@ -363,6 +368,8 @@ def train_one_epoch(context, epoch):
 
             # Conf should be where labels > conf_threshold or labels < (1 - conf_threshold)
             confs = torch.where((labels > conf_threshold) | (labels < (1 - conf_threshold)), 1, 0).float()
+            confs_one_total += (confs * original_masks).sum().item()
+            mask_one_total += original_masks.sum().item()
             masks = confs * masks
 
             cons_loss = criterion(outputs[one_indices], labels[one_indices], masks[one_indices])
@@ -404,13 +411,15 @@ def train_one_epoch(context, epoch):
     if my_parameters['mode'] == 'semi':
         total_cons_loss_m = total_cons_loss / len(train_loader) * accumulation_steps
         total_loss_m = total_loss_total / len(train_loader) * accumulation_steps
+        conf_ratio_m = (confs_one_total / mask_one_total) if mask_one_total > 0 else 0.0
     else:
         total_loss_m = train_loss_m
+        conf_ratio_m = None
 
     if my_parameters['mode'] == 'semi':
-        return train_loss_m, total_cons_loss_m, total_loss_m, alpha
+        return train_loss_m, total_cons_loss_m, total_loss_m, alpha, conf_ratio_m
     else:
-        return None, None, total_loss_m, None
+        return None, None, total_loss_m, None, conf_ratio_m
 
 def validate(model, device, val_loader, criterion):
     model.eval()
@@ -489,7 +498,7 @@ def run_experiment(my_parameters):
                 scaler=scaler
             )
 
-            supervised_loss_m, cons_loss_m, total_loss_m, alpha = train_one_epoch(context, epoch)
+            supervised_loss_m, cons_loss_m, total_loss_m, alpha, conf_ratio_m = train_one_epoch(context, epoch)
 
             # ------------------- Validation -------------------
 
@@ -525,7 +534,8 @@ def run_experiment(my_parameters):
                     'val_loss': val_loss_mean,
                     'val_teacher_loss': val_teacher_loss_mean,
                     'learning_rate': current_lr,
-                    'alpha': alpha
+                    'alpha': alpha,
+                    'conf_ratio': conf_ratio_m
                 }
             else:
                 dict_to_log = {
