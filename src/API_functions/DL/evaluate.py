@@ -23,7 +23,7 @@ class DiceBCELoss(nn.Module):
         pred_sigmoid = torch.sigmoid(pred)
         dice = 1 - soft_dice_coefficient(target, pred_sigmoid, mask, self.smooth)
 
-        return bce * 0.3 + dice * 0.7
+        return bce * 0.7 + dice * 0.3
 
 
 class MaskedMSELoss(nn.Module):
