@@ -21,6 +21,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
 from src.API_functions.DL import load_data, evaluate
 from src.API_functions.Images import file_batch as fb
+from src.API_functions.Images.file_batch import windows_adjustment_one_image
 
 
 # Configure logging
@@ -407,6 +408,9 @@ class InferencePipeline:
         
         # 3. Load images and validate
         images = fb.read_images(image_paths, 'gray', read_all=True)
+
+        # Match training preprocessing: window adjustment (0.45-0.55 -> 0-1)
+        images = [windows_adjustment_one_image(img, min=-0.05, max=0.05) for img in images]
         
         # 4. Load and validate labels if in evaluation mode
         if self.config.mode == 'evaluation':
@@ -442,13 +446,13 @@ if __name__ == "__main__":
     # Have using preprocess equalization, be attenetion!!!
 
     config = InferenceConfig(
-        model_type='U-Net++',
+        model_type='Unet',
         backbone='resnext50_32x4d',
         device='cuda' if torch.cuda.is_available() else 'cpu',
         mode='evaluation',  # 'inference' or 'evaluation
         
         # _extract_model_log will use this filename, don't change it
-        model_path='data/pths/precise/model_U-Net++_34.5-alpha3080-cos150-ramp50-load-model.pth',
+        model_path='data/pths/precise/model_Unet_29-cut_mix-all-image.pth',
 
         # images_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\image',
         # labels_path=r'g:\DL_Data_raw\version6-large\7.Final_dataset\test\label',
@@ -460,12 +464,12 @@ if __name__ == "__main__":
         # save_path=r'g:\DL_Data_raw\version7-large-lowRH\_inference',
         # padding_info_path=r'g:\DL_Data_raw\version7-large-lowRH\7.Final_dataset\test\image_patches.csv',
 
-        images_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image',
-        labels_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/label',
-        save_path=r'/mnt/g/DL_Data_raw/version8-low-precise/_inference',
-        padding_info_path=r'/mnt/g/DL_Data_raw/version8-low-precise/7.Final_dataset/test/image_patches.csv',
+        images_path=r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/image',
+        labels_path=r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/label',
+        save_path=r'/mnt/g/DL_Data_raw/version9-low-precise/_inference',
+        padding_info_path=r'/mnt/g/DL_Data_raw/version9-low-precise/7.Final_dataset/train-val/image_patches.csv',
 
-        batch_size=10,
+        batch_size=8,
         remove_prefix=True,
         run_config={
             'summary_filename': 'inference_summary.csv'
