@@ -30,9 +30,12 @@ class my_Dataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.BoolTensor]:
         img = self.imagelist[idx]
         if self.is_unlabeled[idx]:
+            if self.teacher_model is None:
+                raise ValueError("Teacher model is not set for unlabeled sample.")
             img_tensor = torch.from_numpy(img).float()
             img_tensor = img_tensor.unsqueeze(0).unsqueeze(0).to('cuda')
-            label = self.teacher_model(img_tensor)
+            with torch.no_grad():
+                label = self.teacher_model(img_tensor)
             label = torch.sigmoid(label).to('cpu').detach().squeeze(0).squeeze(0).numpy()
             # Binarize the continuous pseudo-label to binary image (0s and 1s)
             # label = (label > 0.5).astype(np.float32)

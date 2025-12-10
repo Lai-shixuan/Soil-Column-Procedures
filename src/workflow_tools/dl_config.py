@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '28-cut_mix',
+        'wandb': '29-cut_mix-all-image',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -71,7 +71,8 @@ def get_parameters() -> Dict[str, Any]:
         # Batch-wise CutMix
         'use_cutmix': True,
         'cutmix_alpha': 1.0,
-        'cutmix_prob': 0.5
+        'cutmix_prob': 0.5,
+        'cutmix_scope': 'all'  # 'labeled' or 'all'
     }
 
 
