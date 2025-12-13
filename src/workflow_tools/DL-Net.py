@@ -255,11 +255,12 @@ def prepare_data(my_parameters, transform_train, transform_val, teacher_model=No
         adjusted_labeled_data.append(adjusted_img)
 
     # Process unlabeled data
-    adjusted_unlabeled_data = []
-    for img in unlabeled_data:
-        # Apply window adjustment with min=0.45, max=0.55
-        adjusted_img = windows_adjustment_one_image(img, min=-0.05, max=0.05)
-        adjusted_unlabeled_data.append(adjusted_img)
+    if unlabeled_data is not None:
+        adjusted_unlabeled_data = []
+        for img in unlabeled_data:
+            # Apply window adjustment with min=0.45, max=0.55
+            adjusted_img = windows_adjustment_one_image(img, min=-0.05, max=0.05)
+            adjusted_unlabeled_data.append(adjusted_img)
 
     train_data, val_data, train_labels, val_labels, train_padding_info, val_padding_info = train_test_split(
         adjusted_labeled_data,  # Use adjusted data
