@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34-0.1ratio-supervised-semi',
+        'wandb': '34-0.8ratio-supervised-semi',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -27,8 +27,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'labeled_percentage': 0.1,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
-        'label_batch_size': 8,
+        'labeled_percentage': 0.8,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
+        'label_batch_size': 2,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -53,9 +53,9 @@ def get_parameters() -> Dict[str, Any]:
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
         'consistency_weight': 0.7,
-        'consistency_rampup': 26,
+        'consistency_rampup': 52,
         'teacher_alpha_initial_epoch': 1,  # Copy model directly before this epoch
-        'teacher_alpha_mid_epoch': 45,      # Use mid alpha before this epoch
+        'teacher_alpha_mid_epoch': 200,      # Use mid alpha before this epoch
         'teacher_alpha_mid': 0.99,          # Alpha value from initial to mid epoch
         'teacher_alpha': 0.999,             # Alpha value after mid epoch
 
