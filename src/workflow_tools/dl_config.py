@@ -27,6 +27,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
+        'labeled_percentage': 1.0,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
         'label_batch_size': 8,
         'ratio': 0.50,
         'Kfold': None,
@@ -279,6 +280,42 @@ def load_dataset(data_paths, mode='labeled'):
         padding_info = pd.read_csv(data_paths['padding_info'])
         return images, padding_info
 
+def sample_labeled_data(data_paths, labels_paths, padding_info, percentage, seed):
+    """
+    Randomly sample a percentage of labeled data.
+    
+    Args:
+        data_paths: List of image paths
+        labels_paths: List of label paths
+        padding_info: DataFrame with padding information
+        percentage: Float between 0 and 1, percentage of data to keep
+        seed: Random seed for reproducibility
+    
+    Returns:
+        Sampled data_paths, labels_paths, and padding_info
+    """
+    import random
+    
+    if percentage >= 1.0:
+        return data_paths, labels_paths, padding_info
+    
+    n_total = len(data_paths)
+    n_sample = max(1, int(n_total * percentage))  # At least 1 sample
+    
+    # Set seed for reproducibility
+    random.seed(seed)
+    indices = random.sample(range(n_total), n_sample)
+    indices.sort()  # Keep original order
+    
+    sampled_data_paths = [data_paths[i] for i in indices]
+    sampled_labels_paths = [labels_paths[i] for i in indices]
+    sampled_padding_info = padding_info.iloc[indices].reset_index(drop=True)
+    
+    print(f"Labeled data sampling: {n_sample}/{n_total} ({percentage*100:.0f}%) samples selected")
+    
+    return sampled_data_paths, sampled_labels_paths, sampled_padding_info
+
+
 def load_and_preprocess_data():
     params = get_parameters()
     data_paths = get_data_paths()
@@ -299,6 +336,17 @@ def load_and_preprocess_data():
         labeled_data_paths.extend(images)
         labeled_labels_paths.extend(labels)
         padding_info = pd.concat([padding_info, res_padding_info], ignore_index=True)
+
+    # Sample labeled data based on labeled_percentage
+    labeled_percentage = params.get('labeled_percentage', 1.0)
+    if labeled_percentage < 1.0:
+        labeled_data_paths, labeled_labels_paths, padding_info = sample_labeled_data(
+            labeled_data_paths, 
+            labeled_labels_paths, 
+            padding_info, 
+            labeled_percentage, 
+            params['seed']
+        )
 
     # Read all images at once
     labeled_data = fb.read_images(labeled_data_paths, 'gray', read_all=True)
