@@ -166,7 +166,7 @@ def setup_model(model_name: str, encoder_name: str) -> torch.nn.Module:
     elif model_name == 'Unet':
         model = smp.Unet(
             encoder_name=encoder_name,
-            encoder_weights="None",
+            encoder_weights="imagenet",
             in_channels=1,
             classes=1,
         )
