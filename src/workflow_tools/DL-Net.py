@@ -482,7 +482,7 @@ def validate(model, device, val_loader, criterion):
 
     # Update validation loop autocast
     with torch.no_grad(), autocast(device_type='cuda'):
-        for images, labels, masks, _ in tqdm(val_loader):
+        for images, labels, masks, _ in val_loader:
             # Add non_blocking=True to allow overlapping data transfer and compute
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)

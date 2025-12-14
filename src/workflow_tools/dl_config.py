@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '36.7-labeled-50pct-semi',
+        'wandb': '41-batch12-lr-higher',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -27,8 +27,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'labeled_percentage': 0.5,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
-        'label_batch_size': 2,
+        'labeled_percentage': 1,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
+        'label_batch_size': 6,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -42,9 +42,9 @@ def get_parameters() -> Dict[str, Any]:
         'normalization': 'nothing',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
-        'learning_rate': 12e-5,
+        'learning_rate': 15e-5,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
-        'T_max': 90,
+        'T_max': 70,
         'scheduler_patience': 30,       # 10 or 40
         'scheduler_factor': 0.5,
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
@@ -52,9 +52,9 @@ def get_parameters() -> Dict[str, Any]:
         # Add semi-supervised parameters
         'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
-        'consistency_weight': 0.7,
-        'consistency_rampup': 52,
-        'teacher_alpha_initial_epoch': 1,  # Copy model directly before this epoch
+        'consistency_weight': 0.5,
+        'consistency_rampup': 25,
+        'teacher_alpha_initial_epoch': 4,  # Copy model directly before this epoch
         'teacher_alpha_mid_epoch': 200,      # Use mid alpha before this epoch
         'teacher_alpha_mid': 0.99,          # Alpha value from initial to mid epoch
         'teacher_alpha': 0.999,             # Alpha value after mid epoch
