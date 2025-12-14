@@ -242,7 +242,7 @@ def register_signals():
 # ------------------- Data -------------------
 
 def prepare_data(my_parameters, transform_train, transform_val, teacher_model=None):
-    labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data()
+    labeled_data, labels, unlabeled_data, padding_info, unlabeled_padding_info = dl_config.load_and_preprocess_data(my_parameters)
 
     # Apply window adjustment to all data images (0.45-0.55 -> 0-1), only for data_image
     print("Applying window adjustment to images (0.45-0.55 -> 0-1)...")
