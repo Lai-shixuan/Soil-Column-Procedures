@@ -62,7 +62,7 @@ def get_parameters() -> Dict[str, Any]:
         # Batch debug mode and with earyly stopping
         'n_epochs': 200,
         'patience': 100,
-        'batch_debug': False,
+        'batch_debug': True,
 
         # Try to update labels, failed before
         'update': False,
@@ -80,23 +80,15 @@ def get_parameters() -> Dict[str, Any]:
     return config_dict
 
 def get_debug_param_sets():
-    return [
-        {**get_parameters(), 'model': 'Unet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup13-resnext50-Unet'},
-        {**get_parameters(), 'model': 'Unet', 'encoder': 'efficientnet-b0', 'wandb': 'sup14-efficientnetb0-Unet'},
-        {**get_parameters(), 'model': 'Unet', 'encoder': 'resnet34', 'wandb': 'sup15-resnet34-Unet'},
-        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup10-resnext50-PSPNet'},
-        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup11-efficientnetb0-PSPNet'},
-        # {**get_parameters(), 'model': 'PSPNet', 'encoder': 'resnet34', 'wandb': 'sup12-resnet34-PSPNet'},
-        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnext50_32x4d', 'wandb': 'sup1-resnext50-UPerNet'},
-        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'efficientnet-b0', 'wandb': 'sup2-efficientnetb0-UPerNet'},
-        # {**get_parameters(), 'model': 'UPerNet', 'encoder': 'resnet34', 'wandb': 'sup3-resnet34-UPerNet'},
-        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnet34', 'wandb': 'sup4-resnet34-DeepLabv3+'},
-        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'resnext50_32x4d', 'wandb': 'sup5-resnext50-DeepLabv3+'},
-        # {**get_parameters(), 'model': 'DeepLabv3+', 'encoder': 'efficientnet-b0', 'wandb': 'sup6-efficientnetb0-DeepLabv3+'},
-        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnext50_32x4d', 'wandb': 'sup7-resnext50-U-Net++'},
-        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'efficientnet-b0', 'wandb': 'sup8-efficientnetb0-U-Net++'},
-        # {**get_parameters(), 'model': 'U-Net++', 'encoder': 'resnet34', 'wandb': 'sup9-resnet34-U-Net++'},
-    ]
+    """Generate batch experiments for labeled_percentage from 0.1 to 1.0"""
+    param_sets = []
+    for percentage in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+        param_sets.append({
+            **get_parameters(),
+            'labeled_percentage': percentage,
+            'wandb': f'{int(45+percentage)}-labeled-{int(percentage*100)}pct-supervised'
+        })
+    return param_sets
 
 def get_transforms(seed_value) -> Tuple[A.Compose, A.Compose, A.Compose, A.Compose]:
     # Geometric transforms that affect structure
