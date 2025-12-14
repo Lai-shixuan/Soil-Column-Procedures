@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '35.10-labeled-100pct-supervised',
+        'wandb': '36.7-labeled-50pct-semi',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -27,8 +27,8 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'labeled_percentage': 1.0,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
-        'label_batch_size': 8,
+        'labeled_percentage': 0.5,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
+        'label_batch_size': 2,
         'ratio': 0.50,
         'Kfold': None,
 
@@ -50,7 +50,7 @@ def get_parameters() -> Dict[str, Any]:
         'scheduler_min_lr': 1e-6,       # 0.25e-4 or 1e-6
 
         # Add semi-supervised parameters
-        'mode': 'supervised',             # 'supervised' or 'semi'
+        'mode': 'semi',             # 'supervised' or 'semi'
         'unlabel_batch_size': 6,
         'consistency_weight': 0.7,
         'consistency_rampup': 52,
