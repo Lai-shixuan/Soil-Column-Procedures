@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '34-0.8ratio-supervised-supervised',
+        'wandb': '35.10-labeled-100pct-supervised',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -27,7 +27,7 @@ def get_parameters() -> Dict[str, Any]:
 
         # Data related parameters
         'data_resolution': 'low',   # 'low' or 'high' or 'both'
-        'labeled_percentage': 0.8,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
+        'labeled_percentage': 1.0,  # 0.1, 0.2, or 1.0 - percentage of labeled data to use
         'label_batch_size': 8,
         'ratio': 0.50,
         'Kfold': None,
@@ -62,7 +62,7 @@ def get_parameters() -> Dict[str, Any]:
         # Batch debug mode and with earyly stopping
         'n_epochs': 200,
         'patience': 100,
-        'batch_debug': True,
+        'batch_debug': False,
 
         # Try to update labels, failed before
         'update': False,
@@ -82,11 +82,11 @@ def get_parameters() -> Dict[str, Any]:
 def get_debug_param_sets():
     """Generate batch experiments for labeled_percentage from 0.1 to 1.0"""
     param_sets = []
-    for percentage in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+    for percentage in [0.1, 0.3, 0.5, 0.7, 0.9]:
         param_sets.append({
             **get_parameters(),
             'labeled_percentage': percentage,
-            'wandb': f'{int(45+percentage)}-labeled-{int(percentage*100)}pct-supervised'
+            'wandb': f'{35+float(percentage)}-labeled-{int(percentage*100)}pct-supervised'
         })
     return param_sets
 
@@ -308,8 +308,9 @@ def sample_labeled_data(data_paths, labels_paths, padding_info, percentage, seed
     return sampled_data_paths, sampled_labels_paths, sampled_padding_info
 
 
-def load_and_preprocess_data():
-    params = get_parameters()
+def load_and_preprocess_data(params=None):
+    if params is None:
+        params = get_parameters()
     data_paths = get_data_paths()
     labeled_data_paths, labeled_labels_paths = [], []
     padding_info = pd.DataFrame()
