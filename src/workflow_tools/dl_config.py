@@ -15,7 +15,7 @@ from src.workflow_tools.model_online import mcc
 def get_parameters() -> Dict[str, Any]:
     config_dict = {
         # Title and seed
-        'wandb': '41-batch12-lr-higher',
+        'wandb': '42-batch12-lr-not-imagenet',
         # 'wandb': '34.9-alpha3080-cos150-ramp50-larger-batch-no-conf',
         'seed': 3407,
         
@@ -42,7 +42,7 @@ def get_parameters() -> Dict[str, Any]:
         'normalization': 'nothing',     # nothing, remove, in, LN, GN
 
         # Learning related parameters
-        'learning_rate': 15e-5,
+        'learning_rate': 10e-4,
         'scheduler_type': 'cosine',    # 'cosine' or 'plateau'
         'T_max': 70,
         'scheduler_patience': 30,       # 10 or 40
@@ -166,7 +166,7 @@ def setup_model(model_name: str, encoder_name: str) -> torch.nn.Module:
     elif model_name == 'Unet':
         model = smp.Unet(
             encoder_name=encoder_name,
-            encoder_weights="imagenet",
+            encoder_weights="None",
             in_channels=1,
             classes=1,
         )
